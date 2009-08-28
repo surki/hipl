@@ -112,6 +112,11 @@ struct pj_event_t
     static void *tls[MAX_THREADS];
 #endif
 
+#ifdef ANDROID
+#undef PJ_EMULATE_RWMUTEX
+#define PJ_EMULATE_RWMUTEX 1
+#endif
+
 static unsigned atexit_count;
 static void (*atexit_func[32])(void);
 
@@ -1049,7 +1054,7 @@ static pj_status_t init_mutex(pj_mutex_t *mutex, const char *name, int type)
 	return PJ_RETURN_OS_ERROR(rc);
 
     if (type == PJ_MUTEX_SIMPLE) {
-#if (defined(PJ_LINUX) && PJ_LINUX!=0) || \
+#if (defined(PJ_LINUX) && PJ_LINUX!=0 && !defined(ANDROID)) ||  \
     defined(PJ_HAS_PTHREAD_MUTEXATTR_SETTYPE)
 	rc = pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_FAST_NP);
 #elif (defined(PJ_RTEMS) && PJ_RTEMS!=0) || \

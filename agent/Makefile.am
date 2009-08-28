@@ -17,7 +17,7 @@ include_HEADERS = agent.h     gui_interface.h  lang_english.h  language.h  tools
 connhipd.h  hitdb.h          lang_finnish.h  str_var.h   x.h
 
 
-INCLUDES = $(hipl_common_include_paths) -I$(HIPL_LIBHIPGUI) -I$(HIPL_LIBINET6_INCLUDE)  -I$(HIPL_PJPROJECT_NATH)/include -I$(HIPL_PJPROJECT_LIB)/include -I$(HIPL_PJPROJECT_LIB_UTIL)/include -I$(HIPL_PJPROJECT_MEDIA)/include
+INCLUDES = $(hipl_common_include_paths) -I$(HIPL_LIBHIPGUI) -I$(HIPL_LIBHIPCORE_INCLUDE)  -I$(HIPL_PJPROJECT_NATH)/include -I$(HIPL_PJPROJECT_LIB)/include -I$(HIPL_PJPROJECT_LIB_UTIL)/include -I$(HIPL_PJPROJECT_MEDIA)/include
 
 if HIP_AGENT
 
@@ -29,7 +29,7 @@ hipagent_SOURCES = agent.c tools.c connhipd.c hitdb.c gui_interface.c str_var.c 
 # Makefile.am... Fix someday?
 #hipagent_LDADD += ../libhiptool/.libs/libhiptool.a @GTK_LIBS@
 
-hipagent_LDADD = ../libhipgui/libhipgui.a ../libinet6/.libs/libinet6.a
+hipagent_LDADD = ../libhipgui/libhipgui.a ../libhipcore/.libs/libhipcore.a
 if HIP_FORCE_SHLIB
   hipagent_LDADD += -lhiptool
 else

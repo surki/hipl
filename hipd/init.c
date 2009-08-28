@@ -23,7 +23,12 @@ extern sqlite3 *daemon_db;
 /** Catch SIGCHLD. */
 void hip_sig_chld(int signum)
 {
+#ifdef ANDROID
+	int status;
+#else
 	union wait status;
+#endif
+
 	int pid, i;
 
 	signal(signum, hip_sig_chld);
@@ -241,9 +246,6 @@ int hipd_init(int flush_ipsec, int killold)
 	extern int hip_opendht_sock_fqdn;
 	extern int hip_opendht_sock_hit;
 	extern int hip_icmp_sock;
-
-	/* Fix to bug id 668 and 804 */
-	getaddrinfo_disable_hit_lookup();
 
 	memset(str, 0, 64);
 	memset(mtu, 0, 16);
@@ -744,9 +746,15 @@ int hip_init_icmp_v6(int *icmpsockfd)
 	HIP_IFEL(*icmpsockfd <= 0, 1, "ICMPv6 socket creation failed\n");
 
 	ICMP6_FILTER_SETBLOCKALL(&filter);
+#ifdef ANDROID
+	ICMP6_FILTER_SETPASS(ICMP6_ECHO_REPLY, &filter);
+	err = setsockopt(*icmpsockfd, IPPROTO_ICMPV6, ICMP6_FILTER, &filter,
+			 sizeof(struct icmp6_filter));
+#else
 	ICMP6_FILTER_SETPASS(ICMPV6_ECHO_REPLY, &filter);
 	err = setsockopt(*icmpsockfd, IPPROTO_ICMPV6, ICMPV6_FILTER, &filter,
 			 sizeof(struct icmp6_filter));
+#endif
 	HIP_IFEL(err, -1, "setsockopt icmp ICMP6_FILTER failed\n");
 
 
@@ -1000,6 +1008,7 @@ void hip_probe_kernel_modules()
 
 	HIP_DEBUG("Probing for %d modules. When the modules are built-in, the errors can be ignored\n", mod_total);
 
+#ifndef ANDROID
 	for (count = 0; count < mod_total; count++)
 	{
 		snprintf(cmd, sizeof(cmd), "%s %s", "/sbin/modprobe", mod_name[count]);
@@ -1008,12 +1017,13 @@ void hip_probe_kernel_modules()
 		if (err < 0) HIP_ERROR("Failed to fork() for modprobe!\n");
 		else if (err == 0)
 		{
-			/* Redirect stderr, so few non fatal errors wont show up. */
+            /* Redirect stderr, so few non fatal errors wont show up. */
 			stderr = freopen("/dev/null", "w", stderr);
 			execlp("/sbin/modprobe", "/sbin/modprobe", mod_name[count], (char *)NULL);
 		}
 		else waitpid(err, &status, 0);
 	}
+#endif
 	HIP_DEBUG("Probing completed\n");
 }
 

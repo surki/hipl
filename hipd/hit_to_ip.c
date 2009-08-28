@@ -6,8 +6,7 @@
  
 #include "hit_to_ip.h"
 #include "maintenance.h"
-#include "libinet6/include/netdb.h"
-#include "libinet6/hipconf.h"
+#include "libhipcore/hipconf.h"
 #include <netinet/in.h>
 #include <string.h>
 

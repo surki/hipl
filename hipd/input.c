@@ -17,6 +17,13 @@
  *          Lauri 19.09.2007
  */
 #include "input.h"
+#include "pjnath.h"
+
+#ifndef s6_addr
+#  define s6_addr                 in6_u.u6_addr8
+#  define s6_addr16               in6_u.u6_addr16
+#  define s6_addr32               in6_u.u6_addr32
+#endif /* s6_addr */
 
 #ifdef CONFIG_HIP_OPPORTUNISTIC
 extern unsigned int opportunistic_mode;
@@ -2658,19 +2665,19 @@ int hip_handle_r2(hip_common_t *r2, in6_addr_t *r2_saddr, in6_addr_t *r2_daddr,
 	//TODO Send the R2 Response to Firewall
 
  out_err:
-	if (entry->state == HIP_STATE_ESTABLISHED) {
-	        HIP_DEBUG("Send response to firewall \n");
-	        hip_firewall_set_bex_data(SO_HIP_FW_BEX_DONE, entry, &entry->hit_our, &entry->hit_peer);
-		if (entry->peer_controls & HIP_HA_CTRL_PEER_GRANTED_SAVAH) {
-		  //Enable savah client mode on the firewall
-		  hip_set_sava_client_on();
-		  hip_firewall_set_savah_status(SO_HIP_SET_SAVAH_CLIENT_ON);
-		} else {
-		  HIP_DEBUG("Entry control flag is not HIP_HA_CTRL_PEER_GRANTED_SAVAH. Value is %d \n", entry->local_controls);
-		}
-	} else {
-		hip_firewall_set_bex_data(SO_HIP_FW_BEX_DONE, entry, NULL, NULL);
-	}
+	/* if (entry->state == HIP_STATE_ESTABLISHED) { */
+	/*         HIP_DEBUG("Send response to firewall \n"); */
+	/*         hip_firewall_set_bex_data(SO_HIP_FW_BEX_DONE, entry, &entry->hit_our, &entry->hit_peer); */
+	/* 	if (entry->peer_controls & HIP_HA_CTRL_PEER_GRANTED_SAVAH) { */
+	/* 	  //Enable savah client mode on the firewall */
+	/* 	  hip_set_sava_client_on(); */
+	/* 	  hip_firewall_set_savah_status(SO_HIP_SET_SAVAH_CLIENT_ON); */
+	/* 	} else { */
+	/* 	  HIP_DEBUG("Entry control flag is not HIP_HA_CTRL_PEER_GRANTED_SAVAH. Value is %d \n", entry->local_controls); */
+	/* 	} */
+	/* } else { */
+	/* 	hip_firewall_set_bex_data(SO_HIP_FW_BEX_DONE, entry, NULL, NULL); */
+	/* } */
 
 	if (ctx) {
 		HIP_FREE(ctx);

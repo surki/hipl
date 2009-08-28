@@ -24,8 +24,21 @@
  * @note    All Doxygen comments have been added in version 1.1.
  */ 
 #include "nat.h"
-
 #include <string.h>
+
+//Suresh: Moved from nat.h to here
+//Pollutes libc namespace by undefining s6_addr (pj/sock.h)
+#include "pjnath.h"
+#include "pjlib.h"
+
+#ifndef s6_addr
+#  define s6_addr                 in6_u.u6_addr8
+#  define s6_addr16               in6_u.u6_addr16
+#  define s6_addr32               in6_u.u6_addr32
+#endif /* s6_addr */
+
+/* #define in6_u __in6_u */
+/* #define u6_addr32 __u6_addr32 */
 
 //add by santtu
 /** the database for all the ha */
@@ -186,6 +199,8 @@ int hip_nat_refresh_port()
 {
 	int err = 0 ;
 	
+    return 0;
+
 	HIP_DEBUG("Sending Keep-Alives to NAT.\n");
 	HIP_IFEL(hip_for_each_ha(hip_nat_send_keep_alive, NULL),
 		 -1, "for_each_ha() err.\n");

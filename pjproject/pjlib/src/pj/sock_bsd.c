@@ -26,6 +26,12 @@
 #include <pj/errno.h>
 #include <pj/unicode.h>
 
+/* undef the sin_zero, defined at bionic/libc/kernel/common/linux/in.h */
+/* because it is also used in pj_sockaddr_in */
+#ifdef ANDROID
+#undef sin_zero
+#endif
+
 /*
  * Address families conversion.
  * The values here are indexed based on pj_addr_family.

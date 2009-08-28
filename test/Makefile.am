@@ -3,7 +3,7 @@ AUTOMAKE_OPTIONS = foreign
 # Note: HIPL is included because "libinet6/debug.h" is included; otherwise this
 # won't build because there is also the linux/net/ipv6/hip/debug.h include.
 #
-CFLAGS = $(hipl_common_cflags) -DHIP_UNITTEST_MODE -L$(HIPL_LIBINET6_LIB)
+CFLAGS = $(hipl_common_cflags) -DHIP_UNITTEST_MODE -L$(HIPL_LIBHIPCORE_LIB)
 CFLAGS += $(OPTIMIZATIONS_CFLAGS)
 CFLAGS += $(GPROF_CFLAGS)
 
@@ -14,7 +14,7 @@ endif
 include_HEADERS = checksum.h first_test.h hipsetup.h start-stop-daemon.h
 include_HEADERS += unittest.h conntest.h hipconftool.h misc_install.h unit.h
 
-INCLUDES = $(hipl_common_include_paths) -I$(HIPL_LIBINET6_INCLUDE)  -I$(HIPL_PJPROJECT_NATH)/include -I$(HIPL_PJPROJECT_LIB)/include -I$(HIPL_PJPROJECT_LIB_UTIL)/include -I$(HIPL_PJPROJECT_MEDIA)/include
+INCLUDES = $(hipl_common_include_paths) -I$(HIPL_LIBHIPCORE_INCLUDE)  -I$(HIPL_PJPROJECT_NATH)/include -I$(HIPL_PJPROJECT_LIB)/include -I$(HIPL_PJPROJECT_LIB_UTIL)/include -I$(HIPL_PJPROJECT_MEDIA)/include
 
 conntest_client_opp_LDFLAGS = 
 conntest_client_opp_LDADD = 
@@ -30,10 +30,10 @@ endif
 endif
 
 if HIP_FORCE_SHLIB
-conntest_client_opp_LDFLAGS += -L$(HIPL_LIBINET6_LIB)
+conntest_client_opp_LDFLAGS += -L$(HIPL_LIBHIPCORE_LIB)
 conntest_client_opp_LDADD += -linet6
 else
-conntest_client_opp_LDADD += ../libinet6/.libs/libinet6.a
+conntest_client_opp_LDADD += ../libhipcore/.libs/libhipcore.a
 endif
 
 if HIP_FORCE_SHLIB
@@ -50,15 +50,15 @@ opendhtteststub_LDADD =
 
 if HIP_FORCE_SHLIB
   opendhtteststub_LDFLAGS += -L$(HIPL_OPENDHT_LIB)
-  opendhtteststub_LDFLAGS += -L$(HIPL_LIBINET6_LIB) -L$(HIPL_LIBHIPTOOL_LIB)
+  opendhtteststub_LDFLAGS += -L$(HIPL_LIBHIPCORE_LIB) -L$(HIPL_LIBHIPTOOL_LIB)
   opendhtteststub_LDADD += -lhipopendht
   opendhtteststub_LDADD += -linet6 -lhiptool
 else
   opendhtteststub_LDADD += ../libdht/.libs/libhipopendht.a
-  opendhtteststub_LDADD += ../libinet6/.libs/libinet6.a ../libhiptool/.libs/libhiptool.a
+  opendhtteststub_LDADD += ../libhipcore/.libs/libhipcore.a ../libhiptool/.libs/libhiptool.a
 endif
 
-# For some weird reason, you cannot use $(HIPL_LIBINET6_LIB_STATIC) below
+# For some weird reason, you cannot use $(HIPL_LIBHIPCORE_LIB_STATIC) below
 # Note: libhiptool needs to be the last library in LDADD!!
 #
 if HIP_OPENWRT
@@ -70,24 +70,25 @@ endif
 if HIP_FORCE_SHLIB
   LDADD += -linet6 -lhiptool
 else
-  LDADD += ../libinet6/.libs/libinet6.a ../libhiptool/.libs/libhiptool.a
+  LDADD += ../libhipcore/.libs/libhipcore.a ../libhiptool/.libs/libhiptool.a
 endif
 
-LDFLAGS = @LDFLAGS@ -L$(HIPL_LIBINET6_LIB) -L$(HIPL_LIBHIPTOOL_LIB)
+LDFLAGS = @LDFLAGS@ -L$(HIPL_LIBHIPCORE_LIB) -L$(HIPL_LIBHIPTOOL_LIB)
 
 if HIP_OPENWRT
 LDFLAGS += $(OPENWRT)
 endif
 
+# TODO Fix me: libinet6 no longer is available. Need to move it into separate project?
 bin_PROGRAMS = conntest-client-opp
 bin_PROGRAMS += conntest-server
 bin_PROGRAMS += conntest-client-hip
-bin_PROGRAMS += conntest-client-native
-bin_PROGRAMS += conntest-client-native-user-key
-bin_PROGRAMS += conntest-server-native
+# bin_PROGRAMS += conntest-client-native
+# bin_PROGRAMS += conntest-client-native-user-key
+# bin_PROGRAMS += conntest-server-native
 #bin_PROGRAMS += unittest
 bin_PROGRAMS += hipsetup
-bin_PROGRAMS += libinet6test
+# bin_PROGRAMS += libinet6test
 bin_PROGRAMS += listifaces
 bin_PROGRAMS += first_test
 #sbin_PROGRAMS = modtest
@@ -145,10 +146,10 @@ hipconftool.h:
 hipconftool.c: hipconftool.h
 	$(LN_S) -f $(HIPL_TOOLS)/hipconftool.c .
 debug.h:
-	$(LN_S) -f $(HIPL_LIBINET6)/debug.h .
+	$(LN_S) -f $(HIPL_LIBHIPCORE)/debug.h .
 debug.c: debug.h
-	$(LN_S) -f $(HIPL_LIBINET6)/debug.c .
-$(HIPL_LIBINET6_LIB_STATIC):
-	$(MAKE) -C $(HIPL)/libinet6
+	$(LN_S) -f $(HIPL_LIBHIPCORE)/debug.c .
+$(HIPL_LIBHIPCORE_LIB_STATIC):
+	$(MAKE) -C $(HIPL)/libhipcore
 
 

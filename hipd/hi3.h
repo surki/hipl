@@ -6,7 +6,11 @@
 #include "protodefs.h"
 #include "i3_client_api.h"
 
+#ifdef ANDROID
+#define HIPD_HI3_FILE     "/system/etc/hip/hi3_conf"
+#else
 #define HIPD_HI3_FILE     "/etc/hip/hi3_conf"
+#endif
 #define HIPD_HI3_FILE_EX \
 "<?xml version=\"1.0\"?>\n\
 <I3ConfigFile version=\"0.1\">\n\

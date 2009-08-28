@@ -13,7 +13,11 @@
 #define STATE_OPENDHT_WAITING_ANSWER 1
 #define STATE_OPENDHT_WAITING_CONNECT 2
 #define STATE_OPENDHT_START_SEND 3
-#define OPENDHT_SERVERS_FILE "/etc/hip/dhtservers"
+#ifdef ANDROID
+#   define OPENDHT_SERVERS_FILE "/system/etc/hip/dhtservers"
+#else
+#   define OPENDHT_SERVERS_FILE "/etc/hip/dhtservers"
+#endif
 #define OPENDHT_ERROR_COUNT_MAX 3
 
 int init_dht_gateway_socket_gw(int, struct addrinfo *);

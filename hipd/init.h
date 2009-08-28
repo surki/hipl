@@ -7,7 +7,9 @@
 #include <sys/resource.h>
 #include <sys/wait.h>
 #include <sys/utsname.h>
+#ifndef ANDROID
 #include <linux/icmpv6.h>
+#endif
 #include "xfrmapi.h"
 #include "hipconf.h"
 #include "oppipdb.h"
@@ -20,6 +22,11 @@
 #include "hi3.h"
 #include "nsupdate.h"
 
+//TODO Fix me
+#ifdef ANDROID
+#define ICMP6_FILTER 1
+#endif
+
 /*
  * HIP daemon initialization functions.
  *
@@ -29,7 +36,11 @@
  * HIP daemon lock file is used to prevent multiple instances
  * of the daemon to start and to record current daemon pid.
  */ 
-#define HIP_DAEMON_LOCK_FILE	"/var/lock/hipd.lock"
+#ifdef ANDROID
+#    define HIP_DAEMON_LOCK_FILE	"/data/hipd.lock"
+#else
+#    define HIP_DAEMON_LOCK_FILE	"/var/lock/hipd.lock"
+#endif
 #define USER_NOBODY "nobody"
 
 
@@ -63,7 +74,11 @@
 
 
 /* the /etc/hip/dhtservers file*/
-#define HIPD_DHTSERVERS_FILE     "/etc/hip/dhtservers"
+#ifdef ANDROID
+#   define HIPD_DHTSERVERS_FILE     "/system/etc/hip/dhtservers"
+#else
+#   define HIPD_DHTSERVERS_FILE     "/etc/hip/dhtservers"
+#endif
 #define HIPD_DHTSERVERS_FILE_EX \
 "193.167.187.134 hipdht2.infrahip.net\n"
 

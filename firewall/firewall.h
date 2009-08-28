@@ -1,6 +1,7 @@
 #ifndef HIP_FIREWALL_H
 #define HIP_FIREWALL_H
 
+#include <limits.h>   
 #include <netinet/in.h>
 #include <linux/types.h>
 #include <linux/netfilter.h>
@@ -20,7 +21,7 @@
 #include <limits.h>
 #include <linux/netfilter_ipv4.h>
 #include <pthread.h>
-#include <libinet6/message.h>
+#include <libhipcore/message.h>
 #include "common_types.h"
 #include "crypto.h"
 #include "ife.h"

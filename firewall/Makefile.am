@@ -5,7 +5,7 @@ AUTOMAKE_OPTIONS = foreign
 # Note: .. is included because libinet6/debug.h is included; otherwise this
 # won't build because there is also the linux/net/ipv6/hip/debug.h include.
 
-CFLAGS = -g $(hipl_common_cflags) -I/usr/include/libipq/  -L$(HIPL_LIBINET6_LIB) -L$(HIPL_LIBHIPTOOL_LIB)
+CFLAGS = -g $(hipl_common_cflags) -I/usr/include/libipq/  -L$(HIPL_LIBHIPCORE_LIB) -L$(HIPL_LIBHIPTOOL_LIB)
 #CFLAGS += `pkg-config --cflags --libs glib-2.0` 
 #CFLAGS += `pkg-config --cflags --libs gthread-2.0`
 CFLAGS += `pkg-config --cflags`
@@ -36,7 +36,7 @@ hipfw_LDADD = -lipq
 if HIP_FORCE_SHLIB
 hipfw_LDADD += -linet6
 else
-hipfw_LDADD += ../libinet6/.libs/libinet6.a
+hipfw_LDADD += ../libhipcore/.libs/libhipcore.a
 endif
 
 hipfw_LDADD += -lpthread

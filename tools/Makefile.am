@@ -31,7 +31,7 @@ endif
 CFLAGS = $(hipl_common_cflags) # -L$(HIPL_LIBINET6_LIB)
 CFLAGS += $(OPTIMIZATIONS_CFLAGS)
 CFLAGS += $(GPROF_CFLAGS)
-INCLUDES = $(hipl_common_include_paths) -I$(HIPL_LIBINET6_INCLUDE)
+INCLUDES = $(hipl_common_include_paths) -I$(HIPL_LIBHIPCORE_INCLUDE)
 
 include_HEADERS = hipconftool.h
 
@@ -49,10 +49,10 @@ LDADD=
 #endif
 
 if HIP_FORCE_SHLIB
-  LDFLAGS += -L$(HIPL_LIBINET6_LIB)
-  LDADD += -linet6
+  LDFLAGS += -L$(HIPL_LIBHIPCORE_LIB)
+  LDADD += -lhipcore
 else
-  LDADD += ../libinet6/.libs/libinet6.a
+  LDADD += ../libhipcore/.libs/libhipcore.a
 endif
 
 if HIP_FORCE_SHLIB
@@ -83,8 +83,8 @@ hipconf_SOURCES = hipconftool.c
 # the best way to access it because the object must be built on this
 # directory and we don't want to make reduntant copies.
 #
-$(HIPL_LIBINET6_LIB_STATIC):
-	$(MAKE) -C $(HIPL_LIBINET6)
+$(HIPL_LIBHIPCORE_LIB_STATIC):
+	$(MAKE) -C $(HIPL_LIBHIPCORE)
 
 # Automake does not build the shell scripts without this
 hipdnsproxy:

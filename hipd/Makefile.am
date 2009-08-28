@@ -34,10 +34,10 @@ hipd_LDFLAGS = -lcrypto $(HIPL_XMLL) -lm -DHIPL_HIPD
 
 # For some weird reason, you cannot use $(HIPL_LIBINET6_LIB_STATIC) below
 if HIP_FORCE_SHLIB
-hipd_LDFLAGS += -L$(HIPL_LIBINET6_LIB)
-hipd_LDADD = $(OPENWRT_LIB_STATIC) -linet6
+hipd_LDFLAGS += -L$(HIPL_LIBHIPCORE_LIB)
+hipd_LDADD = $(OPENWRT_LIB_STATIC) -lhipcore
 else
-hipd_LDADD = $(OPENWRT_LIB_STATIC) ../libinet6/.libs/libinet6.a
+hipd_LDADD = $(OPENWRT_LIB_STATIC) ../libhipcore/.libs/libhipcore.a
 endif
 
 if HIP_FORCE_SHLIB

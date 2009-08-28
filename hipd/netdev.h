@@ -12,13 +12,15 @@
 #endif
 #include <linux/netlink.h>      /* get_my_addresses() support   */
 #include <linux/rtnetlink.h>    /* get_my_addresses() support   */
+#ifndef ANDROID
 #include <netinet/ip6.h>
+#endif
 #include <openssl/rand.h>
-
 #include "nlink.h"
 #include "list.h"
 #include "debug.h"
-#include "utils.h"
+//TODO Fix android.mk
+#include "libhipcore/utils.h"
 
 #define HIP_RTDS_TAB_LEN 256
 

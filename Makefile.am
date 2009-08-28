@@ -73,7 +73,7 @@ CLEANFILES = pjproject/pjlib/lib/libpj-hipl.a \
 
 # Note: pjproject and libinet6 has to be the first ones
 #
-SUBDIRS = pjproject libinet6 libhiptool libopphip libipsec libdht tools
+SUBDIRS = pjproject libhipcore libhiptool libopphip libipsec libdht tools
 if HIP_I3
 SUBDIRS += i3
 endif

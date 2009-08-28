@@ -1,5 +1,9 @@
 #include "conntest.h"
 
+//TODO Fix me
+#define AF_HIP 32
+#define PF_HIP AF_HIP
+
 /**
  * create_serversocket - given the port and the protocol
  * it binds the socket and listen to it
@@ -815,12 +819,14 @@ int main_client_native(int socktype, char *peer_name, char *peer_port_name)
 	}
 #endif
 
-	err = connect(sockfd, &peer_sock, sizeof(peer_sock));
-	if (err) {
-		HIP_PERROR("connect: ");
-		goto out_err;
-	}
-
+    /* TODO Fix me: libinet6 no longer is available. Need to move it into separate project? */
+	/* err = connect(sockfd, &peer_sock, sizeof(peer_sock)); */
+	/* if (err) { */
+	/* 	HIP_PERROR("connect: "); */
+	/* 	goto out_err; */
+	/* } */
+    goto out_err;
+    
 	gettimeofday(&stats_after, NULL);
 	stats_diff_sec  = (stats_after.tv_sec - stats_before.tv_sec) * 1000000;
 	stats_diff_usec = stats_after.tv_usec - stats_before.tv_usec;
@@ -927,11 +933,13 @@ int main_server_native(int socktype, char *port_name, char *name)
 	HIP_DEBUG("Binding to port %d\n", ntohs(our_sockaddr.ship_port));
 	our_sockaddr.ship_family = endpoint_family;
 
-	if (bind(serversock, &our_sockaddr, sizeof(struct sockaddr_hip)) < 0) {
-		HIP_PERROR("bind: ");
-		err = 1;
-		goto out_err;
-	}
+    /* TODO Fix me: libinet6 no longer is available. Need to move it into separate project? */
+	/* if (bind(serversock, &our_sockaddr, sizeof(struct sockaddr_hip)) < 0) { */
+	/* 	HIP_PERROR("bind: "); */
+	/* 	err = 1; */
+	/* 	goto out_err; */
+	/* } */
+    goto out_err;
 	
 	HIP_DEBUG("Native server calls listen\n");
 

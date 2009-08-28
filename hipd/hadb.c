@@ -3214,6 +3214,7 @@ int hip_hadb_find_lsi(hip_ha_t *entry, void *lsi)
 	exist_lsi = hip_lsi_are_equal(&entry->lsi_peer,(hip_lsi_t *)lsi);
 	if (exist_lsi)
 	        memset(lsi, 0, sizeof(lsi));
+    return 0;
 }
 
 

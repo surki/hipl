@@ -7,10 +7,13 @@
 #include "maintenance.h"
 #include "libdht/libhipopendht.h"
 #include "debug.h"
-#include "libinet6/util.h"
-#include "libinet6/include/netdb.h"
-#include "libinet6/hipconf.h"
+#include "libhipcore/util.h"
+#include "libhipcore/hipconf.h"
 #include <netinet/in.h>
+
+#ifdef ANDROID
+#include "libhipandroid/ifaddrs.h"
+#endif
 
 extern struct addrinfo *opendht_serving_gateway;
 extern struct addrinfo *opendht_serving_port;
@@ -154,7 +157,7 @@ int exists_address_family_in_list(struct in6_addr *addr) {
 		int map;
 		n = list_entry(tmp);
 		
-		if (IN6_IS_ADDR_V4MAPPED(hip_cast_sa_addr(&n->addr)) == mapped)
+		if (IN6_IS_ADDR_V4MAPPED((struct in6_addr *)hip_cast_sa_addr(&n->addr)) == mapped)
 			return 1;
 	}
 	
@@ -1411,7 +1414,7 @@ int hip_select_source_address(struct in6_addr *src, struct in6_addr *dst)
 		goto out_err;
 	}
 
-	HIP_IFEL(!exists_address_family_in_list(dst), -1, "No address of the same family\n");
+	/* HIP_IFEL(!exists_address_family_in_list(dst), -1, "No address of the same family\n"); */
 
 	if (ipv6_addr_is_teredo(dst)) {
 		struct netdev_address *na;

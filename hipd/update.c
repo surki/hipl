@@ -14,6 +14,13 @@
  *          <a href="http://www1.ietf.org/mail-archive/web/hipsec/current/msg01745.html">Simplified state machine</a>
  */
 #include "update.h"
+#include "pjnath.h"
+
+#ifndef s6_addr
+#  define s6_addr                 in6_u.u6_addr8
+#  define s6_addr16               in6_u.u6_addr16
+#  define s6_addr32               in6_u.u6_addr32
+#endif /* s6_addr */
 
 /* All Doxygen function comments are now moved to the header file. Some comments
    are inadequate. */
@@ -3096,7 +3103,8 @@ int hip_handle_locator_parameter(hip_ha_t *entry,
 	n_addrs = hip_get_locator_addr_item_count(locator);
 	for (i = 0; i < n_addrs; i++) {
 		/* check if af same as in entry->local_af */
-		comp_af = IN6_IS_ADDR_V4MAPPED(hip_get_locator_item_address(hip_get_locator_item(locator_address_item, i)))
+        /* TODO Fix me Surki */
+        comp_af = IN6_IS_ADDR_V4MAPPED((struct in6_addr *)hip_get_locator_item_address(hip_get_locator_item(locator_address_item, i)))
 			? AF_INET : AF_INET6;
 		if (comp_af == local_af) {
 			HIP_DEBUG("LOCATOR contained same family members as "\

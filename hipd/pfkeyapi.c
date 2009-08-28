@@ -7,7 +7,6 @@
 
 #include "xfrmapi.h"
 #ifdef CONFIG_HIP_PFKEY
-#include <libinet6/include/net/pfkeyv2.h>
 #include </usr/include/linux/pfkeyv2.h>
 #include </usr/include/linux/ipsec.h>
 

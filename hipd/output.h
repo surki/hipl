@@ -25,22 +25,38 @@
 #include "nat.h"
 #include "registration.h"
 #include <netinet/ip.h>
+#ifndef ANDROID
 #include <netinet/ip6.h>
+#endif
 #include <netinet/tcp.h>
 #include <unistd.h>
+#ifndef ANDROID
 #include <linux/icmpv6.h>
+#endif
 /* #include <libiptc/libiptc.h> */
 #include "esp_prot_hipd_msg.h"
 
+/* TODO Fix me */
+#ifdef ANDROID
+#ifndef in6_pktinfo
+/* IPv6 packet information.  */
+struct in6_pktinfo
+{
+  struct in6_addr     ipi6_addr;    /* src/dst IPv6 address */
+  unsigned int        ipi6_ifindex; /* send/recv interface index */
+};
+#endif
+
+#include <linux/coda.h>
+#include "icmp6.h"
+
+//#define ICMPV6_ECHO_REQUEST ICMP6_ECHO_REQUEST
+
+#endif
 //#include "i3_id.h"
 
 #define HIP_MAX_ICMP_PACKET 512
 
-#ifndef s6_addr
-#  define s6_addr                 in6_u.u6_addr8
-#  define s6_addr16               in6_u.u6_addr16
-#  define s6_addr32               in6_u.u6_addr32
-#endif /* s6_addr */
 
 
 extern int hip_raw_sock_v6;
