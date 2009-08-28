@@ -1,0 +1,412 @@
+Example XML RPC packets used with the opendht (indented for easier reading).
+Packets are divided into to output and input packets. Output packets
+are put, rm and get packets. Input packets are key was not found,
+status code, value, and fault code
+
+==============
+Output packets
+==============
+
+------------------------------------------------------
+(put packet                                          )
+(                                                    )
+( order of fields key, value, ttl, application_string)
+------------------------------------------------------
+
+POST /RPC2 HTTP/1.0
+User-Agent: hipl
+Host: 127.0.0.1:5851
+Content-Type: text/xml
+Content-length: 354
+
+<?xml version="1.0"?>
+<methodCall>
+  <methodName>
+    put
+  </methodName>
+  <params>
+    <param>
+      <value>
+        <base64>
+          a3Vra2FuZW5rb3Nlb24=
+        </base64>
+      </value>
+    </param>
+    <param>
+      <value>
+        <base64>
+          MjAwMTowMDcxOjdjOTc6YTViNDo2YzczOjFiMWI6MDgxZToxMjZk
+        </base64>
+      </value>
+    </param>
+    <param>
+      <value>
+        <int>
+          120
+        </int> 
+      </value>
+    </param>
+    <param>
+      <value>
+        <string>
+          HIPL
+        </string>
+      </value>
+    </param>
+  </params>
+</methodCall>
+
+---------------------------------------------------------
+(put_removable packet                                   )
+(                                                       )
+( order of fields key, value, hash_type, hash_of_secret,)
+( ttl, application_string                               )
+---------------------------------------------------------
+
+POST /RPC2 HTTP/1.0
+User-Agent: hipl
+Host: 127.0.0.1:5851
+Content-Type: text/xml
+Content-length: 493
+
+<?xml version="1.0"?>
+<methodCall>
+  <methodName>
+    put_removable
+  </methodName>
+  <params>
+    <param>
+      <value>
+        <base64>
+          qUqP5cyxm6YcTAhz05Hphw==
+        </base64>
+      </value>
+    </param>
+    <param>
+      <value>
+        <base64>
+          MjAwMTowMDcxOjdjOTc6YTViNDo2YzczOjFiMWI6MDgxZToxMjZk
+        </base64>
+      </value>
+    </param>
+    <param>
+      <value>
+        <string>
+          SHA
+        </string>
+      </value>
+    </param>
+    <param>
+      <value>
+        <base64>
+          c2VjcmV0X3N0cl9pc19zZWNyZXQ=
+        </base64>
+      </value>
+    </param>
+    <param>
+      <value>
+        <int>
+          120
+        </int>
+      </value>
+    </param>
+    <param>
+      <value>
+        <string>
+          HIPL
+        </string>
+      </value>
+    </param>
+  </params>
+</methodCall>
+
+------------------------------------------
+(get packet                              )
+(                                        )
+( order of fields key, max_values_wanted,)
+( possible_pointer_to_extra_values,      )
+( application_string                     )
+------------------------------------------
+
+POST /RPC2 HTTP/1.0
+User-Agent: hipl
+Host: 127.0.0.1:5851
+Content-Type: text/xml
+Content-length: 302
+
+<?xml version="1.0"?>
+<methodCall>
+  <methodName>
+    get
+  </methodName>
+  <params>
+    <param>
+      <value>
+        <base64>
+          a3Vra2FuZW5rb3Nlb24=a
+        </base64>
+      </value>
+    </param>
+    <param>
+      <value>
+        <int>
+          10
+        </int>
+      </value>
+    </param>
+    <param>
+      <value>
+        <base64>
+        </base64>
+      </value>
+    </param>
+    <param>
+      <value>
+        <string>
+          HIPL
+        </string> 
+      </value>
+    </param>
+  </params>
+</methodCall>
+
+---------------------------------------------------------------
+(rm packet                                                    ) 
+(                                                             )
+( order of fields key, hash_of_value, hash_type, plain_secret,)
+( ttl and application_string                                  )
+---------------------------------------------------------------
+
+
+POST /RPC2 HTTP/1.0
+User-Agent: hipl
+Host: 127.0.0.1:5851
+Content-Type: text/xml
+Content-length: 462
+
+<?xml version="1.0"?>
+<methodCall>
+<methodName>rm</methodName>
+  <params>
+    <param>
+      <value>
+        <base64>
+          ht0c9FFC6QTLLpnCch+sPKGYxso=
+        </base64>
+      </value>
+    </param>
+    <param>
+      <value>
+        <base64>
+          QiBNzoEGkjp6vkPAMU8srkWRfBI=
+        </base64>
+      </value>
+    </param>
+    <param>
+      <value>
+        <string>
+          SHA
+        </string>
+      </value>
+    </param>
+    <param>
+      <value>
+        <base64>
+          c2VjcmV0X3N0cl9pc19zZWNyZXQ=
+        </base64>
+      </value>
+    </param>
+    <param>
+      <value>
+        <int>
+          120
+        </int>
+       </value>
+    </param>
+    <param>
+      <value>
+        <string>
+          HIPL
+        </string>
+      </value>
+    </param>
+  </params>
+</methodCall>
+
+=============
+Input packets
+=============
+
+--------------------------------
+(no corresponding data to a key)
+--------------------------------
+
+HTTP/1.0 200 OK
+Date: Wed, 19 Nov 2003 01:49:00 GMT
+Server: bamboo
+Connection: close
+Content-Type: text/xml
+Content-Length: 226
+
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<methodResponse>
+  <params> 
+    <param>
+      <value>
+        <array>
+          <data>
+            <value>
+              <array>
+                <data>
+                </data>
+              </array>
+            </value>
+            <value>
+              <base64>
+              </base64>
+            </value>
+          </data>
+        </array>
+      </value>
+    </param>
+  </params>
+</methodResponse>
+
+----------------------
+(status code received)
+----------------------
+
+HTTP/1.0 200 OK
+Date: Wed, 19 Nov 2003 01:49:00 GMT
+Server: bamboo
+Connection: close
+Content-Type: text/xml
+Content-Length: 135
+
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<methodResponse>
+  <params>
+    <param>
+      <value>
+        <int>
+          0
+        </int>
+      </value>
+    </param>
+  </params>
+</methodResponse>
+
+----------------
+(value received)
+----------------
+
+HTTP/1.0 200 OK
+Date: Wed, 19 Nov 2003 01:49:00 GMT
+Server: bamboo
+Connection: close
+Content-Type: text/xml
+Content-Length: 311
+
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<methodResponse>
+  <params>
+    <param>
+      <value>
+        <array>
+          <data>
+            <value>
+              <array>
+                <data>
+                  <value>
+                    <base64>
+                      MjAwMTowMDcxOjdjOTc6YTViNDo2YzczOjFiMWI6MDgxZToxMjZk
+                    </base64>
+                  </value>
+                </data>
+              </array>
+            </value>
+            <value>
+              <base64>
+              </base64>
+            </value>
+          </data>
+        </array>
+      </value>
+    </param>
+  </params>
+</methodResponse>
+
+----------------
+(multiple values received)
+----------------
+
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<methodResponse>
+  <params>
+    <param>
+      <value>
+        <array>
+	  <data>
+            <value>
+              <array>
+                <data>
+                  <value>
+                    <base64>MjAwMTowMDcxOjdjOTc6YTViNDo2YzczOjFiMWI6MDgxZToxMjZk</base64>
+                  </value>
+                  <value>
+                    <base64>MjAwMTowMDcxOjdjOTc6YTViNDo2YzczOjFiMWI6MDgxZToxMjZk</base64>
+                  </value>
+                </data>
+              </array>
+            </value>
+            <value>
+              <base64></base64>
+            </value>
+          </data>
+       </array>
+     </value>
+   </param>
+</params>
+</methodResponse>
+
+---------------------------------
+(Error received from the openDHT)
+(                               )
+(usually caused by malformed xml)
+(or exceeding limits            )
+---------------------------------
+
+HTTP/1.0 200 OK
+Date: Wed, 19 Nov 2003 01:49:00 GMT
+Server: bamboo
+Connection: close
+Content-Type: text/xml
+Content-Length: 293
+
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<methodResponse>
+  <fault>
+    <value>
+      <struct>
+        <member>
+          <name>
+            faultString
+          </name>
+          <value>
+            java.lang.Exception: key is longer than 20 bytes
+          </value>
+        </member>
+        <member>
+          <name>
+            faultCode
+          </name>
+          <value>
+            <int>
+              0
+            </int>
+          </value>
+        </member>
+      </struct>
+    </value>
+  </fault>
+</methodResponse>

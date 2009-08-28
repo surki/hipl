@@ -1,0 +1,81 @@
+#!/bin/bash
+#
+#       /etc/init.d/bamboo
+#
+# Starts bamboo daemon
+#
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+RETVAL=0
+CONFIG=/opt/bamboo_gateway.cfg
+LOG=/var/log/bamboo.log
+USER=nobody
+ARGS="bamboo.lss.DustDevil ${CONFIG}"
+EXEC="/opt/bamboo/bin/run-java"
+
+start() {
+        touch $LOG 2>/dev/null
+	chown $USER:$USER $LOG 2>/dev/null
+        daemon --user=${USER} $EXEC $ARGS # 2>&1 >${LOG}
+	RETVAL=$?
+}
+
+stop() {
+	kill `ps axu|grep "$ARGS"|grep -v grep|cut -d" " -f4` 2>/dev/null
+	RETVAL=$?
+}
+
+restart() {
+        stop
+        start
+}
+
+reload() {
+        restart
+}
+
+case "$1" in
+start)
+        echo -n $"Starting bamboo: "
+        start
+	echo
+        ;;
+stop)
+        echo -n $"Stopping bamboo: "
+        stop
+	echo
+        ;;
+reload)
+        echo -n $"Reloading bamboo: "
+	echo
+        ;;
+force-reload)
+        echo "$0: Unimplemented feature."
+        RETVAL=3
+        ;;
+restart)
+        echo -n $"Restarting bamboo"
+        restart
+	echo
+        ;;
+condrestart)
+        #if [ -f /var/lock/subsys/acpid ]; then
+        #    restart
+        #fi
+        echo "$0: Unimplemented feature."
+        RETVAL=5
+        ;;
+status)
+        #status acpid
+        #RETVAL=$?
+        echo "$0: Unimplemented feature."
+        RETVAL=6
+        ;;
+*)
+        echo $"Usage: $0 {start|stop|restart}"
+        RETVAL=2
+esac
+
+exit $RETVAL

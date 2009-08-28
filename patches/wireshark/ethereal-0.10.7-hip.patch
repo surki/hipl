@@ -1,0 +1,1196 @@
+diff -C 2 -Nar ethereal-0.10.7/epan/dissectors/Makefile.in ethereal-0.10.7-hip/epan/dissectors/Makefile.in
+*** ethereal-0.10.7/epan/dissectors/Makefile.in	2004-10-21 02:50:16.000000000 +0000
+--- ethereal-0.10.7-hip/epan/dissectors/Makefile.in	2004-11-12 00:36:20.000000000 +0000
+***************
+*** 511,514 ****
+--- 511,515 ----
+  	packet-h450.c	\
+  	packet-hclnfsd.c	\
++ 	packet-hip.c	\
+  	packet-hpext.c	\
+  	packet-hsrp.c	\
+***************
+*** 1140,1144 ****
+  	packet-ftp.lo packet-fw1.lo packet-gift.lo packet-giop.lo \
+  	packet-gmrp.lo packet-gnutella.lo packet-gprs-llc.lo \
+! 	packet-gprs-ns.lo packet-gre.lo packet-gsm_a.lo \
+  	packet-gsm_map.lo packet-gsm_sms.lo packet-gsm_sms_ud.lo \
+  	packet-gsm_ss.lo packet-gssapi.lo packet-gtp.lo packet-gvrp.lo \
+--- 1141,1145 ----
+  	packet-ftp.lo packet-fw1.lo packet-gift.lo packet-giop.lo \
+  	packet-gmrp.lo packet-gnutella.lo packet-gprs-llc.lo \
+! 	packet-gprs-ns.lo packet-gre.lo packet-gsm_a.lo packet-hip.lo \
+  	packet-gsm_map.lo packet-gsm_sms.lo packet-gsm_sms_ud.lo \
+  	packet-gsm_ss.lo packet-gssapi.lo packet-gtp.lo packet-gvrp.lo \
+***************
+*** 1458,1461 ****
+--- 1459,1463 ----
+  @AMDEP_TRUE@	./$(DEPDIR)/packet-h450.Plo \
+  @AMDEP_TRUE@	./$(DEPDIR)/packet-hclnfsd.Plo \
++ @AMDEP_TRUE@	./$(DEPDIR)/packet-hip.Plo \
+  @AMDEP_TRUE@	./$(DEPDIR)/packet-hpext.Plo \
+  @AMDEP_TRUE@	./$(DEPDIR)/packet-hsrp.Plo \
+***************
+*** 2000,2003 ****
+--- 2002,2006 ----
+  @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/packet-h450.Plo@am__quote@
+  @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/packet-hclnfsd.Plo@am__quote@
++ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/packet-hip.Plo@am__quote@
+  @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/packet-hpext.Plo@am__quote@
+  @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/packet-hsrp.Plo@am__quote@
+diff -C 2 -Nar ethereal-0.10.7/epan/dissectors/packet-hip.c ethereal-0.10.7-hip/epan/dissectors/packet-hip.c
+*** ethereal-0.10.7/epan/dissectors/packet-hip.c	1970-01-01 00:00:00.000000000 +0000
+--- ethereal-0.10.7-hip/epan/dissectors/packet-hip.c	2004-11-12 00:38:03.000000000 +0000
+***************
+*** 0 ****
+--- 1,1095 ----
++ /* packet-hip.c
++  * Routines for HIP packet disassembly
++  +  * 10/2004 
++  * Alfredo Matos <a23622@alunos.det.ua.pt>
++  * Justino Santos <a20257@alunos.det.ua.pt>
++  *
++  * Port to Ethereal 0.10.7 (Version bump)
++  *
++  * Modified at Instituto de Telecomunicacoes de Aveiro, Heterogenous Networking Group (hng-request@av.it.pt) *
++  * 
++  * 07/2004 draft-ietf-hip-base-00
++  * 02/2004
++  * 03/2003
++  * Thomas Henderson <thomas.r.henderson@boeing.com>
++  * Jeff Ahrenholz <jeffrey.m.ahrenholz@boeing.com>
++  * 
++  * Packet dissector modified by Boeing for disassembling HIP packets.
++  * This tool is for displaying the TLV structures -- it verifies checksums
++  * and shows NULL encrypted TLVs, but will not verify signatures, nor decode
++  * encrypted TLVs.
++  *
++  * $Id: packet-hip.c,v 1.12 2004/07/21 23:55:35 jeffa Exp $
++  *
++  * Ethereal - Network traffic analyzer
++  * By Gerald Combs <gerald@ethereal.com>
++  * Copyright 1998 Gerald Combs
++  *
++  * Richard Sharpe, 13-Feb-1999, added dispatch table support and 
++  *                              support for tftp.
++  * 
++  * This program is free software; you can redistribute it and/or
++  * modify it under the terms of the GNU General Public License
++  * as published by the Free Software Foundation; either version 2
++  * of the License, or (at your option) any later version.
++  * 
++  * This program is distributed in the hope that it will be useful,
++  * but WITHOUT ANY WARRANTY; without even the implied warranty of
++  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++  * GNU General Public License for more details.
++  * 
++  * You should have received a copy of the GNU General Public License
++  * along with this program; if not, write to the Free Software
++  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
++  */
++  
++ #ifdef HAVE_CONFIG_H
++ # include "config.h"
++ #endif
++ 
++ #include <stdio.h>
++ #include <stdlib.h>
++ #include <string.h>
++ 
++ #include <glib.h>
++ #include <epan/packet.h>
++ #include <epan/addr_resolv.h>
++ #include "ipproto.h"
++ #include "in_cksum.h"
++ #include "prefs.h"
++ 
++ 
++ #include "packet-ip.h"
++ #include <epan/conversation.h>
++ 
++ static int proto_hip = -1;
++ static int hf_hip_proto = -1;
++ static int hf_hip_hdr_len = -1;
++ static int hf_hip_packet_type = -1;
++ static int hf_hip_version = -1;
++ static int hf_hip_res = -1;
++ static int hf_hip_control = -1;
++ static int hf_hip_checksum = -1;
++ static int hf_hip_hit_sndr = -1;
++ static int hf_hip_hit_rcvr = -1;
++ 
++ static int hf_hip_type = -1;
++ static int hf_hip_tlv_spi = -1;
++ static int hf_hip_tlv_r1_res = -1;
++ static int hf_hip_tlv_r1count = -1;
++ static int hf_hip_tlv_puzzle_k = -1;
++ static int hf_hip_tlv_puzzle_o = -1;
++ static int hf_hip_tlv_puzzle_i = -1;
++ static int hf_hip_tlv_puzzle_j = -1;
++ static int hf_hip_tlv_nes_res = -1;
++ static int hf_hip_tlv_nes_keyidx = -1;
++ static int hf_hip_tlv_nes_oldspi = -1;
++ static int hf_hip_tlv_nes_newspi = -1;
++ static int hf_hip_tlv_seq_updid = -1;
++ static int hf_hip_tlv_ack_updid = -1;
++ static int hf_hip_tlv_dh_group_id = -1;
++ static int hf_hip_tlv_dh_pub = -1;
++ static int hf_hip_tlv_trans_id = -1;
++ static int hf_hip_tlv_esp_reserved = -1;
++ static int hf_hip_tlv_host_id_len = -1;
++ static int hf_hip_tlv_host_di_type = -1;
++ static int hf_hip_tlv_host_di_len = -1;
++ static int hf_hip_tlv_host_id_hdr = -1;
++ static int hf_hip_tlv_host_id_t = -1;
++ static int hf_hip_tlv_host_id_q = -1;
++ static int hf_hip_tlv_host_id_p = -1;
++ static int hf_hip_tlv_host_id_g = -1;
++ static int hf_hip_tlv_host_id_y = -1;
++ static int hf_hip_tlv_cert_count = -1;
++ static int hf_hip_tlv_cert_id = -1;
++ static int hf_hip_tlv_cert_type = -1;
++ static int hf_hip_tlv_certificate = -1;
++ static int hf_hip_tlv_notify_res = -1;
++ static int hf_hip_tlv_notify_type = -1;
++ static int hf_hip_tlv_notify_data = -1;
++ static int hf_hip_tlv_opaque_data = -1;
++ static int hf_hip_tlv_hmac = -1;
++ static int hf_hip_tlv_sig_alg = -1;
++ static int hf_hip_tlv_sig = -1;
++ static int hf_hip_tlv_id = -1;
++ static int hf_hip_tlv_enc_reserved = -1;
++ static int hf_hip_tlv_enc_iv = -1;
++ static int hip_transform = 0;
++ 
++ /* for deprecated packets */
++ static int hf_hip_tlv_interface_id = -1;
++ static int hf_hip_tlv_curr_spi = -1;
++ static int hf_hip_tlv_curr_spi_rev = -1;
++ static int hf_hip_tlv_new_spi = -1;
++ static int hf_hip_tlv_keym_index = -1;
++ static int hf_hip_tlv_rea_id = -1;
++ static int hf_hip_tlv_reserved = -1;
++ static int hf_hip_tlv_lifetime = -1;
++ static int hf_hip_tlv_address = -1;
++ static int hf_hip_tlv_ac_id = -1;
++ static int hf_hip_tlv_rtt_tstamp = -1;
++ 
++ static gint ett_hip = -1;
++ static gint ett_hip_tlv = -1;
++ static gint ett_hip_tlv_data = -1;
++ 
++ /* Place HIP summary in protocol tree */
++ static gboolean hip_summary_in_tree = TRUE;
++ 
++ /* This minimal structure used to get at the Type field*/
++ struct newhip {
++         guint16 nextpluslen;        /* Next header, plus length */
++         guint8 hiptype;        /* Type (what we are after) */
++         guint8 hipreserved;        /* Reserved (what we are after) */
++         /*variable size*/               /* (IV and) Payload data */
++ };
++ 
++ /**** defs from hip.h ****/
++ #define HI_BITSIZE 2048
++ #define HI_PRIV_BITSIZE 160
++ #define HIT_BITSIZE 128
++ /* 128-bit Host Identity Tag */
++ typedef unsigned char hip_hit [HIT_BITSIZE/8];
++ typedef unsigned char hip_hi [HI_BITSIZE/8];
++ typedef unsigned char hip_hi_priv [HI_PRIV_BITSIZE/8];
++ 
++ /* these old parameter types may be deleted soon,
++  * since the parameters have been changed 
++  */
++ #ifdef USE_OLD_DRAFT_08_PARAMS
++ #define PARAM_SPI_LSI			0
++ #define PARAM_BIRTHDAY_COOKIE_R1	2
++ #define PARAM_BIRTHDAY_COOKIE_I2	4
++ #define PARAM_DIFFIE_HELLMAN		6
++ #define PARAM_NES_INFO			10
++ #define PARAM_HIP_TRANSFORM		16
++ #define PARAM_ESP_TRANSFORM		18
++ #define PARAM_ENCRYPTED			20
++ #define PARAM_HOST_ID			32
++ #define PARAM_HOST_ID_FQDN		34
++ #define PARAM_CERT			64
++ #define PARAM_HMAC			65500
++ #define PARAM_HIP_SIGNATURE_2		65532
++ #define PARAM_HIP_SIGNATURE		65534
++ /* draft-moskowitz-hip-09 */
++ #elif USE_OLD_DRAFT_09_PARAMS
++ #define PARAM_SPI_LSI			1
++ #define PARAM_BIRTHDAY_COOKIE_R1	3
++ #define PARAM_BIRTHDAY_COOKIE_I2	5
++ #define PARAM_NES			9
++ #define PARAM_DIFFIE_HELLMAN		13
++ #define PARAM_HIP_TRANSFORM		17
++ #define PARAM_ESP_TRANSFORM		19
++ #define PARAM_ENCRYPTED			21
++ #define PARAM_HOST_ID			35
++ #define PARAM_CERT			64
++ #define PARAM_HMAC			65245
++ #define PARAM_HIP_SIGNATURE_2		65277
++ #define PARAM_HIP_SIGNATURE		65279
++ /* draft-ietf-hip-base-00 */
++ #else
++ #define PARAM_SPI			1
++ #define PARAM_R1_COUNTER		2
++ #define PARAM_PUZZLE			5
++ #define PARAM_SOLUTION			7
++ #define PARAM_NES			9
++ #define PARAM_SEQ			11
++ #define PARAM_ACK			13
++ #define PARAM_DIFFIE_HELLMAN		15
++ #define PARAM_HIP_TRANSFORM		17
++ #define PARAM_ESP_TRANSFORM		19
++ #define PARAM_ENCRYPTED			21
++ #define PARAM_HOST_ID			35
++ #define PARAM_CERT			64
++ #define PARAM_NOTIFY			256
++ #define PARAM_ECHO_REQUEST		1022
++ #define PARAM_ECHO_RESPONSE		1024
++ #define PARAM_HMAC			65245
++ #define PARAM_HIP_SIGNATURE_2		65277
++ #define PARAM_HIP_SIGNATURE		65279
++ #define PARAM_ECHO_REQUEST_C		65281
++ #define PARAM_ECHO_RESPONSE_C		65283
++ #define PARAM_CRITICAL_BIT		0x0001
++ 
++ #define REA_INFO			128
++ #define AC_INFO				129
++ 
++ #endif
++ 
++ 
++ 
++ typedef struct _hiphdr {
++     guint8 proto;        /* payload protocol            */
++     guint8 hdr_len;      /* header length               */
++     guint8 packet_type;  /* packet type                 */
++     guint8 res:4,version:4; /* version, reserved        */
++     guint16 control;     /* control                     */
++     guint16 checksum;    /* checksum                    */
++     hip_hit hit_sndr;    /* Sender's Host Identity Tag  */
++     hip_hit hit_rcvr;    /* Receiver's Host Identity Tag*/
++     /* HIP parameters ...  */
++ } hiphdr;
++ 
++ typedef struct _tlv_head
++ {
++     guint16 type;
++     guint16 length;
++ } tlv_head;
++ 
++ 
++ /* functions */
++ char * hip_param(int n);
++ char *dh_group_id_label(int groupid);
++ char *transform_id_label(int transform);
++ char *sig_alg_label(int alg);
++ int dissect_hip_tlv(tvbuff_t *tvb, int offset, proto_item *ti, int type, int tlv_len);
++ 
++ static dissector_handle_t data_handle;
++ 
++ /**** end defs from hip.h ****/
++ 
++ /*
++  * Doesn't do much now except for identify the HIP packet type 
++  */
++ static void
++ dissect_hip(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
++ {
++     proto_tree *hip_tree, *hip_tlv_tree=NULL;
++     proto_item *ti, *ti_tlv;
++     hiphdr hiph;
++     tlv_head tlv;
++     int length, offset = 0;
++     guint16 control_h, checksum_h, computed_checksum;
++     guint16 tlv_type_h, tlv_length_h; /* For storing in host order */
++     vec_t cksum_vec[4];
++     guint32 phdr[2];
++ 
++     /*
++      * load the top pane info. This should be overwritten by
++      * the next protocol in the stack
++      */
++     if (check_col(pinfo->cinfo, COL_PROTOCOL))
++         col_set_str(pinfo->cinfo, COL_PROTOCOL, "HIP");
++     if (check_col(pinfo->cinfo, COL_INFO))
++         col_clear(pinfo->cinfo, COL_INFO);
++ 
++     /* Convert control and checksum to host order */
++ 
++     tvb_memcpy(tvb, (guint8 *)&hiph, 0, sizeof(hiphdr));
++     control_h = g_ntohs(hiph.control);
++     checksum_h = g_ntohs(hiph.checksum);
++ 
++     if (check_col(pinfo->cinfo, COL_INFO)) {
++         switch (hiph.packet_type) {
++             case 1:
++                 col_add_fstr(pinfo->cinfo, COL_INFO,
++ 			"HIP I1 (HIP Initiator Packet)");
++                 break;
++             case 2:
++                 col_add_fstr(pinfo->cinfo, COL_INFO,
++ 			"HIP R1 (HIP Responder Packet)");
++                 break;
++             case 3:
++                 col_add_fstr(pinfo->cinfo, COL_INFO,
++ 			"HIP I2 (Second HIP Initiator Packet)");
++                 break;
++             case 4:
++                 col_add_fstr(pinfo->cinfo, COL_INFO,
++ 			"HIP R2 (Second HIP Responder Packet)");
++                 break;
++            case 5:
++                 col_add_fstr(pinfo->cinfo, COL_INFO,
++ 			"HIP UPDATE (HIP Update Packet)");
++                 break;
++            case 6:
++                 col_add_fstr(pinfo->cinfo, COL_INFO,
++ 			"HIP REA (HIP Readress Packet) (Deprecated)");
++                 break;
++             case 7:
++                 col_add_fstr(pinfo->cinfo, COL_INFO,
++ 			"HIP BOS (HIP Bootstrap Packet)");
++                 break;
++             case 8:
++                 col_add_fstr(pinfo->cinfo, COL_INFO,
++ 			"HIP CER (HIP Certificate Packet)");
++                 break;
++             case 9:
++                 col_add_fstr(pinfo->cinfo, COL_INFO,
++ 			"HIP NOTIFY (HIP Notification Packet)");
++ 		break;
++             case 15:
++                 col_add_fstr(pinfo->cinfo, COL_INFO,
++ 			"HIP AC (HIP Adress Check Packet) (Deprecated)");
++ 		break;
++             case 16:
++                 col_add_fstr(pinfo->cinfo, COL_INFO,
++ 			"HIP ACR (HIP Adress Check Reply) (Deprecated)");
++ 		break;
++             case 64:
++                 col_add_fstr(pinfo->cinfo, COL_INFO,
++ 			"HIP PAYLOAD (HIP non-ESP Payload Packet)");
++                 break;
++             default:
++                 col_add_fstr(pinfo->cinfo, COL_INFO, "HIP Unknown type");
++                 break;
++         }
++     }
++ 
++     /*
++      * populate a tree in the second pane with the status of the link layer
++      * (ie none)
++      */
++     if(tree) {
++ 	if (hip_summary_in_tree) {
++             ti = proto_tree_add_protocol_format(tree, proto_hip, tvb, 0, -1, "Host Identity Protocol");
++ 	} else {
++             ti = proto_tree_add_item(tree, proto_hip, tvb, 0, -1, FALSE);
++         }
++ 
++         hip_tree = proto_item_add_subtree(ti, ett_hip);
++ 	proto_tree_add_uint(hip_tree, hf_hip_proto, tvb, offset, 1, hiph.proto);
++ 	proto_tree_add_uint(hip_tree, hf_hip_hdr_len, tvb, offset+1, 1, hiph.hdr_len);
++ 	proto_tree_add_uint(hip_tree, hf_hip_packet_type, tvb, offset+2, 1, hiph.packet_type);
++ 	proto_tree_add_uint_format(hip_tree, hf_hip_version, tvb, offset+3, 1, hiph.version,
++ 		"Version: %u, Reserved: %u", hiph.version, hiph.res);
++ 	proto_tree_add_uint(hip_tree, hf_hip_control, tvb, offset+4, 2, control_h);
++ 	/* Checksum - this is the same algorithm from UDP, ICMPv6 */
++ 	if (!pinfo->fragmented) {
++ 	    /* IPv4 or IPv6 addresses */
++ 	    cksum_vec[0].ptr = pinfo->src.data;
++ 	    cksum_vec[0].len = pinfo->src.len;
++ 	    cksum_vec[1].ptr = pinfo->dst.data;
++ 	    cksum_vec[1].len = pinfo->dst.len;
++ 	    /* the rest of the pseudo-header */
++ 	    if (pinfo->src.type == AT_IPv6) {
++ 		cksum_vec[2].ptr = (const guint8 *)&phdr;
++ 		phdr[0] = g_htonl(tvb_reported_length(tvb));
++ 		phdr[1] = g_htonl(IP_PROTO_HIP);
++ 		cksum_vec[2].len = 8;
++ 	    } else {
++ 		cksum_vec[2].ptr = (const guint8 *)&phdr;
++ 		phdr[0] = g_htonl((IP_PROTO_HIP<<16)+tvb_reported_length(tvb));
++ 		cksum_vec[2].len = 4;
++ 	    }
++ 	    /* pointer to the HIP header (packet data) */
++ 	    cksum_vec[3].len = tvb_reported_length(tvb);
++ 	    cksum_vec[3].ptr = tvb_get_ptr(tvb, 0, cksum_vec[3].len);
++ 	    computed_checksum = in_cksum(cksum_vec, 4);
++ 	    if (computed_checksum == 0) {
++ 		proto_tree_add_uint_format(hip_tree, hf_hip_checksum, tvb, 
++ 			offset+6, 2, checksum_h, "Checksum: 0x%04x (correct)",
++ 			checksum_h);
++ 	    } else {
++ 		proto_tree_add_uint_format(hip_tree, hf_hip_checksum, tvb,
++ 			offset+6, 2, checksum_h,
++ 			"Checksum: 0x%04x (incorrect, should be 0x%04x)",
++ 			checksum_h,
++ 			in_cksum_shouldbe(checksum_h, computed_checksum));
++ 	    }
++ 	} else {
++ 		proto_tree_add_uint_format(hip_tree, hf_hip_checksum, tvb,
++ 			offset+6, 2, checksum_h,"Checksum: 0x%04x (unverified)",
++ 			checksum_h);
++ 	}
++ 	offset += 8;
++ 	proto_tree_add_bytes(hip_tree, hf_hip_hit_sndr, tvb, offset, sizeof(hip_hit), hiph.hit_sndr);
++ 	offset += sizeof(hip_hit);
++ 	proto_tree_add_bytes(hip_tree, hf_hip_hit_rcvr, tvb, offset, sizeof(hip_hit), hiph.hit_rcvr);
++ 	offset += sizeof(hip_hit);
++ 	
++ 	length = (hiph.hdr_len+1)*8;
++ 	/* Begin TLV parsing */
++ 	if (offset < length) {
++ 	    ti_tlv = proto_tree_add_text(hip_tree, tvb, offset, tvb_length(tvb), "HIP Parameters");
++ 	    hip_tlv_tree = proto_item_add_subtree(ti_tlv, ett_hip_tlv);
++ 	}
++ 	/* Parse type and length in TLV */
++ 	while (offset < length)
++ 	{
++             tvb_memcpy(tvb, (guint8 *)&tlv, offset, sizeof(tlv_head));
++ 	    tlv_type_h = g_ntohs(tlv.type);
++ 	    tlv_length_h = g_ntohs(tlv.length);
++ 	    ti_tlv = proto_tree_add_uint_format(hip_tlv_tree, hf_hip_type, tvb,
++ 		offset, 4+tlv_length_h, tlv.type, "%s (type=%u, length=%u)",
++ 		hip_param(tlv_type_h), tlv_type_h, tlv_length_h);
++ 	    
++ 	    /* Parse value */
++ 	    dissect_hip_tlv(tvb, offset, ti_tlv, tlv_type_h, tlv_length_h);
++ 
++ 	    offset += 11 + tlv_length_h - (tlv_length_h + 3) % 8;
++ 	}
++ 	
++     }
++ }
++ 
++ void
++ proto_register_hip(void)
++ {
++ /* Most of this stuff is unused */
++ 	module_t *hip_module;
++ 	static hf_register_info hf[] = {
++ 	        { &hf_hip_proto,
++ 		{ "Payload Protocol",   "hip.proto", FT_UINT8, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 		
++ 	        { &hf_hip_hdr_len,
++ 		{ "Header Length",      "hip.hdr_len", FT_UINT8, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 		
++ 	        { &hf_hip_packet_type,
++ 		{ "Packet Type",        "hip.packet_type", FT_UINT8, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 		
++ 	        { &hf_hip_version,
++ 		{ "Version",            "hip.version", FT_UINT8, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 		
++ 	        { &hf_hip_res,
++ 		{ "Reserved",           "hip.res", FT_UINT8, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 		
++ 	        { &hf_hip_control,
++ 		{ "Control",            "hip.control", FT_UINT16, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 		
++ 	        { &hf_hip_checksum,
++ 		{ "Checksum",           "hip.checksum", FT_UINT16, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++ 	        { &hf_hip_hit_sndr,
++ 		{ "Sender's HIT",       "hip.hit_sndr", FT_BYTES, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++ 	        { &hf_hip_hit_rcvr,
++ 		{ "Receiver's HIT",     "hip.hit_rcvr", FT_BYTES, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 
++ 		{ &hf_hip_type,
++ 		{ "Type",               "hip.type", FT_UINT16, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 		
++ 		{ &hf_hip_tlv_spi,
++ 		{ "SPI",                "hip.tlv.spi", FT_UINT32, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++ 		{ &hf_hip_tlv_r1_res,
++ 		{ "Reserved",                "hip.tlv.r1_res", FT_UINT32, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++ 		{ &hf_hip_tlv_r1count,
++ 		{ "R1 Counter",                "hip.tlv.r1count", FT_BYTES, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++ 	        { &hf_hip_tlv_puzzle_k,
++ 		{ "Puzzle Difficulty K","hip.tlv_puzzle_k", FT_UINT8, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 		
++ 	        { &hf_hip_tlv_puzzle_o,
++ 		{ "Opaque Data","hip.tlv_puzzle_o", FT_BYTES, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++ 	        { &hf_hip_tlv_puzzle_i,
++ 		{ "Puzzle Random I",    "hip.tlv.puzzle_i", FT_BYTES, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++ 	        { &hf_hip_tlv_puzzle_j,
++ 		{ "Puzzle Solution J",    "hip.tlv_puzzle_j", FT_BYTES, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++ 	        { &hf_hip_tlv_nes_res,
++ 		{ "Reserved", "hip.tlv_nes_res", FT_UINT16, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++ 	        { &hf_hip_tlv_nes_keyidx,
++ 		{ "Keymat Index", "hip.tlv_nex_keyidx", FT_UINT16, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++ 	        { &hf_hip_tlv_nes_oldspi,
++ 		{ "Old SPI", "hip.tlv_nes_oldspi", FT_UINT32, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++ 	        { &hf_hip_tlv_nes_newspi,
++ 		{ "New SPI", "hip.tlv_nes_newspi", FT_UINT32, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++ 	        { &hf_hip_tlv_seq_updid,
++ 		{ "Update ID", "hip.tlv_seq_updid", FT_UINT32, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++ 	        { &hf_hip_tlv_ack_updid,
++ 		{ "Peer Update ID", "hip.tlv_ack_updid", FT_UINT32, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++                 { &hf_hip_tlv_dh_group_id,
++ 		{ "Group ID",           "hip.tlv.dh_group_id", FT_UINT8, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 		
++                 { &hf_hip_tlv_dh_pub,
++ 		{ "Public Value",       "hip.tlv.dh_pub", FT_BYTES, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++                 { &hf_hip_tlv_trans_id,
++ 		{ "Transform ID",       "hip.tlv.trans_id", FT_UINT16, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 		
++                 { &hf_hip_tlv_esp_reserved,
++ 		{ "Reserved",       "hip.tlv.esp_reserved", FT_UINT16, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++                 { &hf_hip_tlv_host_id_len,
++ 		{ "Host Identity Length","hip.tlv.host_id_len", FT_UINT16, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 		
++                 { &hf_hip_tlv_host_di_type,
++ 		{ "Domain Identifier Type","hip.tlv.host_di_type", FT_UINT8, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 		
++                 { &hf_hip_tlv_host_di_len,
++ 		{ "Domain Identifier Length","hip.tlv.host_di_len", FT_UINT16, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 		
++                 { &hf_hip_tlv_host_id_hdr,
++ 		{ "Host Identity flags","hip.tlv.host_id_hdr", FT_BYTES, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++                 { &hf_hip_tlv_host_id_t,
++ 		{ "Host Identity T","hip.tlv.host_id_t", FT_UINT8, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 		
++                 { &hf_hip_tlv_host_id_q,
++ 		{ "Host Identity Q","hip.tlv.host_id_q", FT_BYTES, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++                 { &hf_hip_tlv_host_id_p,
++ 		{ "Host Identity P","hip.tlv.host_id_p", FT_BYTES, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 
++                 { &hf_hip_tlv_host_id_g,
++ 		{ "Host Identity G","hip.tlv.host_id_g", FT_BYTES, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 
++                 { &hf_hip_tlv_host_id_y,
++ 		{ "Host Identity Y (public value)", "hip.tlv.host_id_y", FT_BYTES, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++ 		{ &hf_hip_tlv_cert_count,
++ 		{ "Cert count","hip.tlv.cert_count", FT_UINT8, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 		
++ 		{ &hf_hip_tlv_cert_id,
++ 		{ "Cert ID","hip.tlv.cert_id", FT_UINT8, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 		
++ 		{ &hf_hip_tlv_cert_type,
++ 		{ "Cert type","hip.tlv.cert_type", FT_UINT8, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 		
++ 		{ &hf_hip_tlv_certificate,
++ 		{ "Certificate","hip.tlv.certificate", FT_BYTES, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++ 		{ &hf_hip_tlv_notify_res,
++ 		{ "Reserved","hip.tlv.notify_res", FT_UINT16, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++ 		{ &hf_hip_tlv_notify_type,
++ 		{ "Notify Message Type","hip.tlv.notify_type", FT_UINT16, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 		
++ 		{ &hf_hip_tlv_notify_data,
++ 		{ "Notification Data","hip.tlv.notify_data", FT_BYTES, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++ 		{ &hf_hip_tlv_opaque_data,
++ 		{ "Opaque Data","hip.tlv.opaque_data", FT_BYTES, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++ 		{ &hf_hip_tlv_hmac,
++ 		{ "HMAC","hip.tlv.hmac", FT_BYTES, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++                 { &hf_hip_tlv_sig_alg,
++ 		{ "Signature Algorithm","hip.tlv.sig_alg", FT_UINT8, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 		
++                 { &hf_hip_tlv_sig,
++ 		{ "Signature",          "hip.tlv.sig", FT_BYTES, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++                 { &hf_hip_tlv_id,
++ 		{ "ID",                 "hip.tlv.id", FT_UINT32, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++                 { &hf_hip_tlv_enc_reserved,
++ 		{ "Reserved",                 "hip.tlv.enc_reserved", FT_UINT32, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 
++                 { &hf_hip_tlv_enc_iv,
++ 		{ "IV",                 "hip.tlv.enc_iv", FT_BYTES, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 
++ /* for old packets */
++ 		{ &hf_hip_tlv_interface_id,
++ 		{ "Interface ID","hip.tlv.interface_id", FT_UINT32, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 
++ 		{ &hf_hip_tlv_curr_spi_rev,
++ 		{ "Current SPI reverse direction","hip.tlv.curr_spi_rev", FT_UINT32, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++ 		{ &hf_hip_tlv_curr_spi,
++ 		{ "Current SPI","hip.tlv.curr_spi", FT_UINT32, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 
++ 		{ &hf_hip_tlv_new_spi,
++ 		{ "New SPI","hip.tlv.new_spi", FT_UINT32, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 
++ 		{ &hf_hip_tlv_keym_index,
++ 		{ "Keymat Index","hip.tlv.keym_index", FT_UINT16, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 		
++ 		{ &hf_hip_tlv_rea_id,
++ 		{ "REA ID","hip.tlv.rea_id", FT_UINT16, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 
++ 		{ &hf_hip_tlv_reserved,
++ 		{ "Reserved","hip.tlv.reserved", FT_UINT32, BASE_HEX, NULL, 0x0, "", HFILL }},
++ 
++ 		{ &hf_hip_tlv_lifetime,
++ 		{ "Lifetime","hip.tlv.lifetime", FT_UINT32, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 
++ 		{ &hf_hip_tlv_address,
++ 		{ "Address","hip.tlv.address", FT_IPv6, BASE_NONE, NULL, 0x0, "", HFILL }},
++ 		
++ 		{ &hf_hip_tlv_ac_id,
++ 		{ "AC ID","hip.tlv.ac_id", FT_UINT16, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 		
++ 		{ &hf_hip_tlv_rtt_tstamp,
++ 		{ "RTT Timestamp","hip.tlv.rtt_tstamp", FT_UINT32, BASE_DEC, NULL, 0x0, "", HFILL }},
++ 
++ 
++ 	
++ 		
++ 	};
++ 	static gint *ett[] = {
++ 		&ett_hip,
++ 		&ett_hip_tlv,
++ 		&ett_hip_tlv_data,
++ 	};
++ 
++ 	proto_hip = proto_register_protocol("Host Identity Protocol",
++ 	    "HIP", "hip");
++ 
++ 	proto_register_field_array(proto_hip, hf, array_length(hf));
++ 	proto_register_subtree_array(ett, array_length(ett));
++ 
++ 	/* Register configuration preferences */
++         hip_module = prefs_register_protocol(proto_hip, NULL);
++         prefs_register_bool_preference(hip_module, "summary_in_tree",
++         "Show HIP summary in protocol tree",
++         "Whether the HIP summary line should be shown in the protocol tree",
++         &hip_summary_in_tree);
++ }
++ 
++ void
++ proto_reg_handoff_hip(void)
++ {
++ 	dissector_handle_t hip_handle;
++ 
++ 	hip_handle = create_dissector_handle(dissect_hip, proto_hip);
++ 	dissector_add("ip.proto", IP_PROTO_HIP, hip_handle);
++ 	data_handle = find_dissector("data");
++ }
++ 
++ char * hip_param(int n)
++ {
++     static char s[24];
++     
++     switch (n)
++     {
++ 	//case 0: /* sometimes extra padding */
++ 	//    return NULL;
++ 	//    break;
++ 	case PARAM_SPI:
++ 	    sprintf(s, "SPI");
++ 	    break;
++ 	case PARAM_R1_COUNTER:
++ 	    sprintf(s, "R1 COUNTER");
++ 	    break;
++ 	case PARAM_PUZZLE:
++ 	    sprintf(s, "PUZZLE");
++ 	    break;
++ 	case PARAM_SOLUTION:
++ 	    sprintf(s, "SOLUTION");
++ 	    break;
++ 	case PARAM_NES:
++ 	    sprintf(s, "NES");
++ 	    break;
++ 	case PARAM_SEQ:
++ 	    sprintf(s, "SEQ");
++ 	    break;
++ 	case PARAM_ACK:
++ 	    sprintf(s, "ACK");
++ 	    break;
++ 	case PARAM_DIFFIE_HELLMAN:
++ 	    sprintf(s, "DIFFIE_HELLMAN");
++ 	    break;
++ 	case PARAM_HIP_TRANSFORM:
++ 	    sprintf(s, "HIP_TRANSFORM");
++ 	    break;
++ 	case PARAM_ESP_TRANSFORM:
++ 	    sprintf(s, "ESP_TRANSFORM");
++ 	    break;
++ 	case PARAM_ENCRYPTED:
++ 	    sprintf(s, "ENCRYPTED");
++ 	    break;
++ 	case PARAM_HOST_ID:
++ 	    sprintf(s, "HOST_ID");
++ 	    break;
++ 	case PARAM_CERT:
++ 	    sprintf(s, "CERT");
++ 	    break;
++ 	case PARAM_NOTIFY:
++ 	    sprintf(s, "NOTIFY");
++ 	    break;
++ 	case PARAM_ECHO_REQUEST:
++ 	    sprintf(s, "ECHO_REQUEST");
++ 	    break;
++ 	case PARAM_ECHO_RESPONSE:
++ 	    sprintf(s, "ECHO_RESPONSE");
++ 	    break;
++ 	case PARAM_HMAC:
++ 	    sprintf(s, "HMAC");
++ 	    break;
++ 	case PARAM_HIP_SIGNATURE_2:
++ 	    sprintf(s, "HIP_SIGNATURE_2");
++ 	    break;
++ 	case PARAM_HIP_SIGNATURE:
++ 	    sprintf(s, "HIP_SIGNATURE");
++ 	    break;
++ 	case PARAM_ECHO_REQUEST_C:
++ 	    sprintf(s, "ECHO_REQUEST");
++ 	    break;
++ 	case PARAM_ECHO_RESPONSE_C:
++ 	    sprintf(s, "ECHO_RESPONSE");
++ 	    break;
++ 	case REA_INFO:
++ 	    sprintf(s, "REA_INFO Payload (deprecated)");
++ 	    break;
++ 	case AC_INFO:
++ 	    sprintf(s, "AC_INFO Payload (deprecated)");
++ 	    break;
++ 	    
++ 	default:
++ 	    sprintf(s, "?UNKNOWN?");
++ 	    break;
++     }
++ 
++     return s;
++ }
++ 
++ char *dh_group_id_label(int groupid)
++ {
++     static char s[26];
++     switch(groupid)
++     {
++ 	case 0:
++ 	    sprintf(s, "Reserved");
++ 	    break;
++ 	case 1:
++ 	    sprintf(s, "384-bit group");
++ 	    break;
++ 	case 2:
++ 	    sprintf(s, "OAKLEY well-known group 1");
++ 	    break;
++ 	case 3:
++ 	    sprintf(s, "1536-bit MODP group");
++ 	    break;
++ 	case 4:
++ 	    sprintf(s, "3072-bit MODP group");
++ 	    break;
++ 	case 5:
++ 	    sprintf(s, "6144-bit MODP group");
++ 	    break;
++ 	case 6:
++ 	    sprintf(s, "8192-bit MODP group");
++ 	    break;
++ 	default:
++ 	    sprintf(s, "UNKNOWN?");
++ 	    break;
++     }
++     return s;
++ 	
++ }
++ 	    
++ char *transform_id_label(int transform)
++ {
++     static char s[32];
++     switch (transform)
++     {
++ 	case 0:
++ 	    sprintf(s, "Reserved");
++ 	    break;
++ 	case 1:
++ 	    sprintf(s, "ESP-AES-CBC with HMAC-SHA1");
++ 	    break;
++ 	case 2:
++ 	    sprintf(s, "ESP-3DES-CBC with HMAC-SHA1");
++ 	    break;
++ 	case 3:
++ 	    sprintf(s, "ESP-3DES-CBC with HMAC-MD5");
++ 	    break;
++ 	case 4:
++ 	    sprintf(s, "ESP-BLOWFISH-CBC with HMAC-SHA1");
++ 	    break;
++ 	case 5:
++ 	    sprintf(s, "ESP-NULL with HMAC-SHA1");
++ 	    break;
++ 	case 6:
++ 	    sprintf(s, "ESP-NULL with HMAC-MD5");
++ 	    break;
++ 	default:
++ 	    sprintf(s, "UNKNOWN?");
++ 	    break;
++ 
++     }
++     return s;
++ }
++ 
++ char *sig_alg_label(int alg)
++ {
++     static char s[10];
++     switch (alg)
++     {
++ 	case 0:
++ 	    sprintf(s, "Reserved");
++ 	    break;
++ 	case 3:
++ 	    sprintf(s, "DSA");
++ 	    break;
++ 	case 5:
++ 	    sprintf(s, "RSA");
++ 	    break;
++ 	default:
++ 	    sprintf(s, "UNKNOWN?");
++ 	    break;
++ 
++     }
++     return s;
++ }
++ 
++ 	    
++ int dissect_hip_tlv(tvbuff_t *tvb, int offset, proto_item *ti, int type, int tlv_len)
++ {
++     proto_tree *t;
++     char data[512];
++     guint8 n;
++     guint16 trans;
++     int newoffset, newlen, hi_t;
++     int hi_len, di_len, di_type;
++     switch (type)
++     {
++ 	case PARAM_SPI: /* SPI */
++ 	    t = proto_item_add_subtree(ti, ett_hip_tlv_data);
++ 	    proto_tree_add_uint(t, hf_hip_tlv_spi, tvb, offset+4, 4,
++ 				tvb_get_ntohl(tvb, offset+4));
++ 	    break;
++ 	case PARAM_R1_COUNTER:
++ 	    t = proto_item_add_subtree(ti, ett_hip_tlv_data);
++ 	    proto_tree_add_uint(t, hf_hip_tlv_r1_res, tvb, offset+4, 4,
++ 				tvb_get_ntohl(tvb, offset+4));
++ 	    tvb_memcpy(tvb, (guint8*)data, offset+8, 8);
++ 	    proto_tree_add_bytes(t, hf_hip_tlv_r1count, tvb, offset+8, 8, data);
++ 	    break;
++ 	case PARAM_PUZZLE:
++ 	case PARAM_SOLUTION:
++ 	    t = proto_item_add_subtree(ti, ett_hip_tlv_data);
++ 	    proto_tree_add_uint(t, hf_hip_tlv_puzzle_k, tvb, offset+4, 1,
++ 				tvb_get_guint8(tvb, offset+4));
++ 	    tvb_memcpy(tvb, (guint8*)data, offset+5, 3);
++ 	    proto_tree_add_bytes(t, hf_hip_tlv_puzzle_o, tvb,offset+5, 3, data);
++ 	    tvb_memcpy(tvb, (guint8*)data, offset+8, 8);
++ 	    proto_tree_add_bytes(t, hf_hip_tlv_puzzle_i, tvb,offset+8, 8, data);
++ 	    if (type == PARAM_SOLUTION) { /* solution also contains J */
++ 		tvb_memcpy(tvb, (guint8*)data, offset+16, 8);
++ 		proto_tree_add_bytes(t, hf_hip_tlv_puzzle_j, tvb, offset+16, 8,
++ 			data);
++ 	    }
++ 	    break;
++ 	case PARAM_NES: /* NES */
++ 	    t = proto_item_add_subtree(ti, ett_hip_tlv_data);
++ 	    proto_tree_add_uint(t, hf_hip_tlv_nes_res, tvb, offset+4, 2,
++ 				tvb_get_ntohs(tvb, offset+4));
++ 	    proto_tree_add_uint(t, hf_hip_tlv_nes_keyidx, tvb, offset+6, 2,
++ 				tvb_get_ntohs(tvb, offset+6));
++ 	    proto_tree_add_uint(t, hf_hip_tlv_nes_oldspi, tvb, offset+8, 4,
++ 				tvb_get_ntohl(tvb, offset+8));
++ 	    proto_tree_add_uint(t, hf_hip_tlv_nes_newspi, tvb, offset+12, 4,
++ 				tvb_get_ntohl(tvb, offset+12));
++ 	    break;
++ 	case PARAM_SEQ: /* SEQ */
++ 	    t = proto_item_add_subtree(ti, ett_hip_tlv_data);
++ 	    proto_tree_add_uint(t, hf_hip_tlv_seq_updid, tvb, offset+4, 4,
++ 				tvb_get_ntohl(tvb, offset+4));
++ 	    break;
++ 	case PARAM_ACK: /* ACK */
++ 	    t = proto_item_add_subtree(ti, ett_hip_tlv_data);
++ 	    proto_tree_add_uint(t, hf_hip_tlv_ack_updid, tvb, offset+4, 4,
++ 				tvb_get_ntohl(tvb, offset+4));
++ 	    break;
++ 	case PARAM_DIFFIE_HELLMAN: /* DIFFIE_HELLMAN */
++ 	    t = proto_item_add_subtree(ti, ett_hip_tlv_data);
++ 	    n = tvb_get_guint8(tvb, offset+4);
++ 	    proto_tree_add_uint_format(t, hf_hip_tlv_dh_group_id, tvb, offset+4,
++ 			1, n, "%u (%s)", n, dh_group_id_label(n));
++ 	    tvb_memcpy(tvb, (guint8*)data, offset+5, tlv_len-1);
++ 	    proto_tree_add_bytes(t, hf_hip_tlv_dh_pub, tvb, offset+5, tlv_len-1,
++ 				data);
++ 	    break;
++ 	case PARAM_ESP_TRANSFORM: /* ESP_TRANSFORM */
++ 	case PARAM_HIP_TRANSFORM: /* HIP_TRANSFORM */
++ 	    t = proto_item_add_subtree(ti, ett_hip_tlv_data);
++ 	    /* ESP transform may have E bit*/
++ 	    if (type == PARAM_ESP_TRANSFORM) {
++ 		proto_tree_add_uint(t, hf_hip_tlv_esp_reserved, tvb,
++ 			offset+4, 2, tvb_get_ntohs(tvb, offset+4));
++ 		newoffset = offset + 6;
++ 		tlv_len -= 2;
++ 	    } else {
++ 	    	newoffset = offset + 4;
++ 		/* check for NULL as only HIP transform */
++ 		if (tlv_len == 2)
++ 			hip_transform = tvb_get_ntohs(tvb, newoffset);
++ 		else
++ 			hip_transform = 0;
++ 	    }
++ 	    while (tlv_len > 0) {
++ 		trans = tvb_get_ntohs(tvb, newoffset);
++ 	        proto_tree_add_uint_format(t, hf_hip_tlv_trans_id, tvb, 
++ 			newoffset, 2, trans, "%u (%s)", trans,
++ 			transform_id_label(trans));
++ 		tlv_len -= 2; /* two bytes per transform id */
++ 		newoffset += 2;
++             }
++ 	    break;
++ 	case PARAM_ENCRYPTED: /* ENCRYPTED */
++ 	    t = proto_item_add_subtree(ti, ett_hip_tlv_data);
++ 	    proto_tree_add_uint(t, hf_hip_tlv_enc_reserved, tvb, offset+4, 4,
++ 				tvb_get_ntohl(tvb, offset+4));
++ 	    if (hip_transform == 5) { /* null encryption, no IV */
++ 		offset += 8;
++ 		t = proto_item_add_subtree(t, ett_hip_tlv_data);
++ 	    } else { /* encrypted data */
++ 		tvb_memcpy(tvb, (guint8*)data, offset+8, 8);
++ 		proto_tree_add_bytes(t, hf_hip_tlv_enc_iv,tvb,offset+8,8,data);
++ 		proto_tree_add_text(t, tvb, offset+16, tlv_len-12, 
++ 			"Encrypted Data (%u bytes)", tlv_len-12);
++ 		break;
++ 	    }
++ 	case PARAM_HOST_ID: /* HOST_ID */
++ 	    /*
++ 	     * Format as follows:
++ 	     * First 4 bytes are 0200ff03 (RFC 2535)
++ 	     *   flags     2  octets
++ 	     *   protocol  1  octet
++ 	     *   T         1  octet
++ 	     *   Q         20  octets
++ 	     *   P         64 + T*8  octets
++ 	     *   G         64 + T*8  octets
++ 	     *   Y         64 + T*8  octets
++ 	     */
++ 	    if (hip_transform != 5)
++ 	    	t = proto_item_add_subtree(ti, ett_hip_tlv_data);
++ 	    /* hi_length, fqdn_length */
++ 	    hi_len = tvb_get_ntohs(tvb, offset+4);
++ 	    di_len = tvb_get_ntohs(tvb, offset+6);
++ 	    di_len = g_htons(di_len);	/* 12 bits already in host order? */
++ 	    di_type = (di_len >> 12) & 0x000F;	/* get 4 bits for DI type */
++ 	    di_len = di_len & 0x0FFF;		/* 12 bits for DI length */
++ 	    proto_tree_add_uint(t, hf_hip_tlv_host_id_len, tvb, offset+4, 2,
++ 				hi_len);
++ 	    proto_tree_add_uint(t, hf_hip_tlv_host_di_type, tvb, offset+6, 1,
++ 				di_type);
++ 	    proto_tree_add_uint(t, hf_hip_tlv_host_di_len, tvb, offset+6, 2,
++ 				di_len);
++ 	    /* hi_hdr */
++ 	    tvb_memcpy(tvb, (guint8*)data, offset+8, 4);
++ 	    proto_tree_add_bytes(t, hf_hip_tlv_host_id_hdr, tvb, offset+8, 4,
++ 				data);
++ 	    proto_tree_add_uint(t, hf_hip_tlv_host_id_t, tvb, offset+12, 1,
++ 				tvb_get_guint8(tvb, offset+12));
++ 	    /* hi_t */
++ 	    hi_t = tvb_get_guint8(tvb, offset+12);
++ 	    tvb_memcpy(tvb, (guint8*)data, offset+13, 20);
++ 	    proto_tree_add_bytes(t, hf_hip_tlv_host_id_q, tvb, offset+13, 20,
++ 				data);
++ 	    newoffset = offset + 33;
++ 	    if (hi_t > 8)
++                 break;
++ 	    newlen = 64 + (hi_t * 8);
++ 	    tvb_memcpy(tvb, (guint8*)data, newoffset, newlen);
++ 	    proto_tree_add_bytes(t, hf_hip_tlv_host_id_p, tvb, newoffset,
++ 				newlen, data);
++ 	    newoffset += newlen;
++ 	    tvb_memcpy(tvb, (guint8*)data, newoffset, newlen);
++ 	    proto_tree_add_bytes(t, hf_hip_tlv_host_id_g, tvb, newoffset,
++ 				newlen, data);
++ 	    newoffset += newlen;
++ 	    tvb_memcpy(tvb, (guint8*)data, newoffset, newlen);
++ 	    proto_tree_add_bytes(t, hf_hip_tlv_host_id_y, tvb, newoffset,
++ 				newlen, data);
++ 	    /* FQDN */
++ 	    if (di_type == 0)
++ 		break;
++ 	    if (di_len > sizeof(data))
++ 		di_len = sizeof(data) - 1;
++ 	    memset(data,0,sizeof(data)); /* this null-terminates the string */
++ 	    tvb_memcpy(tvb, (guint8*)data, offset+8+hi_len, di_len);
++ 	    if (di_type == 1) {
++ 	    	proto_tree_add_text(t, tvb, offset+8+hi_len, di_len,
++ 					"FQDN: %s", data);
++ 	    } else if (di_type == 2) {
++ 	    	proto_tree_add_text(t, tvb, offset+8+hi_len, di_len,
++ 					"NAI: %s", data);
++ 	    }
++ 	    break;
++ 	case PARAM_CERT: /* CERT */
++ 	    t = proto_item_add_subtree(ti, ett_hip_tlv_data);
++ 	    proto_tree_add_uint(t, hf_hip_tlv_cert_count, tvb, offset+4, 1,
++ 				tvb_get_guint8(tvb, offset+4));
++ 	    proto_tree_add_uint(t, hf_hip_tlv_cert_id, tvb, offset+5, 1,
++ 				tvb_get_guint8(tvb, offset+5));
++ 	    proto_tree_add_uint(t, hf_hip_tlv_cert_type, tvb, offset+6, 1,
++ 				tvb_get_guint8(tvb, offset+6));
++ 	    tvb_memcpy(tvb, (guint8*)data, offset+7, tlv_len-3);
++ 	    proto_tree_add_bytes(t, hf_hip_tlv_certificate, tvb, offset+7,
++ 				tlv_len-3, data);
++ 	    break;
++ 	    
++ 	case PARAM_NOTIFY: /* NOTIFY */
++ 	    t = proto_item_add_subtree(ti, ett_hip_tlv_data);
++ 	    proto_tree_add_uint(t, hf_hip_tlv_notify_res, tvb, offset+4, 2,
++ 				tvb_get_ntohs(tvb, offset+4));
++ 	    proto_tree_add_uint(t, hf_hip_tlv_notify_type, tvb, offset+6, 2,
++ 				tvb_get_ntohs(tvb, offset+6));
++ 	    /* TODO: add NOTIFY textual description here */
++ 	    tvb_memcpy(tvb, (guint8*)data, offset+8, tlv_len-4);
++ 	    proto_tree_add_bytes(t, hf_hip_tlv_notify_data, tvb, offset+8,
++ 				tlv_len-4, data);
++ 	    
++ 	    break;
++ 	case PARAM_ECHO_REQUEST: /* ECHO REQUEST */
++ 	case PARAM_ECHO_RESPONSE: /* ECHO RESPONSE */
++ 	    t = proto_item_add_subtree(ti, ett_hip_tlv_data);
++ 	    tvb_memcpy(tvb, (guint8*)data, offset+4, tlv_len);
++ 	    proto_tree_add_bytes(t, hf_hip_tlv_opaque_data, tvb, offset+4,
++ 				tlv_len, data);
++ 	    break;
++ 	case PARAM_HMAC: /* HMAC */
++ 	    t = proto_item_add_subtree(ti, ett_hip_tlv_data);
++ 	    tvb_memcpy(tvb, (guint8*)data, offset+4, tlv_len);
++ 	    proto_tree_add_bytes(t, hf_hip_tlv_hmac, tvb, offset+4,
++ 				tlv_len,data);
++ 	    break;
++ 	case PARAM_HIP_SIGNATURE_2: /* HIP_SIGNATURE_2 */
++ 	case PARAM_HIP_SIGNATURE: /* HIP_SIGNATURE */
++ 	    t = proto_item_add_subtree(ti, ett_hip_tlv_data);
++ 	    n = tvb_get_guint8(tvb, offset+4);
++ 	    proto_tree_add_uint_format(t, hf_hip_tlv_sig_alg, tvb, offset+4, 1,
++ 				n, "%u (%s)", n, sig_alg_label(n));
++ 	    tvb_memcpy(tvb, (guint8*)data, offset+5, tlv_len-1);
++ 	    proto_tree_add_bytes(t, hf_hip_tlv_sig, tvb, offset+5, tlv_len-1,
++ 				data);
++ 	    break;
++ 	case PARAM_ECHO_REQUEST_C: /* ECHO REQUEST */
++ 	case PARAM_ECHO_RESPONSE_C: /* ECHO RESPONSE */
++ 	    t = proto_item_add_subtree(ti, ett_hip_tlv_data);
++ 	    tvb_memcpy(tvb, (guint8*)data, offset+4, tlv_len);
++ 	    proto_tree_add_bytes(t, hf_hip_tlv_opaque_data, tvb, offset+4,
++ 				tlv_len, data);
++ 	    break;
++ 	case REA_INFO: /* REA_INFO PAYLOAD */
++ 	    t = proto_item_add_subtree(ti, ett_hip_tlv_data);
++ 	    proto_tree_add_uint(t, hf_hip_tlv_interface_id, tvb, offset+4, 4, tvb_get_ntohl(tvb, offset+4));
++ 	    proto_tree_add_uint(t, hf_hip_tlv_curr_spi_rev, tvb, offset+8, 4, tvb_get_ntohl(tvb, offset+8));
++ 	    proto_tree_add_uint(t, hf_hip_tlv_curr_spi, tvb, offset+12, 4, tvb_get_ntohl(tvb, offset+12));
++ 	    proto_tree_add_uint(t, hf_hip_tlv_new_spi, tvb, offset+16, 4, tvb_get_ntohl(tvb, offset+16));
++ 	    proto_tree_add_uint(t, hf_hip_tlv_keym_index, tvb, offset+20, 2, tvb_get_ntohs(tvb, offset+20));
++ 	    proto_tree_add_uint(t, hf_hip_tlv_rea_id, tvb, offset+22, 2, tvb_get_ntohs(tvb, offset+22));
++ 	    proto_tree_add_uint(t, hf_hip_tlv_reserved, tvb, offset+24, 4, tvb_get_ntohl(tvb, offset+24));
++ 	    proto_tree_add_uint(t, hf_hip_tlv_lifetime, tvb, offset+28, 4, tvb_get_ntohl(tvb, offset+28));
++ 	    tvb_memcpy(tvb, (guint8*)data, offset+32, 16);
++ 	    proto_tree_add_ipv6(t, hf_hip_tlv_address, tvb, offset+32, 16, data);
++ 	    
++ 	    tlv_len -= 48;
++ 	    newoffset = offset + 48;
++ 	    while (tlv_len > 0)
++ 	    {
++ 		    proto_tree_add_uint(t, hf_hip_tlv_reserved, tvb, newoffset+4, 4, tvb_get_ntohl(tvb, newoffset+4));
++ 		    proto_tree_add_uint(t, hf_hip_tlv_lifetime, tvb, newoffset+8, 4, tvb_get_ntohl(tvb, newoffset+8));
++ 		    tvb_memcpy(tvb, (guint8*)data, offset+12, 16);
++ 		    proto_tree_add_ipv6(t, hf_hip_tlv_address, tvb, offset+12, 16, data);
++ 		    tlv_len -= 28;
++ 		    newoffset += 28;
++ 	    }
++ 
++ 	    break;
++ 	case AC_INFO: /* AC_INFO PAYLOAD */
++ 	    t = proto_item_add_subtree(ti, ett_hip_tlv_data);
++ 	    proto_tree_add_uint(t, hf_hip_tlv_ac_id, tvb, offset+4, 2, tvb_get_ntohs(tvb, offset+4));
++ 	    proto_tree_add_uint(t, hf_hip_tlv_rea_id, tvb, offset+6, 2, tvb_get_ntohs(tvb, offset+6));
++ 	    proto_tree_add_uint(t, hf_hip_tlv_rtt_tstamp, tvb, offset+8, 4, tvb_get_ntohl(tvb, offset+8));
++ 	    proto_tree_add_uint(t, hf_hip_tlv_reserved, tvb, offset+12, 4, tvb_get_ntohs(tvb, offset+12));
++ 	    break;
++ 
++ 	default:
++ 	    break;
++     }
++     return (0);
++ }
++ 
+diff -C 2 -Nar ethereal-0.10.7/epan/dissectors/register.c ethereal-0.10.7-hip/epan/dissectors/register.c
+*** ethereal-0.10.7/epan/dissectors/register.c	2004-10-20 22:39:15.000000000 +0000
+--- ethereal-0.10.7-hip/epan/dissectors/register.c	2004-11-12 00:36:20.000000000 +0000
+***************
+*** 202,205 ****
+--- 202,206 ----
+    {extern void proto_register_h4501 (void); proto_register_h4501 ();}
+    {extern void proto_register_hclnfsd (void); proto_register_hclnfsd ();}
++   {extern void proto_register_hip (void); proto_register_hip ();}
+    {extern void proto_register_hpext (void); proto_register_hpext ();}
+    {extern void proto_register_hsrp (void); proto_register_hsrp ();}
+***************
+*** 723,726 ****
+--- 724,728 ----
+    {extern void proto_reg_handoff_h4501 (void); proto_reg_handoff_h4501 ();}
+    {extern void proto_reg_handoff_hclnfsd (void); proto_reg_handoff_hclnfsd ();}
++   {extern void proto_reg_handoff_hip (void); proto_reg_handoff_hip ();}
+    {extern void proto_reg_handoff_hpext (void); proto_reg_handoff_hpext ();}
+    {extern void proto_reg_handoff_hsrp (void); proto_reg_handoff_hsrp ();}
+diff -C 2 -Nar ethereal-0.10.7/epan/ipproto.h ethereal-0.10.7-hip/epan/ipproto.h
+*** ethereal-0.10.7/epan/ipproto.h	2004-10-20 22:35:04.000000000 +0000
+--- ethereal-0.10.7-hip/epan/ipproto.h	2004-11-12 00:36:20.000000000 +0000
+***************
+*** 143,147 ****
+  #define IP_PROTO_ETHERIP	97		/* Ethernet-within-IP - RFC 3378 */
+  #define IP_PROTO_ENCAP		98		/* encapsulation header - RFC1241*/
+! /* 99 is reserved by IANA for any private encryption scheme */
+  #define IP_PROTO_GMTP           100
+  #define IP_PROTO_IFMP           101             /* Ipsilon flow management protocol */
+--- 143,147 ----
+  #define IP_PROTO_ETHERIP	97		/* Ethernet-within-IP - RFC 3378 */
+  #define IP_PROTO_ENCAP		98		/* encapsulation header - RFC1241*/
+! #define IP_PROTO_HIP		99		/* Host Identity Protocol */
+  #define IP_PROTO_GMTP           100
+  #define IP_PROTO_IFMP           101             /* Ipsilon flow management protocol */
+diff -C 2 -Nar ethereal-0.10.7/epan/prefs.c ethereal-0.10.7-hip/epan/prefs.c
+*** ethereal-0.10.7/epan/prefs.c	2004-10-20 22:34:36.000000000 +0000
+--- ethereal-0.10.7-hip/epan/prefs.c	2004-11-12 00:36:20.000000000 +0000
+***************
+*** 1956,1960 ****
+          if (strcmp(dotp, "udp_summary_in_tree") == 0)
+            pref = find_preference(module, "summary_in_tree");
+!       } else if (strcmp(module->name, "ndps") == 0) {
+          /* Handle old names for NDPS preferences. */
+          if (strcmp(dotp, "desegment_ndps") == 0)
+--- 1956,1964 ----
+          if (strcmp(dotp, "udp_summary_in_tree") == 0)
+            pref = find_preference(module, "summary_in_tree");
+! 	} else if (strcmp(module->name, "hip") == 0) {
+! 	/* Handle old names for HIP preferences. */
+! 	if (strcmp(dotp, "hip_summary_in_tree") == 0)
+! 	pref = find_preference(module, "summary_in_tree");
+! 	} else if (strcmp(module->name, "ndps") == 0) {
+          /* Handle old names for NDPS preferences. */
+          if (strcmp(dotp, "desegment_ndps") == 0)

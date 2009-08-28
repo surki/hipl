@@ -1,0 +1,15 @@
+reset
+set ylabel "time / s"
+set xlabel "key size / bits"
+set xrange [256:4352]
+#set yrange [0:90]
+set xtics 256
+set style data yerrorbars
+#set style data linespoints
+
+set output "keygen.fig"
+set terminal fig color
+set terminal x11
+
+plot "logs/keygentest-final-dsa" using 1:2:3 title "DSA",\
+     "logs/keygentest-final-rsa" using 1:2:3 title "RSA"

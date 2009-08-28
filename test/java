@@ -1,0 +1,49 @@
+#!/bin/sh
+
+usage ()
+{
+cat <<EOF
+
+$0: a Java Virtual Machine wrapper script
+Usage: $0 [options] arguments to JVM
+
+This wrapper script is intended to eliminate any need to set
+classpaths by defining the extension directories and library paths
+suitably.  It is also possible to set some options with more ease than
+with the standard JVM options.  The assumption is that the variable
+HIPL_HOME points to the root of the HIPL tree; if this variable is not
+set, the .. is assumed.
+
+The accepted options are
+--help		show this help
+--profile       output profiling information to java.hprof.txt
+--noassert      turn off assertions (they are enabled by default)
+
+EOF
+exit 0
+}
+
+
+if [ -z "$HIPL_HOME" ] ; then
+    HIPL_HOME=..
+fi
+
+export LD_LIBRARY_PATH=$HIPL_HOME/libinet6:$HIPL_HOME/jip:$HIPL_HOME/libhiptool:$HIPL_HOME/jip/jip.jar
+export LD_PRELOAD=libinet6.so:libhiptool.so
+
+opts=''
+
+# The options to JVM (at least Sun's) all start with a single hyphen.
+# So our options start with a double hyphen.  Fiendishy clever and
+# about as non-fragile as a handful of eggs :)
+while echo "$1" | grep -q "^--" ; do
+    case "$1" in
+	--help) usage ;;
+	--profile) opts="$opts -Xrunhprof:cpu=samples,depth=18,thread=y" ;;
+	--noassert) opts="$opts -disableassertions"; assert="no" ;;
+	*) echo "Unknown option: $1" ;;
+    esac
+    shift
+done
+
+exec java -classpath $HIPL_HOME/jip/jip.jar:$HIPL_HOME/test:. $opts "$@"

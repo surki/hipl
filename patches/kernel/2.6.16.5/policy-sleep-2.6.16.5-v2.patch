@@ -1,0 +1,72 @@
+diff -urN linux-2.6.16.5/include/linux/xfrm.h linux-2.6.16.5-sleep/include/linux/xfrm.h
+--- linux-2.6.16.5/include/linux/xfrm.h	2006-04-12 23:27:57.000000000 +0300
++++ linux-2.6.16.5-sleep/include/linux/xfrm.h	2006-04-15 01:08:22.000000000 +0300
+@@ -43,6 +43,12 @@
+ #define XFRM_SC_ALG_RESERVED 0
+ #define XFRM_SC_ALG_SELINUX 1
+ 
++/* Transport layer flag  passed to xfrm_lookup. If set, the userspace
++   process sleeps in a waitqueue until key management daemon has 
++   finished setting up security associations. This workaround exists 
++   until we have queues for outgoing IPsec packets. */
++#define XFRM_LOOKUP_SLEEP (!in_atomic() && !in_softirq())
++
+ /* Selector, used as selector both on policy rules (SPD) and SAs. */
+ 
+ struct xfrm_selector
+diff -urN linux-2.6.16.5/include/net/xfrm.h linux-2.6.16.5-sleep/include/net/xfrm.h
+--- linux-2.6.16.5/include/net/xfrm.h	2006-04-12 23:27:57.000000000 +0300
++++ linux-2.6.16.5-sleep/include/net/xfrm.h	2006-04-14 19:48:19.000000000 +0300
+@@ -200,7 +200,7 @@
+ extern void km_policy_notify(struct xfrm_policy *xp, int dir, struct km_event *c);
+ extern void km_state_notify(struct xfrm_state *x, struct km_event *c);
+ 
+-#define XFRM_ACQ_EXPIRES	30
++#define XFRM_ACQ_EXPIRES	3
+ 
+ struct xfrm_tmpl;
+ struct xfrm_state_afinfo {
+diff -urN linux-2.6.16.5/net/ipv6/icmp.c linux-2.6.16.5-sleep/net/ipv6/icmp.c
+--- linux-2.6.16.5/net/ipv6/icmp.c	2006-04-12 23:27:57.000000000 +0300
++++ linux-2.6.16.5-sleep/net/ipv6/icmp.c	2006-04-15 01:18:44.000000000 +0300
+@@ -64,6 +64,7 @@
+ #include <net/ip6_route.h>
+ #include <net/addrconf.h>
+ #include <net/icmp.h>
++#include <linux/xfrm.h>
+ 
+ #include <asm/uaccess.h>
+ #include <asm/system.h>
+@@ -389,7 +390,7 @@
+ 		goto out_dst_release;
+ 	}
+ 
+-	if ((err = xfrm_lookup(&dst, &fl, sk, 0)) < 0)
++	if ((err = xfrm_lookup(&dst, &fl, sk, XFRM_LOOKUP_SLEEP)) < 0)
+ 		goto out;
+ 
+ 	if (ipv6_addr_is_multicast(&fl.fl6_dst))
+diff -urN linux-2.6.16.5/net/ipv6/tcp_ipv6.c linux-2.6.16.5-sleep/net/ipv6/tcp_ipv6.c
+--- linux-2.6.16.5/net/ipv6/tcp_ipv6.c	2006-04-12 23:27:57.000000000 +0300
++++ linux-2.6.16.5-sleep/net/ipv6/tcp_ipv6.c	2006-04-15 01:08:38.000000000 +0300
+@@ -258,7 +258,7 @@
+ 	if (final_p)
+ 		ipv6_addr_copy(&fl.fl6_dst, final_p);
+ 
+-	if ((err = xfrm_lookup(&dst, &fl, sk, 0)) < 0)
++	if ((err = xfrm_lookup(&dst, &fl, sk, XFRM_LOOKUP_SLEEP)) < 0)
+ 		goto failure;
+ 
+ 	if (saddr == NULL) {
+diff -urN linux-2.6.16.5/net/ipv6/udp.c linux-2.6.16.5-sleep/net/ipv6/udp.c
+--- linux-2.6.16.5/net/ipv6/udp.c	2006-04-12 23:27:57.000000000 +0300
++++ linux-2.6.16.5-sleep/net/ipv6/udp.c	2006-04-15 01:09:39.000000000 +0300
+@@ -789,7 +789,7 @@
+ 	if (final_p)
+ 		ipv6_addr_copy(&fl->fl6_dst, final_p);
+ 
+-	if ((err = xfrm_lookup(&dst, fl, sk, 0)) < 0)
++	if ((err = xfrm_lookup(&dst, fl, sk, XFRM_LOOKUP_SLEEP)) < 0)
+ 		goto out;
+ 
+ 	if (hlimit < 0) {

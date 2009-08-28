@@ -1,0 +1,3 @@
+in order to solve the lack of a movement detection system in HIPL code (as well as the other HIP implementations, as far as I know) I 've used  a modified version of radvdump tool (patch attached). This hacked tool listens for RA packets in the network and deletes old ip addresses and routes when it receives an new prefix. Thus, you don't have to wait for them to timeout and readdressing process is triggered earlier.
+
+Fco. Javier Melero

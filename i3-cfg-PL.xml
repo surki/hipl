@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<I3ConfigFile version="0.1">
+	<I3ServerDetails
+		UsePing="yes"
+		UseTCP="yes"
+		ServerListURL="rose.cs.berkeley.edu:8080/i3_status.txt"
+	>
+        <!-- If UsePing is false, you have to make sure that
+             this first hop i3 server is running.  You can
+             check the status of the i3 servers at
+             http://i3.cs.berkeley.edu
+             -->
+
+	</I3ServerDetails>
+</I3ConfigFile>

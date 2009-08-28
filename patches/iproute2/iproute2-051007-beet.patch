@@ -1,0 +1,193 @@
+diff -urN iproute2-051007/ip/ipxfrm.c iproute2-051007-beet/ip/ipxfrm.c
+--- iproute2-051007/ip/ipxfrm.c	2005-03-22 18:13:21.000000000 +0200
++++ iproute2-051007-beet/ip/ipxfrm.c	2005-10-14 16:41:12.000000000 +0300
+@@ -282,6 +282,9 @@
+ 	case 1:
+ 		fprintf(fp, "tunnel");
+ 		break;
++	case 2:
++		fprintf(fp, "beet");
++		break;
+ 	default:
+ 		fprintf(fp, "%u", mode);
+ 		break;
+@@ -761,12 +764,15 @@
+ }
+ 
+ int xfrm_id_parse(xfrm_address_t *saddr, struct xfrm_id *id, __u16 *family,
+-		  int loose, int *argcp, char ***argvp)
++		  int loose, struct xfrm_selector *sel,  int *argcp, char ***argvp)
+ {
+ 	int argc = *argcp;
+ 	char **argv = *argvp;
+ 	inet_prefix dst;
+ 	inet_prefix src;
++	/* Identities */
++	inet_prefix i_dst;
++	inet_prefix i_src;
+ 
+ 	memset(&dst, 0, sizeof(dst));
+ 	memset(&src, 0, sizeof(src));
+@@ -798,6 +804,26 @@
+ 
+ 			filter.id_dst_mask = dst.bitlen;
+ 
++		} else if (strcmp(*argv, "isrc") == 0) {
++			NEXT_ARG();
++
++			get_prefix(&i_src, *argv, preferred_family);
++			if (i_src.family == AF_UNSPEC)
++				invarg("\"isrc\" address family is AF_UNSPEC", *argv);
++			sel->family = i_src.family;
++
++			memcpy(&sel->saddr, &i_src.data, sizeof(sel->saddr));
++
++		} else if (strcmp(*argv, "idst") == 0) {
++			NEXT_ARG();
++
++			get_prefix(&i_dst, *argv, preferred_family);
++			if (i_dst.family == AF_UNSPEC)
++				invarg("\"idst\" address family is AF_UNSPEC", *argv);
++			sel->family = i_dst.family;
++
++			memcpy(&sel->daddr, &i_dst.data, sizeof(sel->daddr));
++
+ 		} else if (strcmp(*argv, "proto") == 0) {
+ 			int ret;
+ 
+@@ -836,6 +862,9 @@
+ 	if (src.family && dst.family && (src.family != dst.family))
+ 		invarg("the same address family is required between \"src\" and \"dst\"", *argv);
+ 
++	if (i_src.family && i_dst.family && (i_src.family != i_dst.family))
++		invarg("the same address family is required between \"isrc\" and \"idst\"", *argv);
++
+ 	if (loose == 0 && id->proto == 0)
+ 		missarg("XFRM_PROTO");
+ 	if (argc == *argcp)
+@@ -856,6 +885,8 @@
+ 		*mode = 0;
+ 	else if (matches(*argv, "tunnel") == 0)
+ 		*mode = 1;
++	else if (matches(*argv, "beet") == 0)
++		*mode = 2;
+ 	else
+ 		invarg("\"MODE\" is invalid", *argv);
+ 
+diff -urN iproute2-051007/ip/xfrm.h iproute2-051007-beet/ip/xfrm.h
+--- iproute2-051007/ip/xfrm.h	2005-03-22 18:13:21.000000000 +0200
++++ iproute2-051007-beet/ip/xfrm.h	2005-10-14 16:41:12.000000000 +0300
+@@ -123,7 +123,7 @@
+ 			    struct rtattr *tb[], FILE *fp, const char *prefix,
+ 			    const char *title);
+ int xfrm_id_parse(xfrm_address_t *saddr, struct xfrm_id *id, __u16 *family,
+-		  int loose, int *argcp, char ***argvp);
++		  int loose, struct xfrm_selector *sel, int *argcp, char ***argvp);
+ int xfrm_mode_parse(__u8 *mode, int *argcp, char ***argvp);
+ int xfrm_encap_type_parse(__u16 *type, int *argcp, char ***argvp);
+ int xfrm_reqid_parse(__u32 *reqid, int *argcp, char ***argvp);
+diff -urN iproute2-051007/ip/xfrm_policy.c iproute2-051007-beet/ip/xfrm_policy.c
+--- iproute2-051007/ip/xfrm_policy.c	2005-06-08 00:58:25.000000000 +0300
++++ iproute2-051007-beet/ip/xfrm_policy.c	2005-10-14 16:41:12.000000000 +0300
+@@ -87,7 +87,7 @@
+ 	fprintf(stderr, "%s", strxf_xfrmproto(IPPROTO_COMP));
+ 	fprintf(stderr, " ]\n");
+ 
+- 	fprintf(stderr, "MODE := [ transport | tunnel ](default=transport)\n");
++ 	fprintf(stderr, "MODE := [ transport | tunnel | beet ](default=transport)\n");
+  	//fprintf(stderr, "REQID - number(default=0)\n");
+ 	fprintf(stderr, "LEVEL := [ required | use ](default=required)\n");
+ 
+@@ -121,6 +121,9 @@
+ 	char **argv = *argvp;
+ 	char *idp = NULL;
+ 
++	/* At the moment this selector is used only for xfrm_id_parse call */
++	struct xfrm_selector sel;
++
+ 	while (1) {
+ 		if (strcmp(*argv, "mode") == 0) {
+ 			NEXT_ARG();
+@@ -145,7 +148,7 @@
+ 			}
+ 			idp = *argv;
+ 			xfrm_id_parse(&tmpl->saddr, &tmpl->id, &tmpl->family,
+-				      0, &argc, &argv);
++				      0, &sel, &argc, &argv);
+ 			if (preferred_family == AF_UNSPEC)
+ 				preferred_family = tmpl->family;
+ 		}
+@@ -253,8 +256,6 @@
+ 			selp = *argv;
+ 
+ 			xfrm_selector_parse(&req.xpinfo.sel, &argc, &argv);
+-			if (preferred_family == AF_UNSPEC)
+-				preferred_family = req.xpinfo.sel.family;
+ 		}
+ 
+ 		argc--; argv++;
+@@ -593,7 +594,7 @@
+ 
+ 			xfrm_selector_parse(&filter.xpinfo.sel, &argc, &argv);
+ 			if (preferred_family == AF_UNSPEC)
+-				preferred_family = filter.xpinfo.sel.family;
++                               preferred_family = filter.xpinfo.sel.family;
+ 
+ 		}
+ 
+diff -urN iproute2-051007/ip/xfrm_state.c iproute2-051007-beet/ip/xfrm_state.c
+--- iproute2-051007/ip/xfrm_state.c	2005-07-09 01:08:47.000000000 +0300
++++ iproute2-051007-beet/ip/xfrm_state.c	2005-10-14 16:41:12.000000000 +0300
+@@ -75,7 +75,7 @@
+ 
+ 	//fprintf(stderr, "SPI - security parameter index(default=0)\n");
+ 
+- 	fprintf(stderr, "MODE := [ transport | tunnel ](default=transport)\n");
++ 	fprintf(stderr, "MODE := [ transport | tunnel | beet ](default=transport)\n");
+  	//fprintf(stderr, "REQID - number(default=0)\n");
+ 
+ 	fprintf(stderr, "FLAG-LIST := [ FLAG-LIST ] FLAG\n");
+@@ -351,7 +351,7 @@
+ 
+ 				/* ID */
+ 				xfrm_id_parse(&req.xsinfo.saddr, &req.xsinfo.id,
+-					      &req.xsinfo.family, 0, &argc, &argv);
++					      &req.xsinfo.family, 0, &req.xsinfo.sel, &argc, &argv);
+ 				if (preferred_family == AF_UNSPEC)
+ 					preferred_family = req.xsinfo.family;
+ 			}
+@@ -460,7 +460,7 @@
+ 
+ 			/* ID */
+ 			xfrm_id_parse(&req.xspi.info.saddr, &req.xspi.info.id,
+-				      &req.xspi.info.family, 0, &argc, &argv);
++				      &req.xspi.info.family, 0, &req.xspi.info.sel, &argc, &argv);
+ 			if (req.xspi.info.id.spi) {
+ 				fprintf(stderr, "\"SPI\" must be zero\n");
+ 				exit(1);
+@@ -640,6 +640,7 @@
+ 		 * XXX: message of IPsec SA.
+ 		 */
+ 		xfrm_address_t ignore_saddr;
++		struct xfrm_selector ignore_sel;
+ 
+ 		if (idp)
+ 			invarg("unknown", *argv);
+@@ -648,7 +649,7 @@
+ 		/* ID */
+ 		memset(&id, 0, sizeof(id));
+ 		xfrm_id_parse(&ignore_saddr, &id, &req.xsid.family, 0,
+-			      &argc, &argv);
++			      &ignore_sel, &argc, &argv);
+ 
+ 		memcpy(&req.xsid.daddr, &id.daddr, sizeof(req.xsid.daddr));
+ 		req.xsid.spi = id.spi;
+@@ -774,7 +775,7 @@
+ 
+ 			/* ID */
+ 			xfrm_id_parse(&filter.xsinfo.saddr, &filter.xsinfo.id,
+-				      &filter.xsinfo.family, 1, &argc, &argv);
++				      &filter.xsinfo.family, 1, &filter.xsinfo.sel, &argc, &argv);
+ 			if (preferred_family == AF_UNSPEC)
+ 				preferred_family = filter.xsinfo.family;
+ 		}

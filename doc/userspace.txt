@@ -1,0 +1,56 @@
+In kernel
+---------
+
+security.c  - IPsec SA management -> split into two: SA/IPsec management and DH functions
+socket.c    - Native Socket API -> no changes, as db.c remains in the kernel.
+hadb.c - HA database (for transport layer integration) -> NETLINK API
+         replaces the function API (for starters only the functions
+         that are called from the userspace).
+output.c    - hip_handle_output() [forwads the handshake to the queue, if no HA]
+input.c     - hip_inbound() [inserts to the queue]
+debug.c     - Logging facilities (NO CHANGES NEEDED)
+
+Userspace or kernel
+-------------------
+
+builder.c   - HIP packet parsing/construction
+keymat.c    - Keymaterial generation (macros (?) wrapping the current crypto API calls)
+cookie.c    - Cookie generation/validation
+hashtable.c -  
+hip.c       - Misc. packet processing functions -> split to kernel-only and where-ever files
+misc.c      - the same.
+input.c     - Processing of incoming messages (from wire)  -> separate files for payload and signaling, separate files for work before workqueue and by workqueue (the first operates for now in kernel only)
+output.c    - Processing of outgoing messages (to wire)    -> separate files for payload and signaling (hip_handle_output for upperlayers)
+workqueue.c - The queue of work orders -> netlink based add to queue for userspace
+db.c        - EID/HI/HIT database. --> Should be splitted so that EID DB is within the kernelspace. NETLINK API
+gcrypto     - use the userspace library, do not port anything. (DH/RSA/DSA)
+
+Not ported for now
+------------------
+
+test.c      - unit tests.
+rvs.c       - Rendezvous 
+update.c    - Update packet processing.
+
+High-level description of userspace / kernel work division
+----------------------------------------------------------
+
+- for incoming traffic: the code to generate a work order. in future
+  r1 optionally in kernel.
+
+- for outgoing traffic: 
+    1) HA established: the code to send the packet through without any
+       userspace calls;
+    2) HA not-established: the code to generate a work order to
+       initiate the HA (then block until HA established/failed)
+
+
+Netlink work orders
+-------------------
+
+- security.c api
+
+
+Nakkilista
+----------
+

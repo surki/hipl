@@ -1,0 +1,20 @@
+This patch is for vanilla kernel:
+
+  vanilla-hipmod-sleep-beet-and-interfamily-all-in-one.patch
+
+The following patches are for CentOS 5.2:
+
+centos-5.2-hipmod-sleep-beet-and-interfamily-all-in-one.patch
+kernel-2.6.18-92.1.10.el5.spec.patch
+
+1. wget ftp://ftp.muug.mb.ca/mirror/centos/5.2/updates/SRPMS/kernel-2.6.18-92.1.10.el5.src.rpm
+2. rpm -i kernel-2.6.18-92.1.10.el5.src.rpm
+   (use --force if necessary)
+3. cd /usr/src/redhat/SPECS
+4. patch -p0 < /locationof/patches/kernel/2.6.18.0/centos-5.2-kernel-2.6.18-92.1.10.el5.spec.patch
+5. cp patches/kernel/2.6.18.0/centos-5.2-hipmod-sleep-beet-and-interfamily-all-in-one.patch /usr/src/redhat/SOURCES/
+6. rpmbuild --target i686 -ba --without kabichk /usr/src/redhat/SPECS/kernel-2.6.spec
+7. rpm -i <built-package>
+8. Do something with the grub, possibly the following:
+  /sbin/new-kernel-pkg --mkinitrd --depmod --install --make-default 2.6.18
+

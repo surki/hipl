@@ -1,0 +1,342 @@
+#!/bin/sh
+#
+# usage:    See help() or run without command line opts or run with -h
+# licence:  GNU/GPL
+# purpose:  Install kernel modules, initialize hip kernel module
+#           and run base exchange between two hosts.
+# todo:
+# - Handover test
+#
+# bugs:
+# - xx
+#
+### Global Variables ########################################################
+
+# Do not change these and try to not to access them directly from
+# functions (pass them as parameters whenever it is convinient).
+
+# Reuse $HIPL_DIR if it was set up in the shell environment. Otherwise
+# the default value is the previous directory
+# (assume cd hipl/test && ./hipsetup).
+#
+if [ "$HIPL_DIR" = "" ]
+then
+    HIPL_DIR=".."
+fi
+
+CHECK_HIPL_DIRS=". linux tools test"
+CHECK_HIPL_APPS="tools/hipconf test/conntest-client-gai test/conntest-server"
+CHECK_HIPL_HOSTS="/etc/hosts /etc/hip/hosts"
+CHECK_PATH_DEP="make pidof sleep rmmod modprobe grep ssh perl echo\
+                ping6 awk"
+INSTALL_MODULES="0"
+LOCALHOST=`hostname`
+MODE="undefined"
+PEER_IFACE="eth0"
+PEER_NAME="undefined"
+PORT="12345"
+PROTO="tcp"
+REMOTE_USER="root"
+
+#/sbin/ifconfig eth0 add 2ffe::10/64 2>/dev/null
+#/sbin/ip route add default via 2ffe::ffff dev eth0 2>/dev/null
+
+
+
+### Functions ###############################################################
+
+# Purpose: Print usage instructions
+# Params:  None
+#
+help() {
+cat << EOF
+Usage:   hipsetup [-m] [-d hipldir] <-i peername|-s peername|-r>
+         hipsetup [-h]
+
+Examples:
+
+Establish a base exchange from crash to oops:
+
+    oops  # hipsetup -m -d /path/to/hipldir -r
+    crash # hipsetup -m -d /path/to/hipldir -i oops
+
+Establish a base exchange from crash to oops with just one command:
+
+    oops  # hipsetup -m -d /path/to/hipldir -s crash
+
+EOF
+}
+
+# Purpose: Print an error message and exit with an error code
+# Params:  Error message
+#
+die() {
+    echo "hipsetup: $@"
+    exit 1
+}
+
+# Purpose: Set the mode to the given mode if no mode was defined before
+# Params:  The mode
+# Notes:   If a mode has been defined before, the function exits
+#
+set_and_check_mode() {
+    if [ "$MODE" = "undefined" ]
+    then
+	MODE="$1"
+    else
+	help
+	die "Only one mode of operation is allowed at once."
+    fi
+}
+
+# Purpose: Parse command line args
+# Params:  the command line args
+# Depends: $INSTALL_MODULES, $HIPL_DIR PEER_NAME, $MODE
+#
+parse_args() {
+    OPTIND=1
+    while [ $# -ge  $OPTIND ]
+    do
+	getopts hmrs:d:i: NAME "$@"
+
+	case $NAME in
+	    h) help; exit 0                                  ;;
+	    m) INSTALL_MODULES=1                             ;;
+	    d) HIPL_DIR="$OPTARG"                            ;;
+	    i) PEER_NAME="$OPTARG"
+	       set_and_check_mode "base-exchange-initiator"  ;;
+	    s) PEER_NAME="$OPTARG"
+	       set_and_check_mode "base-exchange-ssh"        ;;
+	    r) set_and_check_mode "base-exchange-responder"  ;;
+	    *) help
+               die "bad args"                                ;;
+	esac
+    done
+
+    if [ "$MODE" = "undefined" ]
+    then
+	help
+	die "No mode specified"
+    fi
+
+}
+
+# Purpose: Check that the setup is ok for proper execution of hipsetup
+# Depends: $HIPL_DIR, $CHECK_XX variables
+#
+check_setup() {
+    # Check that $HIPL_DIR contains proper subdirs
+    #
+    echo $CHECK_HIPL_DIRS|tr ' ' '\n'| \
+	while read DIR
+	do
+	    if ! test -d "$HIPL_DIR/$DIR" -a -r "$HIPL_DIR/$DIR"
+	    then
+		die "$HIPL_DIR/$DIR does not exist or it is not readable"
+	    fi
+	done
+
+    # Check that HIPL application are compiled
+    #
+    echo $CHECK_HIPL_APPS|tr ' ' '\n'| \
+	while read APP
+	do
+	    if ! test -x "$HIPL_DIR/$APP"
+	    then
+		die "$HIPL_DIR/$APP does not exist or it is not executable"
+	    fi
+	done
+
+    # Check that the binaries required for setup are in $PATH
+    #
+    echo $CHECK_PATH_DEP|tr ' ' '\n'| \
+	while read EXE
+	do
+	    if ! type $EXE >/dev/null 2>&1
+	    then
+		die "$EXE is not in PATH"
+	    fi
+	done
+
+    # Check that hosts files exist. Check also that they contain the
+    # peername (only if it was given).
+    #
+    echo $CHECK_HIPL_HOSTS|tr ' ' '\n'| \
+	while read HOSTS_FILE
+	do
+	    if test ! -r $HOSTS_FILE
+	    then
+		die "$HOSTS_FILE is not in PATH"
+	    fi
+            if [ "$PEER_NAME" != "undefined" ]
+            then
+	        if ! grep -q $PEER_NAME $HOSTS_FILE
+	        then
+		   die "Peer $PEER_NAME is not configured in $HOSTS_FILE"
+	        fi
+            fi
+	done
+
+        if [ "$PEER_NAME" != "undefined" ]
+        then
+	    if [ "$MODE" = "base-exchange-ssh"  ]
+	    then
+	      ping -c 1 $PEER_NAME >/dev/null || \
+                  die "Could not ping $PEER_NAME" 
+            fi
+	    #ping6 -I $PEER_IFACE -c 1 $PEER_NAME >/dev/null || \
+            #    die "Could not ping6 $PEER_NAME" 
+	fi
+}
+
+# Purpose: Install kernel modules
+# Params:  The Linux kernel source directory
+#
+install_modules() {
+    local LINUX_DIR="$1"
+    echo "Installing modules in directory $LINUX_DIR"
+    make -C $LINUX_DIR modules_install
+}
+
+# Purpose: Setup HIP (restart the module and set up key material).
+# Params:  $HIPL_DIR
+#          $INSTALL_MODULES
+#
+setup_hip() {
+    local HIPL_DIR=$1
+    local INSTALL_MODULES=$2
+
+    if [ "$INSTALL_MODULES" = "1" ]
+    then
+	install_modules "$HIPL_DIR/linux"
+    fi
+
+    # Remove hip module.
+    #
+    if grep -q hipmod /proc/modules;then
+	rmmod hipmod
+    fi
+    sleep 1
+
+    # Insert hip module (if found) and give some time for it to initialize
+    # itself.
+    #
+    set +e
+    modprobe -v hipmod
+    set -e
+    sleep 3
+
+    $HIPL_DIR/tools/hipconf add hi default
+    sleep 2
+}
+
+# Purpose: Convert the arguments for hipsetup to something that can be
+#          executed on the remote host via ssh 
+# Params:  $@ for the hipsetup program
+# Depends: $HIPL_DIR, $LOCALHOST
+# Notes:   Assumes that the directory structure is the same in the localhost
+#          as in the remote host.
+#
+convert_ssh_remote_command() {
+     local REMOTE_HIPL_DIR=$HIPL_DIR
+     local REMOTE_HIPL_SETUP="$@"
+
+     # Convert a relative HIPL_DIR path to absolute
+     if ! echo $REMOTE_HIPL_DIR | grep -q '^/'
+     then
+	REMOTE_HIPL_DIR="`pwd`/$REMOTE_HIPL_DIR"
+     fi
+
+     # Convert a relative hipsetup path to absolute one:
+     # first, remove the name (and path) of hipsetup script from the beginning
+     REMOTE_HIPL_SETUP=`echo "$REMOTE_HIPL_SETUP"|\
+	perl -n -e "s#^\S+hipsetup##; print"`
+     # and finally add the script name with absolute path to the beginning
+     REMOTE_HIPL_SETUP="$REMOTE_HIPL_DIR/test/hipsetup $REMOTE_HIPL_SETUP"
+
+     # Convert "-s peer" to "-i localhost" for remote execution of hipsetup
+     # and remove "-d path/to/hipldir" if it exits.
+     #
+     REMOTE_HIPL_SETUP=`echo "$REMOTE_HIPL_SETUP"|\
+	perl -n -e "s#-s\s+\S+#-i $LOCALHOST#; s#-d\s+\S+##; print"`
+     # Add the "-d /path/to/hipldir" so that it will be executed from
+     # the correct directory. The added entry will be also in
+     # absolute format instead of relate format.
+     #
+     REMOTE_HIPL_SETUP="$REMOTE_HIPL_SETUP -d $REMOTE_HIPL_DIR"
+
+     echo "$REMOTE_HIPL_SETUP"
+}
+
+# Purpose: Check if base exchange is established
+# Params:  $PEER_NAME
+# Notes:   Exits with an error message if base exchange was not established
+#
+check_hip_state_established () {
+    local HIP_PROC_SDB="/proc/net/hip/sdb_state"
+    local PEER_NAME=$1
+    local PEER_HIT=`awk -F '[ \t]' -v peer=$PEER_NAME '{m=split($0, l);if (m == 2 && l[2] == peer) print l[1];exit}' /etc/hip/hosts`
+
+    if test -r $HIP_PROC_SDB
+    then
+	if  grep $PEER_HIT $HIP_PROC_SDB | grep -q ^ESTABLISHED >/dev/null
+	then
+	    echo "===> HIP base exchange established with $PEER_NAME <==="
+	else
+	    echo "### HIP BASE EXCHANGE FAILED !!! ####"
+	fi
+    else
+	die "Could not read $HIP_PROC_SDB"
+    fi
+}
+
+### Main Program ############################################################
+
+# Abort on the first failed command.
+#
+set -e
+
+parse_args $@
+check_setup
+echo "Setting up HIP in $LOCALHOST, please wait..."
+setup_hip $HIPL_DIR $INSTALL_MODULES
+
+case $MODE in
+    base-exchange-initiator)
+	# Localhost acts as the initiator in the base exchange
+	#
+	echo "Initiator mode"
+	# wait a few secs for HIP socket handlers and addition of local host ID setup
+	sleep 3
+	echo "Connecting to peer host $PEER_NAME"
+	$HIPL_DIR/test/conntest-client-gai $PEER_NAME $PROTO $PORT < /dev/null
+	check_hip_state_established $PEER_NAME
+    ;;
+    base-exchange-responder)
+	# Localhost acts as the responder in the base exchange
+	#
+	echo "Responder mode"
+	if pidof conntest-server >/dev/null
+	then
+	    killall conntest-server
+	fi
+	$HIPL_DIR/test/conntest-server $PROTO $PORT
+	check_hip_state_established $PEER_NAME
+    ;;
+    base-exchange-ssh)
+	# Setup HIP base exchange between the localhost and the remote host
+	# with just one command from the localhost!
+	#
+	# Note: the remote host will be the initiator. It is more difficult
+	# to do it the other way around because of synchronization problems.
+	#
+	echo "Initiator-responder mode"
+	if pidof conntest-server >/dev/null
+	then
+	    killall conntest-server
+	fi
+	$HIPL_DIR/test/conntest-server $PROTO $PORT &
+	ssh "$REMOTE_USER@$PEER_NAME" `convert_ssh_remote_command $0 $@`
+	check_hip_state_established $PEER_NAME
+    ;;
+esac

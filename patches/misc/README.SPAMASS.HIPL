@@ -1,0 +1,44 @@
+Installation and configuration
+==============================
+
+* spamc
+* libmilter0
+* libmilter-dev 
+* apply spamass-milter-0.3.0-hipl-v1.patch
+* apply spamass-sendmail-debian-v1.patch
+  * edit the directory path to point to the correct hipconf
+* cd /etc/mail/ && make
+* spamass-milter (install and then replace the original with the modified one):
+  mv /usr/sbin/spamass-milter /usr/sbin/spamass-milter.orig
+  ./configure --sbindir=/usr/sbin
+* /etc/default/spamassassin: ENABLED=1
+* /etc/default/spamass-milter: OPTIONS=-r 15
+* modify the /etc/init.d/spamass-milter stop rule to "killall spamass-milter"
+* reboot!
+
+  I noticed that 64 MB is not enough mem. Using 256 MB is fine.
+
+./configure --enable-spam # required for proper SPAM cookie indexing
+
+Note: before running, you need to do this on the spam host:
+
+/etc/init.d/spamassassin stop
+
+otherwise the spammer cannot send any spam because they are rejected
+at the localhost.
+
+Configure the HITs of both client and server to /etc/hosts (not
+/etc/hip/hosts). That is, on the client you need to HITs in the hosts
+file, and the applies to the server.
+
+Running
+=======
+
+cd test/demo/spam-client
+./spam-client
+
+
+
+
+
+

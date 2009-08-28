@@ -1,0 +1,122 @@
+diff -Naur netcat-1.10.orig/netcat.c netcat-1.10/netcat.c
+--- netcat-1.10.orig/netcat.c	2008-08-26 12:51:28.000000000 +0300
++++ netcat-1.10/netcat.c	2008-08-26 13:22:48.000000000 +0300
+@@ -186,6 +186,7 @@
+ #ifdef IP_TOS
+ unsigned char o_tos = 0;
+ #endif
++unsigned char o_udpmulti = 0;
+ /* o_tn in optional section */
+ 
+ /* Debug macro: squirt whatever message and sleep a bit so we can see it go
+@@ -655,8 +656,13 @@
+ 
+ /* grab a socket; set opts */
+ newskt:
+-  if (o_udpmode)
++  if (o_udpmode) {
+     nnetfd = socket (AF_INET, SOCK_DGRAM, IPPROTO_UDP);
++    if (o_udpmulti) {
++      x = 1;
++      rr = setsockopt (nnetfd, SOL_IP, IP_PKTINFO, &x, sizeof(x));
++    }
++  }
+   else
+     nnetfd = socket (AF_INET, SOCK_STREAM, IPPROTO_TCP);
+   if (nnetfd < 0)
+@@ -701,9 +707,6 @@
+   rr = setsockopt(nnetfd, SOL_SOCKET, SO_RCVBUF, &o_rcvbuf, sizeof o_rcvbuf);
+   rr = setsockopt(nnetfd, SOL_SOCKET, SO_SNDBUF, &o_sndbuf, sizeof o_sndbuf);
+ #endif
+-  
+-  /* fill in all the right sockaddr crud */
+-    lclend->sin_family = AF_INET;
+ 
+ /* fill in all the right sockaddr crud */
+   lclend->sin_family = AF_INET;
+@@ -903,8 +906,47 @@
+ #else
+     if (setjmp (jbuf) == 0) {	/* do timeout for initial connect */
+ #endif
+-      rr = recvfrom		/* and here we block... */
+-	(nnetfd, bigbuf_net, BIGSIZ, MSG_PEEK, (SA *) remend, &x);
++      if (o_udpmulti) {
++        struct msghdr msg;	/* have to use recvmsg() to get our address */
++        struct iovec iov;
++        struct cmsghdr *cmsg;
++        struct in_pktinfo *pktinfo = NULL;
++        memset(&msg, 0, sizeof (msg));
++        msg.msg_name = remend;
++        msg.msg_namelen = sizeof (SA);
++        msg.msg_iov = &iov;
++        msg.msg_iovlen = 1;
++        msg.msg_control = malloc(40);
++        msg.msg_controllen = 40;
++        iov.iov_base = bigbuf_net;
++        iov.iov_len = BIGSIZ;
++
++        rr = recvmsg (nnetfd, &msg, MSG_PEEK);
++        if (rr < 0)
++          goto dol_err;
++
++        for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)){
++          if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_PKTINFO){
++            pktinfo = (struct in_pktinfo *) CMSG_DATA (cmsg);
++            break;
++          }
++        }
++	if (!pktinfo)
++	  goto dol_err;
++
++	/* We can't bind the existing socket to an address, so we
++	   make a new one and send the packet to ourselves. Ugly. */
++        x = nnetfd;
++	o_udpmulti = 0;		/* no need to set IP_PKTINFO anymore */
++        nnetfd = doconnect (rad, rp, (IA *) &pktinfo->ipi_addr, lp);
++	o_udpmulti = 1;
++        sendto (x, bigbuf_net, rr, 0, (SA *) lclend, sizeof (SA));
++        close (x);
++        free (msg.msg_control);
++      } else { /* !o_udpmulti */
++        rr = recvfrom		/* and here we block... */
++	  (nnetfd, bigbuf_net, BIGSIZ, MSG_PEEK, (SA *) remend, &x);
++      }
+ Debug (("dolisten/recvfrom ding, rr = %d, netbuf %s ", rr, bigbuf_net))
+     } else
+       goto dol_tmo;		/* timeout */
+@@ -1512,7 +1554,7 @@
+ 
+ /* If your shitbox doesn't have getopt, step into the nineties already. */
+ /* optarg, optind = next-argv-component [i.e. flag arg]; optopt = last-char */
+-  while ((x = getopt (argc, argv, "abc:e:g:G:hi:klno:p:q:rs:T:tuvw:z")) != EOF) {
++  while ((x = getopt (argc, argv, "abc:e:g:G:hi:klmno:p:q:rs:T:tuvw:z")) != EOF) {
+ /* Debug (("in go: x now %c, optarg %x optind %d", x, optarg, optind)) */
+     switch (x) {
+       case 'a':
+@@ -1563,6 +1605,8 @@
+         o_keepalive = 1; break;
+       case 'l':				/* listen mode */
+ 	o_listen++; break;
++      case 'm':				/* multihoming for UDP listen mode */
++	o_udpmulti = 1; break;
+       case 'n':				/* numeric-only, no DNS lookups */
+ 	o_nflag++; break;
+       case 'o':				/* hexdump log */
+@@ -1794,8 +1838,7 @@
+ helpme()
+ {
+   o_verbose = 1;
+-  holler ("[v" DEBIAN_VERSION "]\n\
+-connect to somewhere:	nc [-options] hostname port[s] [ports] ... \n\
++  holler ("connect to somewhere:	nc [-options] hostname port[s] [ports] ... \n\
+ listen for inbound:	nc -l -p port [-options] [hostname] [port]\n\
+ options:");
+ /* sigh, this necessarily gets messy.  And the trailing \ characters may be
+@@ -1815,6 +1858,7 @@
+ 	-i secs			delay interval for lines sent, ports scanned\n\
+         -k                      set keepalive option on socket\n\
+ 	-l			listen mode, for inbound connects\n\
++	-m			detect destination address on udp listen\n\
+ 	-n			numeric-only IP addresses, no DNS\n\
+ 	-o file			hex dump of traffic\n\
+ 	-p port			local port number\n\

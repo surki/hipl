@@ -1,0 +1,9 @@
+Source: hipl-manager
+Version: 1.0
+Section: devel
+Priority: optional
+Maintainer: Miika Komu <miika@iki.fi>
+Build-Depends: hipl (>= 1.0), libgtk2.0-0 (>= 2.10)
+Package: hipl-manager
+Architecture: armel
+Description: This package contains graphical manager for HIPL daemon.

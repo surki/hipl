@@ -1,0 +1,125 @@
+### ChangeLog #######################################
+#
+# $Revision: 1.1 $
+# $Date: 2003/06/25 14:05:36 $
+#
+### TODO ############################################
+#
+# - libinet6test and conntest-client-gai depend on 
+#   libinet6 which should compiled automatically if
+#   either test application is being compiled
+# - the rules for compilation are non-uniform: LINK should be used
+#   instead of CC and rules should not be named "foo.o:", just "foo"
+# - consider replacing Makefile with autoconf and friends
+#
+####### Compiler, tools and options #################
+
+HIPLMODULESRCDIR = ../linux/net/ipv6/hip
+HIPLINUXINCPATH = -I../linux/include -I $(HIPLMODULESRCDIR)
+
+INCPATH  = $(HIPLINUXINCPATH) -I../libinet6/include -I../hipd -I.
+
+CC       = gcc
+CFLAGS   = -Wall -O2 -g -DCONFIG_HIP_DEBUG $(INCPATH)
+LDFLAGS  = -g
+LINK     = gcc
+LIBPATH  = 
+LIBS     = 
+
+####### Implicit rules ###############################
+
+# note: .c is not included in the induction rule,
+# because they are included by default and cpp's
+# won't compile otherwise
+
+.SUFFIXES: .c
+
+%.o: %.c
+	$(CC) -c $(CFLAGS) $(HIPLINUXINCPATH) $(INCPATH) -o $@ $<
+
+####### Build rules    ###############################
+
+#TARGETS = hiplisthi.o devfstest.o # does not compile -miika
+TARGETS += checksum conntest-client conntest-client-gai conntest-server
+TARGETS += crtest dh_openssl_test dsa_openssl cookietest
+TARGETS += ipv6bindtest ipv6conntest
+TARGETS += libinet6test
+TARGETS += builder_tester
+TARGETS += unit unittest
+#TARGETS += dsa_file dsa_hit # does not compile -miika
+
+all: $(TARGETS)
+
+conntest-client: conntest-client.o
+	$(LINK) $(LDFLAGS) $(LIBPATH) $(LIBS) -o conntest-client conntest-client.o
+
+conntest-client-gai: conntest-client-gai.o
+	$(LINK) $(LDFLAGS) $(LIBPATH) $(LIBS) -I../libinet6/include -o conntest-client-gai conntest-client-gai.o ../libinet6/libinet6.a
+
+conntest-server: conntest-server.o
+	$(LINK) $(LDFLAGS) $(LIBPATH) $(LIBS) -o conntest-server conntest-server.o
+
+ipv6bindtest: ipv6bindtest.o
+	$(LINK) $(LDFLAGS)  $(LIBPATH) $(LIBS) -o ipv6bindtest ipv6bindtest.o
+
+ipv6conntest: ipv6conntest.o
+	$(LINK) $(LDFLAGS) $(LIBPATH) $(LIBS) -o ipv6conntest ipv6conntest.o
+
+checksum: checksum.o
+	$(LINK) $(LDFLAGS) $(LIBPATH) $(LIBS) -o checksum checksum.o
+
+dh_openssl_test: dh_openssl_test.o ../hipd/debug.o ../hipd/crypto.o
+	$(CC) $(CFLAGS) -DDEBUG -o dh_openssl_test dh_openssl_test.o \
+		../hipd/debug.c ../hipd/crypto.c -lcrypto
+
+dsa_openssl: dsa_openssl.o ../hipd/debug.o ../hipd/crypto.o
+	$(CC) $(CFLAGS) -DDEBUG -o dsa_openssl dsa_openssl.o ../hipd/debug.c ../hipd/crypto.c -lcrypto
+
+dsa_file: dsa_file.o ../hipd/debug.o ../hipd/crypto.o
+	$(CC) $(CFLAGS) -DDEBUG -o dsa_file dsa_file.o ../hipd/debug.c ../hipd/crypto.c -lcrypto
+
+dsa_hit: dsa_hit.o ../hipd/debug.o ../hipd/crypto.o
+	$(CC) $(CFLAGS) -DDEBUG -o dsa_hit dsa_hit.o ../hipd/debug.c ../hipd/crypto.c -lcrypto
+
+hiplisthi.o: 
+	$(CC) $(CFLAGS) -DDEBUG -c hiplisthi.c
+
+devfstest.o: devfstest.c
+	$(CC) $(CFLAGS) -DDEBUG -c devfstest.c
+
+conntest-client-hip: conntest-client-hip.o
+	$(CC) $(CFLAGS) -DDEBUG $(INCPATH) -o conntest-client-hip conntest-client-hip.c
+
+crtest: crtest.o ../hipd/crypto.o
+	(cd ../hipd && make crypto.o)
+	$(CC) $(CFLAGS) -Wno-unused -o crtest crtest.c ../hipd/crypto.c ../hipd/debug.c -lcrypto
+
+cookietest: cookietest.o ../hipd/crypto.o
+	(cd ../hipd && make crypto.o)
+	$(CC) $(CFLAGS) -Wno-unused -o cookietest cookietest.c ../hipd/crypto.c ../hipd/debug.c -lcrypto
+
+libinet6test: libinet6test.o ../libinet6/libinet6.a
+	$(CC) $(CFLAGS) -Wno-unused -o libinet6test libinet6test.c ../libinet6/libinet6.a
+
+builder_tester: builder_tester.o
+	$(CC) $(CFLAGS) $(LIBPATH) $(LIBS) -o builder_tester  builder_tester.o ../hipd/debug.o
+
+unit: $(HIPLMODULESRCDIR)/unit.c
+	$(CC) $(CFLAGS) $(INCPATH) -c ../linux/net/ipv6/hip/unit.c -o unit.o
+
+unittest: unit unittest.o
+	$(LINK) $(LDFLAGS) $(LIBPATH) $(LIBS) -o unittest unittest.o \
+		unit.o
+
+.PHONY: clean
+
+clean:
+	-rm -f *.o
+	-rm -f $(TARGETS)
+
+####### Header file dependencies ###########################
+
+checksum: checksum.h
+unit: $(HIPLMODULESRCDIR)/unit.h
+unittest: unit unittest.h
+

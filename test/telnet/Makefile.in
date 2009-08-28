@@ -1,0 +1,60 @@
+##
+## settings
+##
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+sbindir=@sbindir@
+bindir=@bindir@
+mandir=@mandir@
+
+##
+## autoconf
+##
+CPP=@CPP@
+CXXCPP=@CXXCPP@
+CC=@CC@
+CXX=@CXX@
+DEFS=-D_USAGI -DINET6 @DEFS@
+CFLAGS=@CFLAGS@ $(DEFS)
+CXXFLAGS=@CXXFLAGS@ $(DEFS) -DUSE_TERMIO -DKLUDGELINEMODE
+
+OBJS=
+LIBOBJS=@LIBOBJS@
+LDFLAGS=@LDFLAGS@
+LIBS=@LIBS@
+
+INSTALL=@INSTALL@
+INSTALL_PROG=@INSTALL_PROGRAM@
+INSTALL_DATA=@INSTALL_DATA@
+INSTALL_DIR=@INSTALL_DIR@
+
+##
+## targets
+##
+TARGET = telnet
+
+all: $(TARGET)
+
+clean:
+	-rm -f *.o $(TARGET)
+
+distclean: clean
+	-rm -f config.*
+	-rm Makefile
+
+install: all
+	$(INSTALL_DIR) $(bindir)
+	$(INSTALL_PROG) -s telnet $(bindir)
+	$(INSTALL_DIR) $(mandir)/man1
+	$(INSTALL_DATA) telnet.1 $(mandir)/man1
+
+##
+## dependencies
+##
+SRCS = commands.cc main.cc network.cc ring.cc sys_bsd.cc telnet.cc \
+	terminal.cc tn3270.cc utilities.cc genget.cc environ.cc netlink.cc
+
+OBJS = $(patsubst %.cc, %.o, $(SRCS))
+
+telnet: $(OBJS)
+	$(CXX) $(LDFLAGS) $^ $(LIBS) -o $@

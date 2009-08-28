@@ -1,0 +1,85 @@
+#!/bin/sh
+#
+# Init file for hip firewall
+#
+# description: HIPL firewall daemon
+#
+# processname: hipfw
+# pidfile: /var/run/hipfw.pid
+# chkconfig: 2345 20 80
+
+# source function library
+. /etc/rc.d/init.d/functions
+
+RETVAL=0
+DAEMON="/usr/sbin/hipfw"
+BASENAME="hipfw"
+
+#PID_FILE=/var/run/hipfw.pid
+LOCK_FILE=/var/lock/subsys/hipfw
+OPTIONS="-bklpF"
+
+# pull in sysconfig settings
+[ -f /etc/sysconfig/hipfw ] && . /etc/sysconfig/hipfw
+
+flush_iptables() {
+    iptables -D INPUT -j HIPFW-INPUT 2>/dev/null
+    iptables -D OUTPUT -j HIPFW-OUTPUT 2>/dev/null
+    iptables -D FORWARD -j HIPFW-FORWARD 2>/dev/null
+    ip6tables -D INPUT -j HIPFW-INPUT 2>/dev/null
+    ip6tables -D OUTPUT -j HIPFW-OUTPUT 2>/dev/null
+    ip6tables -D FORWARD -j HIPFW-FORWARD 2>/dev/null
+
+    # Flush in case there are some residual rules
+    iptables -F HIPFW-INPUT 2>/dev/null
+    iptables -F HIPFW-OUTPUT 2>/dev/null
+    iptables -F HIPFW-FORWARD 2>/dev/null
+    ip6tables -F HIPFW-INPUT 2>/dev/null
+    ip6tables -F HIPFW-OUTPUT 2>/dev/null
+    ip6tables -F HIPFW-FORWARD 2>/dev/null
+
+    iptables -X HIPFW-INPUT 2>/dev/null
+    iptables -X HIPFW-OUTPUT 2>/dev/null
+    iptables -X HIPFW-FORWARD 2>/dev/null
+    ip6tables -X HIPFW-INPUT 2>/dev/null
+    ip6tables -X HIPFW-OUTPUT 2>/dev/null
+    ip6tables -X HIPFW-FORWARD 2>/dev/null
+}
+
+start()
+{
+	echo -n $"Starting $BASENAME:"
+	$DAEMON $OPTIONS && success || failure
+	RETVAL=$?
+	[ "$RETVAL" = 0 ] && touch $LOCK_FILE
+	echo
+}
+
+stop()
+{
+	echo -n $"Stopping $BASENAME:"
+	killproc $DAEMON
+	RETVAL=$?
+	[ "$RETVAL" = 0 ] && rm -f $LOCK_FILE
+	echo
+}
+
+case "$1" in
+	start)
+		start
+		;;
+	stop)
+		stop
+		flush_iptables
+		;;
+	restart)
+		stop
+		flush_iptables
+		sleep 3
+		start
+		;;
+	*)
+		echo $"Usage: $0 {start|stop}"
+		RETVAL=1
+esac
+exit $RETVAL

@@ -1,0 +1,11 @@
+Source: hipl
+Version: 1.0
+Section: user/Development
+Priority: optional
+Maintainer: InfraHIP <infrahip@hiit.fi>
+Build-Depends: debhelper (>= 4.0.0), autotools-dev
+Standards-Version: 3.6.2
+Package: hipl
+Replaces: hipl
+Architecture: armel
+Description: Host Identity Protocol for Linux

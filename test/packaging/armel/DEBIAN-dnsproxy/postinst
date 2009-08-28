@@ -1,0 +1,13 @@
+#!/bin/sh
+
+update-rc.d hipdnsproxy defaults 99
+
+if netstat -lanu|awk '$4 ~ /:53$/ {print $4}'|grep 53 > /dev/null
+then
+    echo "*** Warning: DNS software detected running on port 53           ***"
+    echo "*** Warning: HIP DNS proxy overrides local system resolver      ***"
+    echo "*** Warning: Check manual on DNS proxy for further instructions ***"
+fi
+
+invoke-rc.d --quiet hipdnsproxy start
+exit 0

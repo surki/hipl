@@ -1,0 +1,11 @@
+#!/bin/sh
+
+# Run hipsetup 100 times in a loop. There is some magical bug in hipsetup
+# because it could be run without sending it to background. -miika
+
+seq 1 100|while read n
+do
+	echo "** SEQ $n ***"
+	/home/mkomu/projects/hipl/test/hipsetup -s chekov &
+	sleep 70
+done

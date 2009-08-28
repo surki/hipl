@@ -1,0 +1,107 @@
+#!/bin/bash
+#
+#       /etc/init.d/bamboo_v6
+#
+# Starts the bamboo_v6 daemon
+#
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+RETVAL=0
+PIDFILE=/var/run/bamboo/bamboo_v6.pid
+process_no=-1
+check_previous=""
+
+BAMBOO_SHUTDOWN_TIMEOUT=5
+
+start() {
+        #Check if it is already running
+        check_previous=`ps ax |grep -c "/bamboo_v6/bin/"`
+        if [ $check_previous == 1 ]; then
+                echo -n $"Starting bamboo_v6: "
+                daemon --user=nobody /opt/bamboo_v6/bin/run-java bamboo.lss.DustDevil /opt/gateway_v6.cfg 2>>/var/log/bamboo_v6 #3>>/var/log/bamboo_v6 1>>/var/log/bamboo_v6 
+                RETVAL=$?
+        else
+                echo -n $"Bamboo_v6 daemon is already running:"
+        fi
+        echo  
+        return $RETVAL
+}
+
+stop() {
+        echo -n $"Stopping bamboo_v6: "
+        timeout=0
+        RETVAL=1
+        process_no=`cat /var/run/bamboo/bamboo_v6.pid` && kill $process_no 2>/dev/null && \
+        while /bin/ps  -p ${process_no} >/dev/null; do
+                if [ $timeout -ge $BAMBOO_SHUTDOWN_TIMEOUT ]; then
+                        RETVAL=1
+                        break
+                else
+                        sleep 2 && echo -n "."
+                        timeout=$((timeout+2))
+                fi;
+        done && RETVAL=0
+        if [ $RETVAL -eq 0 ]; then
+                echo "" > /var/run/bamboo/bamboo_v6.pid
+                success
+        else
+                failure
+                RETVAL=1
+        fi;
+        echo
+        return $RETVAL
+}
+
+restart() {
+        stop
+        start
+}
+
+reload() {
+        trap "" SIGHUP
+        action $"Reloading bamboo_v6 daemon:" killall -HUP XXX
+        RETVAL=$?
+        return $RETVAL
+}
+
+case "$1" in
+start)
+        start
+        ;;
+stop)
+        stop
+        ;;
+reload)
+        #reload
+        echo "$0: Unimplemented feature."
+        RETVAL=4
+        ;;
+force-reload)
+        echo "$0: Unimplemented feature."
+        RETVAL=3
+        ;;
+restart)
+        restart
+        ;;
+condrestart)
+        #if [ -f /var/lock/subsys/acpid ]; then
+        #    restart
+        #fi
+        echo "$0: Unimplemented feature."
+        RETVAL=5
+        ;;
+status)
+        #status acpid
+        #RETVAL=$?
+        echo "$0: Unimplemented feature."
+        RETVAL=6
+        ;;
+*)
+        echo $"Usage: $0 {start|stop|restart}"
+        RETVAL=2
+esac
+
+exit $RETVAL
+

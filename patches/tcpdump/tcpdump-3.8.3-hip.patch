@@ -1,0 +1,633 @@
+diff -Nru tcpdump-3.8.3/configure.in tcpdump-3.8.3-hip/configure.in
+--- tcpdump-3.8.3/configure.in	2004-03-29 00:04:48.000000000 +0300
++++ tcpdump-3.8.3-hip/configure.in	2005-09-13 12:17:36.000000000 +0300
+@@ -110,7 +110,7 @@
+   --disable-ipv6          disable ipv6 support],
+ [ case "$enableval" in
+ yes)   AC_MSG_RESULT(yes)
+-       LOCALSRC="print-ip6.c print-ip6opts.c print-mobility.c print-ripng.c print-icmp6.c print-frag6.c print-rt6.c print-ospf6.c print-dhcp6.c $LOCALSRC"
++       LOCALSRC="print-ip6.c print-ip6opts.c print-mobility.c print-ripng.c print-icmp6.c print-frag6.c print-rt6.c print-ospf6.c print-dhcp6.c print-hip.c ../hipl/hipd/builder.c $LOCALSRC"
+        AC_DEFINE(INET6)
+        ipv6=yes
+        ;;
+diff -Nru tcpdump-3.8.3/interface.h tcpdump-3.8.3-hip/interface.h
+--- tcpdump-3.8.3/interface.h	2004-03-17 21:47:48.000000000 +0200
++++ tcpdump-3.8.3-hip/interface.h	2005-09-13 12:17:36.000000000 +0300
+@@ -319,6 +319,7 @@
+ extern int rt6_print(const u_char *, const u_char *);
+ extern void ospf6_print(const u_char *, u_int);
+ extern void dhcp6_print(const u_char *, u_int);
++extern void hip_print(const u_char *, u_int);
+ #endif /*INET6*/
+ extern u_short in_cksum(const u_short *, register u_int, int);
+ extern u_int16_t in_cksum_shouldbe(u_int16_t, u_int16_t);
+diff -Nru tcpdump-3.8.3/Makefile.in tcpdump-3.8.3-hip/Makefile.in
+--- tcpdump-3.8.3/Makefile.in	2004-03-29 00:25:02.000000000 +0300
++++ tcpdump-3.8.3-hip/Makefile.in	2005-09-13 12:17:58.000000000 +0300
+@@ -72,7 +72,7 @@
+ 	print-chdlc.c print-cip.c print-cnfp.c print-decnet.c \
+ 	print-domain.c print-dvmrp.c print-enc.c print-egp.c \
+ 	print-esp.c print-ether.c print-fddi.c print-fr.c \
+-	print-gre.c print-hsrp.c print-icmp.c print-igmp.c \
++	print-gre.c print-hip.c print-hsrp.c print-icmp.c print-igmp.c \
+ 	print-igrp.c print-ip.c print-ipcomp.c print-ipfc.c \
+ 	print-ipx.c print-isakmp.c print-isoclns.c print-krb.c \
+ 	print-l2tp.c print-lane.c print-ldp.c print-llc.c \
+diff -Nru tcpdump-3.8.3/print-hip.c tcpdump-3.8.3-hip/print-hip.c
+--- tcpdump-3.8.3/print-hip.c	1970-01-01 02:00:00.000000000 +0200
++++ tcpdump-3.8.3-hip/print-hip.c	2005-09-13 12:21:55.000000000 +0300
+@@ -0,0 +1,561 @@
++/*
++ * Copyright (c) 1988, 1989, 1990, 1991, 1992, 1993, 1994
++ *	The Regents of the University of California.  All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that: (1) source code distributions
++ * retain the above copyright notice and this paragraph in its entirety, (2)
++ * distributions including binary code include the above copyright notice and
++ * this paragraph in its entirety in the documentation or other materials
++ * provided with the distribution, and (3) all advertising materials mentioning
++ * features or use of this software display the following acknowledgement:
++ * ``This product includes software developed by the University of California,
++ * Lawrence Berkeley Laboratory and its contributors.'' Neither the name of
++ * the University nor the names of its contributors may be used to endorse
++ * or promote products derived from this software without specific prior
++ * written permission.
++ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR IMPLIED
++ * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
++ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
++ */
++
++#ifdef HAVE_CONFIG_H
++#include "config.h"
++#endif
++
++#include <sys/param.h>
++#include <sys/time.h>
++#include <sys/types.h>
++#include <sys/socket.h>
++
++#include <netinet/in.h>
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <string.h>
++
++#include "interface.h"
++#include "addrtoname.h"
++
++#include "net/hip.h"
++
++/* TODO: check TLV lengths before trying to parse them */
++
++static struct tok hip_types[] = {
++	{ HIP_I1,  "I1"     },
++	{ HIP_R1,  "R1"     },
++	{ HIP_I2,  "I2"     },
++	{ HIP_R2,  "R2"     },
++	{ HIP_UPDATE, "UPDATE" },
++	{ HIP_NOTIFY, "NOTIFY" },
++	{ HIP_BOS, "BOS"    },
++	{ HIP_CER, "CER"    },
++	/* { HIP_CLOSE, "CLOSE"    },
++	   { HIP_CLOSE_ACK, "CLOSE_ACK"    },*/
++	{ 0, NULL           }
++};
++
++static struct tok hip_param_types[] = {
++	{ HIP_PARAM_ACK,                "ACK"                },
++	{ HIP_PARAM_CERT,               "CERT"               },
++	{ HIP_PARAM_DIFFIE_HELLMAN,     "DIFFIE_HELLMAN"     },
++	{ HIP_PARAM_ECHO_REQUEST,       "ECHO_REQUEST" },
++	{ HIP_PARAM_ECHO_REQUEST_SIGN,  "ECHO_REQUEST_SIGN" },
++	{ HIP_PARAM_ECHO_RESPONSE,      "ECHO_RESPONSE" },
++	{ HIP_PARAM_ECHO_RESPONSE_SIGN, "ECHO_RESPONSE_SIGN" },
++	{ HIP_PARAM_ENCRYPTED,          "ENCRYPTED"          },
++	{ HIP_PARAM_ESP_TRANSFORM,      "ESP_TRANSFORM"      },
++	{ HIP_PARAM_HIP_SIGNATURE,      "HIP_SIGNATURE"      },
++	{ HIP_PARAM_HIP_TRANSFORM,      "HIP_TRANSFORM"      },
++	{ HIP_PARAM_HMAC,               "HMAC"               },
++	{ HIP_PARAM_HOST_ID,            "HOST_ID"            },
++	{ HIP_PARAM_NES,                "NES"                },
++	{ HIP_PARAM_NOTIFY,             "NOTIFY"             },
++	{ HIP_PARAM_PUZZLE,             "PUZZLE"             },
++	{ HIP_PARAM_REA,                "REA"                },
++	{ HIP_PARAM_SEQ,                "SEQ"                },
++	{ HIP_PARAM_SOLUTION,           "SOLUTION"           },
++	{ HIP_PARAM_SPI,                "SPI"                },
++ 	{ HIP_PARAM_HIP_SIGNATURE2,     "HIP_SIGNATURE2"     },
++	{ 0, NULL }
++};
++
++static struct tok hip_esp_transform_types[] = {
++	{ HIP_ESP_RESERVED,      "reserved"      },
++	{ HIP_ESP_AES_SHA1,      "AES-SHA1"      },
++	{ HIP_ESP_3DES_SHA1,     "3DES-SHA1"     },
++	{ HIP_ESP_3DES_MD5,      "3DES-MD5"      },
++	{ HIP_ESP_BLOWFISH_SHA1, "BLOWFISH-SHA1" },
++	{ HIP_ESP_NULL_SHA1,     "NULL-SHA1"     },
++	{ HIP_ESP_NULL_MD5,      "NULL-MD5"      },
++	{ 0, NULL }
++};
++
++#define hip_hip_transform_types hip_esp_transform_types
++
++static struct tok hip_rdata_algorithms[] = {
++	{ HIP_HI_DSA, "DSA" },
++	{ 5,          "RSA" },
++	{ 0, NULL }
++};
++
++static struct tok hip_dh_group_id_types[] = {
++	{ 0,                "reserved"      },
++	{ HIP_DH_384,       "384-bit group" },
++	{ HIP_DH_OAKLEY_1,  "768-bit (OAKLEY 1)" },
++	{ HIP_DH_OAKLEY_5,  "1536-bit (OAKLEY 5)" },
++	{ HIP_DH_OAKLEY_15, "3072-bit (OAKLEY 15)" },
++	{ HIP_DH_OAKLEY_17, "6144-bit (OAKLEY 17)" },
++	{ HIP_DH_OAKLEY_18, "8192-bit (OAKLEY 18)" },
++	{ 0,                NULL }
++};
++
++void hip_hexdump(u_char *data, int len) {
++	int i;
++	for (i = 0; i < len; i++)
++		printf("%02x", data[i]);
++}
++
++/* supports only hex print, modified from print_int64 in print-nfs.c */
++static void hip_print_int64_hex(const u_int32_t *dp, int hostorder)
++{
++#ifdef INT64_FORMAT
++        u_int64_t res;
++
++	if (hostorder)
++		res = ((u_int64_t)ntohl(dp[0]) << 32) | (u_int64_t)ntohl(dp[1]);
++	else
++		res = ((u_int64_t)dp[0] << 32) | (u_int64_t)dp[1];
++	printf(HEX_INT64_FORMAT, res);
++#else
++	if (hostorder)
++		printf("0x%08x%08x", (u_int32_t)ntohl(dp[0]), (u_int32_t)ntohl(dp[1]));
++	else
++		printf("0x%08x%08x", (u_int32_t)dp[0], (u_int32_t)dp[1]);
++#endif
++}
++
++
++void hip_print_param_puzzle(const struct hip_tlv_common *tlv) {
++	struct hip_puzzle *p = (struct hip_puzzle *) tlv;
++
++	printf("(K=%u, lifetime=%u, opaque=0x", p->K, p->lifetime);
++	hip_hexdump((u_char *) &p->opaque, HIP_PUZZLE_OPAQUE_LEN);
++	printf(", I net order=");
++	hip_print_int64_hex((u_int32_t *)&p->I, 0);
++	printf("/host order=");
++	hip_print_int64_hex((u_int32_t *)&p->I, 1);
++	printf(")");
++}
++
++void hip_print_param_solution(const struct hip_tlv_common *tlv) {
++	struct hip_solution *p = (struct hip_solution *) tlv;
++
++	printf("(K=%u, reserved=0x%x, opaque=0x", p->K, p->reserved);
++	hip_hexdump((u_char *) &p->opaque, HIP_PUZZLE_OPAQUE_LEN);
++	printf(", I net order=");
++	hip_print_int64_hex((u_int32_t *)&p->I, 0);
++	printf("/host order=");
++	hip_print_int64_hex((u_int32_t *)&p->I, 1);
++	printf(", J net order=");
++	hip_print_int64_hex((u_int32_t *)&p->J, 0);
++	printf("/host order=");
++	hip_print_int64_hex((u_int32_t *)&p->J, 1);
++	printf(")");
++}
++
++void hip_print_param_diffie_hellman(const struct hip_tlv_common *tlv) {
++	struct hip_diffie_hellman *p = (struct hip_diffie_hellman *) tlv;
++
++	printf("(group_id=%s(%u),public value=0x",
++	       tok2str(hip_dh_group_id_types, NULL, p->group_id), p->group_id);
++	hip_hexdump((u_char *)p+sizeof(struct hip_tlv_common)+sizeof(uint8_t),
++		    ntohs(p->length) - sizeof(uint8_t));
++	printf(")");
++
++}
++
++void hip_print_param_encrypted(const struct hip_tlv_common *tlv) {
++	int i;
++	u_char *cp;
++
++	cp = (u_char *)tlv + sizeof(struct hip_tlv_common) + sizeof(u_int32_t);
++	printf("(IV=0x");
++	for (i = 0; i < 8; i++)
++		printf("%02x", *cp++);
++	printf(",encrypted=0x");
++	hip_hexdump(cp, ntohs(tlv->length) - sizeof(u_int32_t) - 8);
++	printf(")");
++}
++
++void hip_print_param_esp_transform(const struct hip_tlv_common *tlv) {
++	struct hip_esp_transform *p = (struct hip_esp_transform *) tlv;
++	int i, n;
++	u_int16_t *id;
++
++	printf("(");
++	printf("reserved=0x%x,", ntohs(p->reserved));
++
++	if (ntohs(p->length) == 0) {
++		printf("no transforms)");
++		return;
++	}
++
++	n = (ntohs(p->length)-sizeof(uint16_t)) / sizeof(u_int16_t);
++	if (n > HIP_TRANSFORM_ESP_MAX) {
++	  printf("too many Suite IDs (%d))", n);
++	  return;
++	}
++
++	id = (u_int16_t *) ((u_char *)p+sizeof(uint16_t)+sizeof(struct hip_tlv_common));
++	for (i = 1; i <= n; i++, id++) {
++	  if (i > 1)
++	    printf(",");
++	  printf("Suite-ID #%d=%s(%d)", i,
++		 tok2str(hip_esp_transform_types, NULL, ntohs(*id)), ntohs(*id));
++	}
++
++	printf(")");
++}
++
++
++void hip_print_param_hip_transform(const struct hip_tlv_common *tlv) {
++	struct hip_hip_transform *p = (struct hip_hip_transform *) tlv;
++	u_int16_t *id;
++	int i, n;
++
++	printf("(");
++	if (ntohs(p->length) == 0) {
++		printf("no transforms)");
++		return;
++	}
++
++	n = ntohs(p->length) / sizeof(u_int16_t);
++	if (n > HIP_TRANSFORM_HIP_MAX) {
++	  printf("too many Transform IDs (%d))", n);
++	  return;
++	}
++
++	id = (u_int16_t *) ((u_char *)p+sizeof(struct hip_tlv_common));
++	for (i = 1; i <= n; i++, id++) {
++	  if (i > 1)
++	    printf(",");
++	  printf("Transform-ID #%d=%s(%d)", i,
++		 tok2str(hip_hip_transform_types, NULL, ntohs(*id)), ntohs(*id));
++	}
++
++	printf(")");
++
++
++}
++
++void hip_print_param_host_id(const struct hip_tlv_common *tlv) {
++	struct hip_host_id *p = (struct hip_host_id *) tlv;
++	u_int8_t t;
++	u_char *cp;
++	struct hip_host_id_key_rdata *rdata;
++	int i;
++	int di_type, di_length;
++
++	//	di_type = ntohs(p->di_type_length) & 0xf000;
++	di_type = ntohs(p->di_type_length) >> 12;
++	di_length = ntohs(p->di_type_length) & 0x0fff;
++	printf("(HI Length=%d, DI Type-Length=%d (DI-type=%d, DI Length=%d), ",
++	       ntohs(p->hi_length), ntohs(p->di_type_length), di_type, di_length);
++
++	/* HOST ID is in RFC2535 KEY RDATA format */
++	rdata = (struct hip_host_id_key_rdata *) ((u_char *)p + sizeof(struct hip_tlv_common)+2*sizeof(uint16_t));
++	cp = (u_char *) rdata;
++	printf("HI: flags=0x%x, protocol=%d, algorithm=%d",
++	       rdata->flags, rdata->protocol, rdata->algorithm);
++
++	/* check if algorithm is listed in HIP drafts */
++	/* 3=DSA, 5=RSA */
++	if (! (rdata->algorithm == HIP_HI_DSA || rdata->algorithm == 5) ) {
++		printf(" unknown algorithm");
++		cp += ntohs(p->hi_length);
++		goto print_di;
++	}
++
++	if (rdata->algorithm != HIP_HI_DSA) {
++		printf(" RSA parsing not supported yet");
++		cp += ntohs(p->hi_length);
++		goto print_di;
++	}
++
++	printf("(%s)", tok2str(hip_rdata_algorithms, "unknown", rdata->algorithm));
++	cp = (u_char *)p + sizeof(struct hip_host_id);
++	t = (u_int8_t) *cp;
++	printf(" T=%d", t);
++	if (ntohs(p->length) < (4+1+20+3*(64 + t*8))) {
++		printf(",truncated RDATA)");
++		goto print_di;
++	}
++	cp++;
++	printf(",Q=0x"); hip_hexdump(cp, 20);
++	cp += 20;
++	printf(",P=0x"); hip_hexdump(cp, 64 + t*8);
++	cp += 64 + t*8;
++	printf(",G=0x"); hip_hexdump(cp, 64 + t*8);
++	cp += 64 + t*8;
++	printf(",Y=0x"); hip_hexdump(cp, 64 + t*8);
++
++ print_di:
++	printf(" DI=0x");
++	hip_hexdump(cp, di_length);
++	printf(")");
++}
++
++void hip_print_param_hmac(const struct hip_tlv_common *tlv) {
++	struct hip_hmac *p = (struct hip_hmac *) tlv;
++
++	printf("(hmac data=0x");
++	hip_hexdump((u_char *)&p->hmac_data,
++		    HIP_LEN_PAD(ntohs(tlv->length)) - sizeof(struct hip_tlv_common));
++	printf(")");
++}
++
++void hip_print_param_nes(const struct hip_tlv_common *tlv) {
++	struct hip_nes *p = (struct hip_nes *) tlv;
++
++	printf("(Reserved=0x%x,Keymat Index=%u,Old SPI=0x%x,New SPI=0x%x)",
++	       ntohs(p->reserved), ntohs(p->keymat_index),
++	       ntohl(p->old_spi), ntohl(p->new_spi));
++}
++
++void hip_print_param_seq(const struct hip_tlv_common *tlv) {
++	struct hip_seq *p = (struct hip_seq *) tlv;
++
++	printf("(Update ID=%u)", ntohl(p->update_id));
++}
++
++void hip_print_param_ack(const struct hip_tlv_common *tlv) {
++	struct hip_ack *p = (struct hip_ack *) tlv;
++	size_t n, i;
++	uint32_t *peer_update_id;
++
++	if (ntohs(p->length) % sizeof(uint32_t))
++		return;
++
++	n = ntohs(p->length) / sizeof(uint32_t);
++	peer_update_id = (uint32_t *) ((void *)p+sizeof(struct hip_tlv_common));
++	printf("(");
++	for (i = 0; i < n; i++, peer_update_id++) {
++		if (i) printf(",");
++		printf("peer Update ID=%u", ntohl(*peer_update_id));
++	}
++	printf(")");
++}
++
++void hip_print_param_rea(const struct hip_tlv_common *tlv) {
++	struct hip_rea *p = (struct hip_rea *) tlv;
++	u_int tlv_len;
++	unsigned int addrlist_len, n_addrs;
++	int i;
++	void *a;
++
++	printf("(SPI=0x%x", ntohl(p->spi));
++
++	tlv_len = HIP_LEN_PAD(sizeof(struct hip_tlv_common) +
++			      ntohs(((const struct hip_tlv_common *) tlv)->length));
++	addrlist_len = tlv_len - sizeof(struct hip_rea);
++	n_addrs = addrlist_len / sizeof(struct hip_rea_info_addr_item);
++
++	a = (void*)p+sizeof(struct hip_rea);
++	for (i = 0; i < n_addrs; i++, a += sizeof(struct hip_rea_info_addr_item)) {
++	  struct hip_rea_info_addr_item *addr = (struct hip_rea_info_addr_item *) a;
++	  char addrstr[INET6_ADDRSTRLEN];
++
++	  inet_ntop(AF_INET6, &addr->address, addrstr, sizeof(addrstr));
++	  printf(" address=%s%s/lifetime=0x%x", addrstr,
++		 ntohl(addr->reserved) == 1 << 31 ? "(preferred)" : "", ntohl(addr->lifetime));
++	}
++	printf(")");
++}
++
++void hip_print_param_spi(const struct hip_tlv_common *tlv) {
++	struct hip_spi *p = (struct hip_spi *) tlv;
++	printf("(SPI=0x%x)", ntohl(p->spi));
++}
++
++void hip_print_param_hip_signature2(const struct hip_tlv_common *tlv) {
++	struct hip_sig2 *p = (struct hip_sig2 *) tlv;
++	/* draft: same algorithm as in ESP_TRANSFORM */
++	printf("(algorithm=%s(%u),signature=0x",
++	       tok2str(hip_rdata_algorithms, NULL, p->algorithm), p->algorithm);
++	hip_hexdump((u_char *)p + sizeof(struct hip_tlv_common) + 
++		    sizeof(u_int8_t), ntohs(p->length)-sizeof(u_int8_t));
++	printf(")");
++}
++
++void hip_print_param_notify(const struct hip_tlv_common *tlv) {
++	struct hip_notify *p = (struct hip_notify *) tlv;
++	printf("(Reserved=%x,Message Type=%u,Notification data=0x",
++	       ntohs(p->reserved), ntohs(p->msgtype)); 
++	hip_hexdump((u_char *)p + sizeof(struct hip_tlv_common) + 
++		    2*sizeof(u_int16_t), ntohs(p->length)-2*sizeof(u_int16_t));
++	printf(")");
++}
++
++void hip_print_param_unknown(const struct hip_tlv_common *tlv, u_int tlv_len) {
++	printf("(0x");
++	hip_hexdump((u_char *)tlv + sizeof(struct hip_tlv_common), ntohs(tlv->length)-0*sizeof(struct hip_tlv_common));
++	printf(")");
++}
++
++
++/*
++ * print a HIP datagram.
++ */
++void
++hip_print(register const u_char *bp, register u_int length)
++{
++	register const struct hip_common *hip;
++	register u_int len;
++	register const u_char *cp;
++	int type;
++	struct tok *token;
++
++	hip = (const struct hip_common *)bp;
++
++#ifdef LBL_ALIGN
++	/* CHECK IF HIP HAS THE SAME CASE:
++	 * The IP6 header is not 16-byte aligned, so copy into abuf.
++	 */
++	if ((u_long)hip & 15) {
++		static u_char *abuf;
++
++		if (abuf == NULL) {
++			abuf = malloc(snaplen);
++			if (abuf == NULL)
++				error("hip_print: malloc");
++		}
++		memcpy(abuf, hip, min(length, snaplen));
++		snapend += abuf - (u_char *)hip;
++		packetp = abuf;
++		hip = (struct hip_common *)abuf;
++		bp = abuf;
++	}
++#endif
++	TCHECK(*hip);
++	if (length < sizeof(struct hip_common)) {
++		(void)printf("truncated-hip %d", length);
++		return;
++	}
++	if (length > HIP_MAX_PACKET) {
++		(void)printf("oversized-hip %d", length);
++		return;
++	}
++
++	len = (hip->payload_len+1) << 3;
++	if (length < len)
++		(void)printf("truncated-hip - %d bytes missing!",
++			len - length);
++
++	/* print common header */
++	(void)printf("HIP %s > %s: ", ip6addr_string(&hip->hits),
++		     ip6addr_string(&hip->hitr));
++
++	if (vflag) {
++	     (void)printf("len=%d (%d bytes),type=%d,ver_res=0x%x,control=0x%x,checksum=0x%x (checksum_host=0x%x) ",
++			  hip->payload_len, 8*hip->payload_len, hip->type_hdr,
++			  hip->ver_res, ntohs(hip->control), hip->checksum,
++			  ntohs(hip->checksum));
++	}
++
++	type = hip->type_hdr;
++	/* check that we support the packet type */
++	token = hip_types;
++	while (token->s) {
++		if (token->v == type)
++			break;
++		token++;
++	}
++	if (!token->s) {
++		printf("unknown-packet-type-%d", type);
++		return;		
++	}
++	printf("%s", tok2str(hip_types, NULL, type));
++
++	if (vflag > 0) {
++	  /* print payloads */
++	  cp = (const u_char *)(hip+1);
++	  while (cp < snapend) {
++	    struct hip_tlv_common *tlv;
++	    u_int tlv_len, tlv_type;
++
++	    tlv = (struct hip_tlv_common *) cp;
++	    tlv_len = HIP_LEN_PAD(sizeof(struct hip_tlv_common) +
++				  ntohs(((const struct hip_tlv_common *) tlv)->length));
++	    tlv_type = ntohs(tlv->type);
++
++	    printf("\n");
++
++	    if (cp + tlv_len > snapend) {
++	      printf(" TLV type=%d exceeds packet\n", tlv_type);
++	      goto trunc;
++	    }
++
++	    printf(" TLV type=%d,len=%d: %s", tlv_type, tlv_len,
++		   tok2str(hip_param_types, "unknown parameter", tlv_type));
++
++	    switch (tlv_type) {
++	    case HIP_PARAM_PUZZLE:
++	      hip_print_param_puzzle(tlv);
++	      break;
++	    case HIP_PARAM_SOLUTION:
++	      hip_print_param_solution(tlv);
++	      break;
++	    case HIP_PARAM_DIFFIE_HELLMAN:
++	      hip_print_param_diffie_hellman(tlv);
++	      break;
++	    case HIP_PARAM_ENCRYPTED:
++	      hip_print_param_encrypted(tlv);
++	      break;
++	    case HIP_PARAM_ESP_TRANSFORM:
++	      hip_print_param_esp_transform(tlv);
++	      break;
++	    case HIP_PARAM_HIP_SIGNATURE:
++	    case HIP_PARAM_HIP_SIGNATURE2:
++	      hip_print_param_hip_signature2(tlv);
++	      break;
++	    case HIP_PARAM_HIP_TRANSFORM:
++	      hip_print_param_hip_transform(tlv);
++	      break;
++	    case HIP_PARAM_HMAC:
++	      hip_print_param_hmac(tlv);
++	      break;
++	    case HIP_PARAM_HOST_ID:
++	      hip_print_param_host_id(tlv);
++	      break;
++	    case HIP_PARAM_REA:
++	      hip_print_param_rea(tlv);
++	      break;
++	    case HIP_PARAM_NES:
++	      hip_print_param_nes(tlv);
++	      break;
++	    case HIP_PARAM_SEQ:
++	      hip_print_param_seq(tlv);
++	      break;
++	    case HIP_PARAM_ACK:
++	      hip_print_param_ack(tlv);
++	      break;
++	    case HIP_PARAM_SPI:
++	      hip_print_param_spi(tlv);
++	      break;
++	    case HIP_PARAM_NOTIFY:
++	      hip_print_param_notify(tlv);
++	      break;
++	    default:
++	      hip_print_param_unknown(tlv, tlv_len);
++	      break;
++	    }
++	    cp += tlv_len;
++	  }
++	}
++
++	return;
++ trunc:
++	(void)printf("[|hip]");
++}
+diff -Nru tcpdump-3.8.3/print-ip6.c tcpdump-3.8.3-hip/print-ip6.c
+--- tcpdump-3.8.3/print-ip6.c	2003-11-24 22:31:22.000000000 +0200
++++ tcpdump-3.8.3-hip/print-ip6.c	2005-09-13 12:17:36.000000000 +0300
+@@ -176,7 +176,12 @@
+ 		case IPPROTO_IPV4:
+ 			ip_print(cp, len);
+ 			goto end;
+-
++#ifndef IPPROTO_HIP
++#define IPPROTO_HIP 99
++#endif
++		case IPPROTO_HIP:
++		        hip_print(cp, len);
++		        goto end;
+ 		case IPPROTO_NONE:
+ 			(void)printf("no next header");
+ 			goto end;
+diff -Nru tcpdump-3.8.3/print-ip.c tcpdump-3.8.3-hip/print-ip.c
+--- tcpdump-3.8.3/print-ip.c	2004-03-24 11:01:39.000000000 +0200
++++ tcpdump-3.8.3-hip/print-ip.c	2005-09-13 12:17:36.000000000 +0300
+@@ -599,6 +599,12 @@
+ 			vrrp_print(cp, len, ip->ip_ttl);
+ 			break;
+ 
++#ifndef IPPROTO_HIP
++#define IPPROTO_HIP 99
++#endif
++		case IPPROTO_HIP:
++		        hip_print(cp, len);
++			break;
+ 		default:
+ 			if ((proto = getprotobynumber(nh)) != NULL)
+ 				(void)printf(" %s", proto->p_name);

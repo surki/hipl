@@ -1,0 +1,38 @@
+#!/bin/sh
+
+# HOOK [match] TARGET
+# HOOK ::= <INPUT|OUTPUT|FORWARD>
+# match ::= src_hit [!] <hit value> --hi <file name>
+#           -dst_hit [!] <hit>
+#           -type [!] <hip packet type>
+#           -i [!] <incoming interface>
+#           -o [!] <outgoing interface>
+#          -state [!] <state> --verify_responder --accept_mobile
+# TARGET::= <ACCEPT|DROP>
+
+export PATH=.:../../firewall:$PWD/test/performance:$PWD/firewall:$PATH
+
+RULE_FILE=/tmp/fw.tmp
+TIMEOUT=0
+
+ACCEPT_INIT_LIST=2001:77:9caf:f8c2:1191:29b5:583e:850
+DROP_INIT_LIST=
+
+RESP=2001:7b:7435:2a0a:3eec:68c0:66a5:ed5a
+
+rm $RULE_FILE 2>/dev/null
+
+for INIT in $ACCEPT_INIT_LIST
+do
+  echo "FORWARD -src_hit $INIT -dst_hit $RESP ACCEPT" >> $RULE_FILE
+  echo "FORWARD -src_hit $RESP -dst_hit $INIT ACCEPT" >> $RULE_FILE
+done
+
+for INIT in $DROP_INIT_LIST
+do
+  echo "FORWARD -src_hit $INIT -dst_hit $RESP DROP"   >> $RULE_FILE
+  echo "FORWARD -src_hit $RESP -dst_hit $INIT DROP"   >> $RULE_FILE
+done
+
+firewall.init
+firewall $RULE_FILE $TIMEOUT

@@ -1,0 +1,29 @@
+#!/bin/sh
+
+# Author:  miika@iki.fi
+# Licence: GNU/GPL
+# Purpose: create tla cacherevisions for the last patch in all branches in
+#          local archive to speed up "tla get" 
+# Notes:   works only for local archives, not for remote!
+
+ARCHIVE_NAME=hipl-dev@freelists.org--hipl
+ARCHIVE_LOCATION=/var/archive/hipl
+ARCHIVE_VERSION=hipl
+PATH=$PATH:/var/www/cgi-bin
+
+for BRANCH in `ls $ARCHIVE_LOCATION/$ARCHIVE_VERSION/*|grep -v :`
+do
+  #LAST_PATCHREV="${BRANCH}--`tla revisions -A $ARCHIVE_NAME $BRANCH|tail -1`"
+  #LAST_CACHEREV=`tla cachedrevs -A $ARCHIVE_NAME $BRANCH | tail -1`
+  BASE0="${BRANCH}--base-0"
+
+  echo "*** Checking $BRANCH ***"
+
+  for PATCH in `tla revisions -A $ARCHIVE_NAME $BRANCH`
+  do
+    echo "${ARCHIVE_NAME}/${BRANCH}--${PATCH}"
+    archzoom.cgi "${ARCHIVE_NAME}/${BRANCH}--${PATCH}"
+  done
+
+done
+

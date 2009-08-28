@@ -1,0 +1,4 @@
+#!/bin/sh
+
+cd  /usr/local/viewarch-current/lib
+python gencache.py -x

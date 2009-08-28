@@ -1,0 +1,52 @@
+#!/bin/sh -xv
+
+HOSTS="hellfire.infrahip.net ironforge.infrahip.net netherstorm.infrahip.net terokkar.infrahip.net halko.pc.infrahip.net nagrand.infrahip.net shadowmoon.infrahip.net zangarmash.infrahip.net"
+COMMANDS="
+cd /tmp;
+sudo rm -rf hipl--main--2.6;
+rm hipl.tar.gz;
+wget http://hipl.hiit.fi/hipl/hipl.tar.gz &&
+tar xvzf hipl.tar.gz &&
+cd hipl--main--2.6 &&
+./autogen.sh &&
+make bin syncrepo"
+
+set -e
+
+# FC10-i386           hipserver (real host)
+# FC9-i386            ashenvale (real host)
+# Ubuntu 8.10, i386   terokkar.infrahip.net
+# Ubuntu 8.10, amd64  halko.pc.infrahip.net (real host)
+# F10-x86_64	      nagrand.infrahip.net
+# F9-x86_64	      shadowmoon.infrahip.net
+# CentOS-5.2 i386     hellfire.infrahip.net
+# CentOS-5.2 x86_64   zangarmash.infrahip.net
+# --
+# F10-i386		  ironforge.infrahip.net
+# f9-i386		  netherstorm.infrahip.net
+
+if test $# != 0
+then
+    HOSTS="$@"
+fi
+
+echo "--- Pinging all hosts ---"
+
+for HOST in $HOSTS
+do
+    ping -c 2 $HOST
+done
+
+echo "--- Executing command on each host ---"
+
+time for HOST in $HOSTS
+do
+    echo "--- Host: $HOST ---"
+    ping -c 2 $HOST
+    if test $? = 0
+    then
+	ssh $HOST $COMMANDS
+    else
+	echo "Not responding, skipping"
+    fi
+done

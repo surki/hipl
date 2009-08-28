@@ -1,0 +1,42 @@
+#!/bin/sh
+
+# ripattu suoraan usagin doc/HOWTO/IPsec:sta
+
+# vaihda nämä konekohtaisesti
+MYIP=3ffe::1
+OTHERIP=3ffe::2
+
+pfkey=~/usagi/usagi/pfkey/pfkey
+
+#(SET Host A -> Host B flow at Host A)
+
+#(SA for AH)
+$pfkey -A sa -T ah -S 0x1234 -p udp -s $MYIP -d $OTHERIP \
+                --auth hmac-md5 --authkey 0x0123456789abcdef0123456789abcdef
+
+#(SA for ESP)
+$pfkey -A sa -T esp -S 0x5678 -p udp -s $MYIP -d $OTHERIP \
+                --auth hmac-md5 --authkey 0x0123456789abcdef0123456789abcdef \
+                --esp 3des-cbc --espkey 0xa7a36ebd91863edfba763fa7edcba64d89123ace6359eba7
+
+#(SP for AH) 
+$pfkey -A sp -T ah -S 0x1234 -p udp  -s $MYIP -d $OTHERIP 
+#(SP for ESP) 
+$pfkey -A sp -T esp -S 0x5678 -p udp -s $MYIP -d $OTHERIP
+
+
+#(SET Host B -> Host A flow at Host A)
+#(SA for AH) 
+$pfkey -A sa -T ah -S 0x9abc -p udp -d $MYIP -s $OTHERIP \
+                --auth hmac-md5 --authkey 0x0123456789abcdef0123456789abcdef
+
+#(SA for ESP)
+$pfkey -A sa -T esp -S 0xdef0 -p udp -d $MYIP -s $OTHERIP \
+                --auth hmac-md5 --authkey 0x0123456789abcdef0123456789abcdef \
+                --esp 3des-cbc --espkey 0xa7a36ebd91863edfba763fa7edcba64d89123ace6359eba7
+
+#(SP for AH)
+$pfkey -A sp -T ah -S 0x9abc -p udp  -d $MYIP -s $OTHERIP
+#(SP for ESP)
+$pfkey -A sp -T esp -S 0xdef0 -p udp -d $MYIP -s $OTHERIP
+

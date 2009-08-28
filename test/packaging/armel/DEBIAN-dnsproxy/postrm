@@ -1,0 +1,8 @@
+#!/bin/sh
+
+update-rc.d -f hipdnsproxy remove 
+
+exit 0
+
+
+

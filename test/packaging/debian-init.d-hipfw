@@ -1,0 +1,98 @@
+#!/bin/sh
+#
+### BEGIN INIT INFO
+# Provides:		hipfw
+# Required-Start:	$remote_fs $syslog
+# Required-Stop:	$remote_fs $syslog
+# Default-Start:	2 3 4 5
+# Default-Stop:		1
+# Short-Description:	HIPL firewall daemon
+### END INIT INFO
+
+HIPFW_OPTS="-bklpF"
+PID=`pidof -o $$ hipfw`
+
+set -e
+
+. /lib/lsb/init-functions
+
+test -x /usr/sbin/hipfw || exit 0
+
+if test -f /etc/default/hipfw; then
+    . /etc/default/hipfw
+fi
+
+#export PATH="${PATH:+$PATH:}/usr/sbin:/sbin"
+
+flush_iptables() {
+    iptables -D INPUT -j HIPFW-INPUT 2>/dev/null
+    iptables -D OUTPUT -j HIPFW-OUTPUT 2>/dev/null
+    iptables -D FORWARD -j HIPFW-FORWARD 2>/dev/null
+    ip6tables -D INPUT -j HIPFW-INPUT 2>/dev/null
+    ip6tables -D OUTPUT -j HIPFW-OUTPUT 2>/dev/null
+    ip6tables -D FORWARD -j HIPFW-FORWARD 2>/dev/null
+
+    # Flush in case there are some residual rules
+    iptables -F HIPFW-INPUT 2>/dev/null
+    iptables -F HIPFW-OUTPUT 2>/dev/null
+    iptables -F HIPFW-FORWARD 2>/dev/null
+    ip6tables -F HIPFW-INPUT 2>/dev/null
+    ip6tables -F HIPFW-OUTPUT 2>/dev/null
+    ip6tables -F HIPFW-FORWARD 2>/dev/null
+
+    iptables -X HIPFW-INPUT 2>/dev/null
+    iptables -X HIPFW-OUTPUT 2>/dev/null
+    iptables -X HIPFW-FORWARD 2>/dev/null
+    ip6tables -X HIPFW-INPUT 2>/dev/null
+    ip6tables -X HIPFW-OUTPUT 2>/dev/null
+    ip6tables -X HIPFW-FORWARD 2>/dev/null
+}
+
+stop_hipfw() {
+    # Ensure that we don't try to kill init.d script itself
+    #start-stop-hipfw --stop --quiet --oknodo --retry 30
+    if [ $PID ]
+    then
+	kill $1 $PID
+	log_end_msg 0
+    else
+	log_end_msg 1
+    fi
+}
+
+start_hipfw() {
+	if start-stop-daemon --start --quiet --exec /usr/sbin/hipfw -- $HIPFW_OPTS; then
+	    log_end_msg 0
+	else 
+	    log_end_msg 1
+	fi
+}
+
+case "$1" in
+  start)
+        log_daemon_msg "Starting hipfw"
+	start_hipfw
+	;;
+  stop)
+        log_daemon_msg "Stopping hipfw"
+	stop_hipfw
+	flush_iptables
+	;;
+  restart)
+        log_daemon_msg "Restarting hipfw"
+	stop_hipfw
+	flush_iptables
+	sleep 3
+	start_hipfw
+	;;
+
+  status)
+	status_of_proc -p /var/lock/hip_firewall.lock /usr/sbin/hipfw hipfw && exit 0 || exit $?
+	;;
+
+  *)
+	log_daemon_msg "Usage: /etc/init.d/hipfw {start|stop}"
+	exit 1
+esac
+
+exit 0

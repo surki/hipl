@@ -1,0 +1,38 @@
+(date;seq 1 100 | while read l;do echo $l $(~mkousa/hipl/test/hipsetup -i cochrane.ipv6.vho);sleep 1;done;date) | tee jokutiedosto
+
+testi1: ilman hippiä
+seq 1 100 | while read l;do echo $l $(test/conntest-client-gai cochrane.ipv6.vho tcp 2345 < /dev/null 2>/dev/null | grep "^connect took"|cut -c 14-);sleep 1;done | tee ~/test1-eihip-connect100
+datafile test1-eihip-connect100
+
+testi 1: hipillä
+datafile test1-connect100 
+
+test2: ttcp ilman hippiä
+killall hipd, rmmod hipmod
+seq 1 100 | while read l;do echo "TEST $l";~mkousa/ttcp -v -6 -s -t 2001:788:1:c020:0:4:764c:5176;sleep 1;done 2>&1 | tee test2-ttcp-ei-hip
+
+test2: 100*tila hipillä, tila on jo established
+ttcp -v -6 -s -t 6f01:a49f:e2a1:9dd5:4cc1:5f61:d7f7:42e2
+
+# before test:
+# - kill all link local addresses in both of the hosts
+# - restart ttcp server always! otherwise does not work!
+./tc10test 2>&1| tee testcase10-hip-handover-ttcp100
+
+-------------
+seq 1 100 | while read l;do echo $l $(~mkousa/hipl/test/hipsetup -i cochrane);sleep 1;done | tee ~/test1-hip-connect100
+
+seq 1 100 | while read l;do echo $l $(~mkousa/hipl/test/conntest-client 6f01:a49f:e2a1:9dd5:4cc1:5f61:d7f7:42e2 tcp 12345 < /dev/null 2>/dev/null | grep "^connect took"|cut -c 14-);sleep 1;done | tee ~/testcase2-hip-connect100
+
+seq 1 100 | while read l;do echo $l $(~mkousa/ttcp -v -6 -s -t 6f01:a49f:e2a1:9dd5:4cc1:5f61:d7f7:42e2);sleep 1;done | tee ~/testcase5-hip-ttcp100
+
+seq 1 100 | while read l;do echo $l;~mkousa/ttcp -v -6 -s -t 3ffe::11 2>&1;sleep 1;done | tee ~/testcase6-iked-ttcp100
+
+seq 1 100 | while read l;do echo $l;~mkousa/ttcp -v -6 -s -t 3ffe::11 2>&1;sleep 1;done | tee ~/testcase7-eihip-ttcp100
+
+seq 1 100 | while read l;do echo -n "$l ";~/tc3;~mkousa/hipl/test/conntest-client 3ffe::11 tcp 12345 < /dev/null 2>/dev/null | grep "^connect took"|cut -c 14-;sleep 1;done | tee ~/testcase3-iked-connect100
+
+tc9 (daemon ops):
+	cd hipl/test; ./test-run daemon
+	use hipl/test/performance/stats.pl to calculatate averages etc.
+	use hipl/test/performance/visualize-daemon.sh to draw figs

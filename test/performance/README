@@ -1,0 +1,22 @@
+clock_test.awk
+--------------
+Requires an input file that is created by running command
+  while true; do date +"%S %N"; done >output
+for a while.
+
+The purpose of the program is to measure the interval between two successive time stamps.
+The data is then analyzed. Minimum, maximum and average intervals are printed.
+Then 95% confidence interval is calculated, and the samples are subjected to the condifence interval.
+Samples that don't fall into the confidence interval are discarded.
+Then the same data analysis is recalculated for the remaining samples.
+
+Example run:
+while true; do date +"%S %N"; done >/tmp/clock
+[^C to end]
+./clock_test.awk < /tmp/clock
+3474 samples, min/avg/max: 1953/2494/94987
+Confidence interval 95%. Low/High bound: -1578/6568
+Dropped at low bound 0 samples, at upper bound 17 samples
+3457 samples qualified, min/avg/max: 1953/2414/6520
+
+

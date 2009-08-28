@@ -1,0 +1,402 @@
+diff -r -u bind-9.3.2-P2-orig/bin/named/update.c bind-9.3.2-P2/bin/named/update.c
+--- bind-9.3.2-P2-orig/bin/named/update.c	2005-10-08 03:21:06.000000000 +0300
++++ bind-9.3.2-P2/bin/named/update.c	2008-11-28 14:09:09.000000000 +0200
+@@ -2128,6 +2128,42 @@
+ 	return (result);
+ }
+ 
++typedef uint32_t hip_closest_prefix_type_t;
++#define HIP_HIT_TYPE_MASK_100   0x20010070
++#define HIP_HIT_TYPE_MASK_INV   0xfffffff0
++#define HIP_HIT_PREFIX          HIP_HIT_TYPE_MASK_100
++
++static int ipv6_addr_is_hit(const struct in6_addr *hit)
++{
++#define sLEN 41
++	char s[sLEN];
++	inet_ntop(AF_INET6, hit, s, sLEN);
++	printf("%s\n",s);
++        hip_closest_prefix_type_t hit_begin;
++        memcpy(&hit_begin, hit, sizeof(hip_closest_prefix_type_t));
++        hit_begin = ntohl(hit_begin);
++        hit_begin &= HIP_HIT_TYPE_MASK_INV;
++        return (hit_begin == HIP_HIT_PREFIX);
++}
++
++
++/*
++ * Returns ISC_TRUE if the address is a HIT.
++ */
++isc_boolean_t
++isc_netaddr_ishit(isc_netaddr_t *na)
++{
++        switch (na->family) {
++        case AF_INET:
++                return (ISC_FALSE);
++        case AF_INET6:
++                return (ISC_TF(ipv6_addr_is_hit(&na->type.in6)));
++        default:
++                return (ISC_FALSE);
++        }
++}
++
++
+ static void
+ update_action(isc_task_t *task, isc_event_t *event) {
+ 	update_event_t *uev = (update_event_t *) event;
+@@ -2275,6 +2311,24 @@
+ 	update_log(client, zone, LOGLEVEL_DEBUG,
+ 		   "prerequisites are OK");
+ 
++
++	/*
++         * Check if the peer address is hit
++	 */
++	isc_netaddr_t netaddr;
++	isc_netaddr_fromsockaddr(&netaddr, &client->peeraddr);
++#define DNS_BYADDROPT_HIT                0x0004
++
++	dns_fixedname_t hit_reverse;
++	isc_boolean_t hit_update = ISC_FALSE;
++	if (isc_netaddr_ishit(&netaddr))
++	{
++		printf("#ishit\n");
++		hit_update = ISC_TRUE;
++		dns_fixedname_init(&hit_reverse);
++		dns_byaddr_createptrname2(&netaddr, DNS_BYADDROPT_HIT, &hit_reverse);
++	}	
++
+ 	/*
+ 	 * Check Requestor's Permissions.  It seems a bit silly to do this
+ 	 * only after prerequisite testing, but that is what RFC2136 says.
+@@ -2283,7 +2337,7 @@
+ 	if (ssutable == NULL)
+ 		CHECK(checkupdateacl(client, dns_zone_getupdateacl(zone),
+ 				     "update", zonename, ISC_FALSE));
+-	else if (client->signer == NULL)
++	else if ((client->signer == NULL) && (! hit_update))
+ 		CHECK(checkupdateacl(client, NULL, "update", zonename,
+ 				     ISC_FALSE));
+ 	
+@@ -2356,17 +2410,25 @@
+ 			}
+ 		}
+ 
+-		if (ssutable != NULL && client->signer != NULL) {
++		if (ssutable != NULL) {
++			dns_name_t *signer = NULL;			
++			if (client->signer != NULL) {
++				signer = client->signer;
++			} else if (hit_update) {
++				signer = &hit_reverse.name;
++			} else {
++				FAILC(DNS_R_REFUSED, "rejected (signer)");
++			}
++
+ 			if (rdata.type != dns_rdatatype_any) {
+ 				if (!dns_ssutable_checkrules(ssutable,
+-							     client->signer,
++							     signer,
+ 							     name, rdata.type))
+ 					FAILC(DNS_R_REFUSED,
+ 					      "rejected by secure update");
+ 			}
+ 			else {
+-				if (!ssu_checkall(db, ver, name, ssutable,
+-						  client->signer))
++				if (!ssu_checkall(db, ver, name, ssutable, signer))
+ 					FAILC(DNS_R_REFUSED,
+ 					      "rejected by secure update");
+ 			}
+diff -r -u bind-9.3.2-P2-orig/bin/named/zoneconf.c bind-9.3.2-P2/bin/named/zoneconf.c
+--- bind-9.3.2-P2-orig/bin/named/zoneconf.c	2005-09-06 05:12:39.000000000 +0300
++++ bind-9.3.2-P2/bin/named/zoneconf.c	2008-11-28 14:09:10.000000000 +0200
+@@ -148,6 +148,8 @@
+ 			mtype = DNS_SSUMATCHTYPE_WILDCARD;
+ 		else if (strcasecmp(str, "self") == 0)
+ 			mtype = DNS_SSUMATCHTYPE_SELF;
++		else if (strcasecmp(str, "self-reverse") == 0)
++			mtype = DNS_SSUMATCHTYPE_SELF_REVERSE;
+ 		else
+ 			INSIST(0);
+ 
+diff -r -u bind-9.3.2-P2-orig/bin/nsupdate/nsupdate.c bind-9.3.2-P2/bin/nsupdate/nsupdate.c
+--- bind-9.3.2-P2-orig/bin/nsupdate/nsupdate.c	2005-03-17 05:58:26.000000000 +0200
++++ bind-9.3.2-P2/bin/nsupdate/nsupdate.c	2008-11-28 14:09:07.000000000 +0200
+@@ -99,7 +99,7 @@
+ #define RESOLV_CONF "/etc/resolv.conf"
+ #endif
+ 
+-static isc_boolean_t debugging = ISC_FALSE, ddebugging = ISC_FALSE;
++static isc_boolean_t debugging = ISC_FALSE, ddebugging = ISC_TRUE;
+ static isc_boolean_t memdebugging = ISC_FALSE;
+ static isc_boolean_t have_ipv4 = ISC_FALSE;
+ static isc_boolean_t have_ipv6 = ISC_FALSE;
+@@ -1335,22 +1335,14 @@
+ 	isc_buffer_free(&buf);
+ }
+ 
+-
+ static isc_uint16_t
+-get_next_command(void) {
+-	char cmdlinebuf[MAXCMD];
+-	char *cmdline;
++process_next_command(char *cmd) {
+ 	char *word;
+ 
+-	ddebug("get_next_command()");
+-	if (interactive)
+-		fprintf(stdout, "> ");
+-	isc_app_block();
+-	cmdline = fgets(cmdlinebuf, MAXCMD, input);
+-	isc_app_unblock();
+-	if (cmdline == NULL)
++	ddebug("process_next_command()");
++	if (cmd == NULL)
+ 		return (STATUS_QUIT);
+-	word = nsu_strsep(&cmdline, " \t\r\n");
++	word = nsu_strsep(&cmd, " \t\r\n");
+ 
+ 	if (feof(input))
+ 		return (STATUS_QUIT);
+@@ -1361,17 +1353,17 @@
+ 	if (strcasecmp(word, "quit") == 0)
+ 		return (STATUS_QUIT);
+ 	if (strcasecmp(word, "prereq") == 0)
+-		return (evaluate_prereq(cmdline));
++		return (evaluate_prereq(cmd));
+ 	if (strcasecmp(word, "update") == 0)
+-		return (evaluate_update(cmdline));
++		return (evaluate_update(cmd));
+ 	if (strcasecmp(word, "server") == 0)
+-		return (evaluate_server(cmdline));
++		return (evaluate_server(cmd));
+ 	if (strcasecmp(word, "local") == 0)
+-		return (evaluate_local(cmdline));
++		return (evaluate_local(cmd));
+ 	if (strcasecmp(word, "zone") == 0)
+-		return (evaluate_zone(cmdline));
++		return (evaluate_zone(cmd));
+ 	if (strcasecmp(word, "class") == 0)
+-		return (evaluate_class(cmdline));
++		return (evaluate_class(cmd));
+ 	if (strcasecmp(word, "send") == 0)
+ 		return (STATUS_SEND);
+ 	if (strcasecmp(word, "show") == 0) {
+@@ -1384,22 +1376,33 @@
+ 		return (STATUS_MORE);
+ 	}
+ 	if (strcasecmp(word, "key") == 0)
+-		return (evaluate_key(cmdline));
++		return (evaluate_key(cmd));
+ 	fprintf(stderr, "incorrect section name: %s\n", word);
+ 	return (STATUS_SYNTAX);
+ }
+ 
++static int cnt=0;
+ static isc_boolean_t
+ user_interaction(void) {
+ 	isc_uint16_t result = STATUS_MORE;
++	char *cmdline;
+ 
+ 	ddebug("user_interaction()");
+-	while ((result == STATUS_MORE) || (result == STATUS_SYNTAX))
+-		result = get_next_command();
++	while ((result == STATUS_MORE) || (result == STATUS_SYNTAX)) {
++		switch (cnt++) {
++			case 0: cmdline = strdup("server 127.0.0.1\n");break;
++			case 1: cmdline = strdup("key def.hit-to-ip.infrahip.net Ousu6700S9sfYSL4UIKtvnxY4FKwYdgXrnEgDAu/rmUAoyBGFwGs0eY38KmYGLT1UbcL/O0igGFpm+NwGftdEQ==\n");break;
++        		case 2: cmdline = strdup("update add def.hit-to-ip.infrahip.net 60 A 127.0.0.1\n");break;
++        		case 3: cmdline = strdup("send\n");break;
++        		default: cmdline = strdup("quit\n");
++		}
++	        result=process_next_command(cmdline);
++		free(cmdline);
++	}
++
+ 	if (result == STATUS_SEND)
+ 		return (ISC_TRUE);
+ 	return (ISC_FALSE);
+-
+ }
+ 
+ static void
+diff -r -u bind-9.3.2-P2-orig/lib/dns/byaddr.c bind-9.3.2-P2/lib/dns/byaddr.c
+--- bind-9.3.2-P2-orig/lib/dns/byaddr.c	2004-08-28 09:25:18.000000000 +0300
++++ bind-9.3.2-P2/lib/dns/byaddr.c	2008-11-28 14:09:06.000000000 +0200
+@@ -113,7 +113,9 @@
+ 			*cp++ = hex_digits[(bytes[i] >> 4) & 0x0f];
+ 			*cp++ = '.';
+ 		}
+-		if ((options & DNS_BYADDROPT_IPV6INT) != 0)
++		if ((options & DNS_BYADDROPT_HIT) != 0)
++			strcpy(cp, "hit.");
++		else if ((options & DNS_BYADDROPT_IPV6INT) != 0)
+ 			strcpy(cp, "ip6.int.");
+ 		else
+ 			strcpy(cp, "ip6.arpa.");
+diff -r -u bind-9.3.2-P2-orig/lib/dns/include/dns/byaddr.h bind-9.3.2-P2/lib/dns/include/dns/byaddr.h
+--- bind-9.3.2-P2-orig/lib/dns/include/dns/byaddr.h	2004-03-08 11:04:34.000000000 +0200
++++ bind-9.3.2-P2/lib/dns/include/dns/byaddr.h	2008-11-28 14:09:06.000000000 +0200
+@@ -73,6 +73,7 @@
+ #define DNS_BYADDROPT_IPV6NIBBLE	0x0001
+  */
+ #define DNS_BYADDROPT_IPV6INT		0x0002
++#define DNS_BYADDROPT_HIT		0x0004
+ 
+ isc_result_t
+ dns_byaddr_create(isc_mem_t *mctx, isc_netaddr_t *address, dns_view_t *view,
+diff -r -u bind-9.3.2-P2-orig/lib/dns/include/dns/name.h bind-9.3.2-P2/lib/dns/include/dns/name.h
+--- bind-9.3.2-P2-orig/lib/dns/include/dns/name.h	2004-09-08 03:29:34.000000000 +0300
++++ bind-9.3.2-P2/lib/dns/include/dns/name.h	2008-11-28 14:09:06.000000000 +0200
+@@ -491,6 +491,31 @@
+  */
+ 
+ isc_boolean_t
++dns_name_isselfreverse(const dns_name_t *name1, const dns_name_t *reverse, const dns_name_t *name2, isc_mem_t *mctx);
++/*
++ * Is 'name1' a reverse in 'name2'?
++ *
++ * Example:
++ *	name1 = '1.a.e.7.6.2.b.f.2.2.3.4.c.0.b.1.a.f.7.9.9.9.0.6.5.7.0.0.1.0.0.2.hit-to-ip.infrahip.net'
++ *	reverse = '1.a.e.7.6.2.b.f.2.2.3.4.c.0.b.1.a.f.7.9.9.9.0.6.5.7.0.0.1.0.0.2.hit'
++ *	name2 = 'hit-to-ip.infrahip.net'
++ *
++ * Requires:
++ *	'name1' is a valid name
++ *
++ *	'reverse' is a valid name
++ *
++ *	'name2' is a valid name
++ *
++ *	'mctx' is a valid memory context.
++ *
++ * Returns:
++ *	TRUE		'name1' is the reverse in 'name2'
++ *	FALSE		'name1' is not the reverse in 'name2'
++ */
++
++
++isc_boolean_t
+ dns_name_matcheswildcard(const dns_name_t *name, const dns_name_t *wname);
+ /*
+  * Does 'name' match the wildcard specified in 'wname'?
+diff -r -u bind-9.3.2-P2-orig/lib/dns/include/dns/ssu.h bind-9.3.2-P2/lib/dns/include/dns/ssu.h
+--- bind-9.3.2-P2-orig/lib/dns/include/dns/ssu.h	2004-03-08 11:04:39.000000000 +0200
++++ bind-9.3.2-P2/lib/dns/include/dns/ssu.h	2008-11-28 14:09:06.000000000 +0200
+@@ -30,6 +30,7 @@
+ #define DNS_SSUMATCHTYPE_SUBDOMAIN 1
+ #define DNS_SSUMATCHTYPE_WILDCARD 2
+ #define DNS_SSUMATCHTYPE_SELF 3
++#define DNS_SSUMATCHTYPE_SELF_REVERSE 4
+ 
+ isc_result_t
+ dns_ssutable_create(isc_mem_t *mctx, dns_ssutable_t **table);
+diff -r -u bind-9.3.2-P2-orig/lib/dns/name.c bind-9.3.2-P2/lib/dns/name.c
+--- bind-9.3.2-P2-orig/lib/dns/name.c	2005-10-14 04:38:48.000000000 +0300
++++ bind-9.3.2-P2/lib/dns/name.c	2008-11-28 14:09:05.000000000 +0200
+@@ -746,6 +746,69 @@
+ }
+ 
+ isc_boolean_t
++dns_name_isselfreverse(const dns_name_t *name1, const dns_name_t *reverse, const dns_name_t *name2, isc_mem_t *mctx) {
++	REQUIRE(VALID_NAME(name1));
++	REQUIRE(VALID_NAME(reverse));
++	REQUIRE(VALID_NAME(name2));
++
++	isc_buffer_t *reverse_buf = NULL;
++ 	isc_buffer_allocate(mctx, &reverse_buf, DNS_NAME_MAXTEXT);
++	dns_name_totext(reverse, ISC_TRUE, reverse_buf);
++	int reverse_len = (int)isc_buffer_usedlength(reverse_buf);
++        char *reverse_char = (char *)isc_buffer_base(reverse_buf);
++	*(reverse_char + reverse_len) = 0;
++
++	if (strcmp(reverse_char + reverse_len - 4, ".hit")==0) {
++		*(reverse_char + reverse_len - 3) = 0;
++		reverse_len -= 3;
++	}
++	else
++		return (ISC_FALSE);
++
++	isc_buffer_t *name2_buf = NULL;
++ 	isc_buffer_allocate(mctx, &name2_buf, DNS_NAME_MAXTEXT);
++	dns_name_totext(name2, ISC_TRUE, name2_buf);
++	int name2_len = (int)isc_buffer_usedlength(name2_buf);
++        char *name2_char = (char *)isc_buffer_base(name2_buf);
++	*(name2_char + name2_len) = 0;
++
++	isc_buffer_t *name1_buf = NULL;
++ 	isc_buffer_allocate(mctx, &name1_buf, DNS_NAME_MAXTEXT);
++	dns_name_totext(name1, ISC_TRUE, name1_buf);
++	int name1_len = (int)isc_buffer_usedlength(name1_buf);
++        char *name1_char = (char *)isc_buffer_base(name1_buf);
++	*(name1_char + name1_len) = 0;
++
++
++	isc_buffer_t *tmp_buf = NULL;
++ 	isc_buffer_allocate(mctx, &tmp_buf, reverse_len + name2_len + 1);
++	char *tmp_char = (char *)isc_buffer_base(tmp_buf);
++	strncpy(tmp_char, reverse_char, isc_buffer_length(tmp_buf));
++	strncat(tmp_char, name2_char, isc_buffer_length(tmp_buf) - reverse_len);
++	isc_buffer_add(tmp_buf, reverse_len + name2_len);
++
++	printf("name1: #%s#\n", name1_char);
++	printf("reverse: #%s#\n", reverse_char);
++	printf("name2: #%s#\n", name2_char);
++	printf("tmp: #%s#\n", tmp_char);
++
++	dns_name_t tmp_name;
++	isc_buffer_t *tmp_name_buf = NULL;
++ 	isc_buffer_allocate(mctx, &tmp_name_buf, DNS_NAME_MAXTEXT);
++        dns_name_fromtext(&tmp_name, tmp_buf, dns_rootname, ISC_FALSE, tmp_name_buf);
++
++	isc_boolean_t result = dns_name_equal(name1, &tmp_name);
++
++	isc_buffer_free(&reverse_buf);
++	isc_buffer_free(&name2_buf);
++	isc_buffer_free(&name1_buf);
++	isc_buffer_free(&tmp_buf);
++	isc_buffer_free(&tmp_name_buf);
++
++	return (result);
++}
++
++isc_boolean_t
+ dns_name_matcheswildcard(const dns_name_t *name, const dns_name_t *wname) {
+ 	int order;
+ 	unsigned int nlabels, labels;
+diff -r -u bind-9.3.2-P2-orig/lib/dns/ssu.c bind-9.3.2-P2/lib/dns/ssu.c
+--- bind-9.3.2-P2-orig/lib/dns/ssu.c	2004-03-08 11:04:32.000000000 +0200
++++ bind-9.3.2-P2/lib/dns/ssu.c	2008-11-28 14:09:05.000000000 +0200
+@@ -160,7 +160,7 @@
+ 	REQUIRE(VALID_SSUTABLE(table));
+ 	REQUIRE(dns_name_isabsolute(identity));
+ 	REQUIRE(dns_name_isabsolute(name));
+-	REQUIRE(matchtype <= DNS_SSUMATCHTYPE_SELF);
++	REQUIRE(matchtype <= DNS_SSUMATCHTYPE_SELF_REVERSE);
+ 	if (matchtype == DNS_SSUMATCHTYPE_WILDCARD)
+ 		REQUIRE(dns_name_iswildcard(name));
+ 	if (ntypes > 0)
+@@ -288,6 +288,10 @@
+ 			if (!dns_name_equal(signer, name))
+ 				continue;
+ 		}
++		else if (rule->matchtype == DNS_SSUMATCHTYPE_SELF_REVERSE) {
++			if (!dns_name_isselfreverse(name, signer, rule->name, table->mctx))
++				continue;
++		}
+ 
+ 		if (rule->ntypes == 0) {
+ 			if (!isusertype(type))
+diff -r -u bind-9.3.2-P2-orig/lib/isccfg/namedconf.c bind-9.3.2-P2/lib/isccfg/namedconf.c
+--- bind-9.3.2-P2-orig/lib/isccfg/namedconf.c	2005-10-26 08:06:40.000000000 +0300
++++ bind-9.3.2-P2/lib/isccfg/namedconf.c	2008-11-28 14:09:06.000000000 +0200
+@@ -227,7 +227,7 @@
+ };
+ 
+ static const char *matchtype_enums[] = {
+-	"name", "subdomain", "wildcard", "self", NULL };
++	"name", "subdomain", "wildcard", "self", "self-reverse", NULL };
+ static cfg_type_t cfg_type_matchtype = {
+ 	"matchtype", cfg_parse_enum, cfg_print_ustring, cfg_doc_enum, &cfg_rep_string,
+ 	&matchtype_enums

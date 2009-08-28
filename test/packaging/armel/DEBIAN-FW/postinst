@@ -1,0 +1,21 @@
+#!/bin/sh
+
+#ldconfig
+#invoke-rc.d --force --quiet hipd stop  
+#invoke-rc.d -f hipd stop
+#update-rc.d -f hipd remove  
+update-rc.d hipfw defaults 
+#/usr/sbin/hipd hipd -bk
+#invoke-rc.d hipd start 
+#/usr/sbin/hipd hipd -bk 
+#/etc/init.d/hipd start 
+#pidof hipd 
+#/etc/init.d/hipd restart
+ 
+invoke-rc.d hipfw start 
+
+
+
+ 
+
+

@@ -1,0 +1,283 @@
+#!/bin/sh
+
+## Modified by Jaakko Kangasharju for the purposes of the Fuego Core
+## project.  Save this file as ~/.arch-params/hook after appropriate
+## modification (see below the value of the ARCHIVES variable).  None
+## of these changes are copyrightable, so the license below gives full
+## copyright information.
+
+###############################################################################
+##
+## hook - tla hook.
+## Copyright (C) 2003 Robert Collins
+## 
+## Portions adapted from : 
+##
+## Copyright (C) 2003 Ethan Benson
+##
+## Portions adapted from larch:
+##
+## Copyright (C) 2001-2003 Tom Lord
+##
+## This program is free software; you can redistribute it and/or
+## modify it under the terms of version 2 of the GNU General Public License
+## as published by the Free Software Foundation.
+##
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with this program; if not, write to the Free Software
+## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+##
+###############################################################################
+
+## This variable contains the names of all the archives that you want
+## the script to monitor with the values separated by a space.
+## Remember to quote the value of this variable.
+ARCHIVES="hipl-dev@freelists.org--hipl"
+
+## This variable contains the addresses to which mail is to be sent.
+## You really shouldn't change this variable if you only use this for
+## Fuego Core.
+ADDRESS=hipl-commit@freelists.org
+
+MAILX=sendmail_wrapper
+
+sendmail_wrapper()
+{
+    if [ $# -ne 3 ] ; then
+	echo 1>&2 "sendmail usage error: need 3 arguments"
+	exit 1
+    fi
+    if [ "$1" != "-s" ] ; then
+	echo 1>&2 "sendmail usage error: first argument must be -s"
+	exit 1
+    fi
+    ( printf "To: %s\\n" "$3" ; \
+      printf "From: %s\\n" "`tla my-id`" ; \
+      printf "Subject: %s\\n" "$2" ; \
+      printf "\\n" ; \
+      cat ) \
+    | /usr/sbin/sendmail -t
+}
+
+new_category()
+{
+    printf "\\n"
+    printf "New categories created in %s\\n" "$ARCH_ARCHIVE"
+    printf "\\n"
+    printf "    %s\\n" "$ARCH_CATEGORY"
+    printf "\\n"
+    printf "\\n"
+    printf "regards,\\n"
+    printf "\"tla mail-new-categories\"\\n"
+    printf "\\n"
+}
+
+new_branch()
+{
+    printf "\\n"
+    printf "New branches created in %s\\n" "${ARCH_ARCHIVE}/${ARCH_BRANCH%%--*}"
+    printf "\\n"
+    printf "    %s\\n" "$ARCH_BRANCH"
+    printf "\\n"
+    printf "\\n"
+    printf "regards,\\n"
+    printf "\"tla mail-new-branches\"\\n"
+    printf "\\n"
+}
+
+new_version()
+{
+    printf "\\n"
+    printf "New versions created in %s\\n" "${ARCH_ARCHIVE}/${ARCH_VERSION%--*}"
+    printf "\\n"
+    printf "    %s\\n" "$ARCH_VERSION"
+    printf "\\n"
+    printf "\\n"
+    printf "regards,\\n"
+    printf "\"tla mail-new-versions\"\\n"
+    printf "\\n"
+}
+
+cl_entry()
+{
+  awk -v archive="$archive" \
+      -v version="$version" \
+      -v category="$category" \
+      -v branch="$branch" \
+      -v patch="$patch" \
+      -v no_files="$no_files" \
+    'BEGIN { getline;
+             while (!match ($0, "^$"))
+               {
+                 field = tolower ($1);
+                 sub (":.*", "", field);
+                 headers[field] = $0;
+                 sub ("^[^:]*:[ \t]*", "", headers[field]);
+                 getline;
+                 while (match ($0, "^[ \t]"))
+                   {
+                     headers[field] = headers[field] $0;
+                     getline;
+                   }
+               }
+           }
+
+     { if (body == "") body = "    " $0; else body = body "\n    " $0; }
+                  
+     END {
+           date = headers["standard-date"];
+
+           if (date == "")
+             {
+	       # this is almost vestigial: a backwards compatibility
+	       # hack just for the author of arch, some of whose log
+	       # messages pre-date the "standard-date" header field.
+	       # 
+               split (headers["date"], ugly_date, "[ \t]+");
+               date = ugly_date[6] "-" ugly_date[2] "-" ugly_date[3];
+             }
+	   sub("[[:space:]].*GMT.*", " GMT", date);
+           print date "\t" headers["creator"] "\t" patch;
+           print "";
+           print "    Summary:";
+           print "      " headers["summary"];
+           print "    Revision:";
+           print "      " headers["revision"];
+           print "";
+           print body;
+           print "";
+           if (no_files == "")
+             {
+               file_list(0, "new-files", "{arch}/" category "/" branch "/" version "/" archive "/patch-log/" patch);
+               file_list(0, "removed-files");
+               file_list(0, "modified-files");
+	       file_pair_list("renamed-files");
+               file_list(0, "new-directories");
+               file_list(0, "removed-directories");
+               file_list(0, "modified-directories");
+	       file_pair_list("renamed-directories");
+               file_list(0, "new-patches", archive "/" version "--" patch);
+               print ""
+             }
+         }
+
+     function file_list (base_only, field_name, exclude)
+     {
+       for (x in items)
+         delete items[x];
+
+       n_items = split (headers[field_name], items, "[ \t]+");
+
+       if ((n_items == 0) || ((exclude != "") && (n_items == 1)))
+         return;
+
+       sub("-", " ", field_name);
+       print "    " field_name ":"
+       printf("    ");
+       width = 0;
+       items_on_line = 0;
+
+       for (x = 1; x <= n_items; ++x)
+         {
+           if (exclude == items[x])
+             continue;
+           if (base_only)
+             sub (".*/", "", items[x]);
+           if ((items_on_line == 0) || ((width + length (items[x]) + 1) < 64))
+             {
+               width += length (items[x]) + 1;
+               ++items_on_line;
+               printf(" %s", items[x]);
+             }
+           else
+             {
+               printf("\n");
+               printf("    ");
+	       printf(" %s", items[x]);
+               width = length(items[x]) + 1;
+               items_on_line = 1;
+             }
+         }
+       printf "\n"
+       printf "\n"
+     }
+    function file_pair_list (field_name)
+     {
+       for (x in items)
+         delete items[x];
+
+       n_items = split (headers[field_name], items, "[ \t]+");
+
+       if (n_items == 0)
+         return;
+
+       sub("-", " ", field_name);
+       print "    " field_name ":"
+
+       for (x = 1; x <= n_items; ++x)
+         {
+	   printf("     %s\n", items[x]);
+	   printf("       ==> %s\n", items[x + 1]);
+	   x = x + 1;
+         }
+       printf "\n"
+       printf "\n"
+     }'
+}
+
+new_revision()
+{
+    local archive="$ARCH_ARCHIVE"
+    local version="$(v=${ARCH_REVISION%--*};echo ${v##*--})"
+    local category="${ARCH_REVISION%%--*}"
+    local branch="$(v=${ARCH_REVISION%--*--*};echo ${v##*--})"
+    local patch="${ARCH_REVISION##*--}"
+
+    printf "\\n"
+    printf "New revisions created in %s\\n" "${ARCH_ARCHIVE}/${ARCH_REVISION%--*}"
+    printf "\\n"
+    tla cat-archive-log "${ARCH_ARCHIVE}/${ARCH_REVISION}" | cl_entry
+    printf "\\n"
+    printf "regards,\\n"
+    printf "\"tla mail-new-revisions\"\\n"
+    printf "\\n"
+}
+
+
+case "$1" in
+    make-category)
+	for i in $ARCHIVES; do
+	    if [ "$i" = "$ARCH_ARCHIVE" ] ; then
+		new_category \
+		    | $MAILX -s "tla category: $ARCH_ARCHIVE" $ADDRESS
+	    fi
+	done
+	;;
+    make-branch)
+	for i in $ARCHIVES; do
+	    if [ "$i" = "$ARCH_ARCHIVE" ] ; then
+                new_branch | $MAILX -s "tla branch: ${ARCH_ARCHIVE}/${ARCH_BRANCH%%--*}" $ADDRESS
+	    fi
+	done
+        ;;
+    make-version)
+	for i in $ARCHIVES; do
+	    if [ "$i" = "$ARCH_ARCHIVE" ] ; then
+                new_version | $MAILX -s "tla version: ${ARCH_ARCHIVE}/${ARCH_VERSION%--*}" $ADDRESS
+	    fi
+	done
+        ;;
+   commit|import|tag)
+	for i in $ARCHIVES; do
+	    if [ "$i" = "$ARCH_ARCHIVE" ] ; then
+		new_revision \
+		    | $MAILX -s "tla commit: ${ARCH_ARCHIVE}/${ARCH_REVISION%--*}" $ADDRESS
+	    fi
+	done
+        ;;
+esac

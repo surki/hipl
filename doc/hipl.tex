@@ -1,0 +1,1242 @@
+\section{Introduction}
+\label{sec:introduction}
+
+The lack of security has been one of the main problems with
+IP. Although \ac{IPsec}~\cite{rfc2401} and \ac{DNSSEC}~\cite{rfc3008}
+have provided some level of security to IP layer, such as data origin
+authentication, confidentiality, integrity, and so forth, the notion
+of a true identity for hosts is still missing. The IP address has
+typically been used both to identify the host and to provide routing
+information. This has led to the misuse of IP addresses for
+identification purposes in many security schemes. To overcome the
+problems related to the current use of IP addresses, the \ac{HIP}
+architecture adds a cryptographically based namespace, the Host
+Identity, to the IP protocol.  Each host (or more specifically, its
+networking kernel or stack) is assigned at least one \ac{HI}, which
+can be either public or anonymous. The \ac{HI} can be used for
+authentication purposes to support trust between systems, enhance
+mobility and dynamic IP renumbering, aid in protocol translation and
+transition, and reduce denial-of-service attacks. Furthermore, as all
+of the upper layer protocols are bound to the \ac{HI} instead of the
+IP address, the IP address can now be used solely for routing
+purposes.
+
+This document describes the implementation effort of the \ac{HIPL}
+project~\cite{hipl}. The implementation is based on the standard Linux
+kernel and supports only IPv6 protocol. Some background knowledge is
+also provided for the reader unfamiliar with \ac{HIP}.
+
+\subsection{Related Work}
+\label{sec:related_work}
+
+There are some protocols that have similar kind of functionality as
+\ac{HIP} has. Examples of these protocols are \ac{SCTP} and Mobile
+IPv6.
+
+\ac{SCTP} provides a means for each \ac{SCTP} endpoint to provide the
+other endpoint (during association startup) with a list of transport
+addresses (i.e., multiple IP addresses in combination with an
+\ac{SCTP} port) through which that endpoint can be reached and from
+which it will originate \ac{SCTP} packets. The association spans
+transfers over all of the possible source/destination combinations
+which may be generated from each endpoint's lists. \cite{rfc2960}
+
+Connection setup with SCTP is similar to \ac{HIP}, a cookie exchange
+mechanism is also used during the connection setup
+procedure. \ac{SCTP} uses cryptographic hash functions for data
+integrity checks.
+
+Mobile IPv6 tries to make mobility transparent to applications using
+higher level protocols. Mobile IPv6~\cite{rfc2002} addresses also
+security issues.
+
+\ac{HIP} is being developed actively in four known independent
+projects. \ac{HIPL} implementation is described in this document.
+Ericsson Research~\cite{ericsson} is working on a FreeBSD
+implementation~\cite{netbsd} and Julien Laganier (SUN) is developing a
+Linux based implementation. Boeing~\cite{boeing} is developing both a
+Linux and Windows implementation Andrew McGregor has an outdated
+implementation~\cite{pyhip} that was developed with Python programming
+language.
+
+\section{Background}
+\label{sec:background}
+
+In this section, we provide some background information of the HIP
+architecture. We introduce briefly the base exchange, and mobility and
+multihoming extensions.
+
+\subsection{HIP Architecture}
+
+There are two namespaces in use in the Internet today: IP addresses
+and domain names.  IP addresses have been used both to identify the
+network interface of the host and the routing direction vector.  The
+three main problems with the current namespaces are that dynamic
+readdressing cannot be directly managed, anonymity is not provided in
+a consistent and trustable manner, and authentication for systems and
+datagrams is not provided.
+
+The \ac{HIP} architecture is introduced in \cite{hiparch}. \ac{HIP}
+introduces a new cryptographically based namespace, the \ac{HI}, and
+adds a layer between the network and the transport layer in the TCP/IP
+stack.
+
+The modification to the IP stack is depicted in
+\autoref{fig:stack_model}. In the current architecture, each process
+is identified by a \ac{PID}. The process may establish transport layer
+connections to other hosts (or to the host itself), and the transport
+layer connection is then identified using the source and destination
+IP addresses as well as the source and destination ports. On the IP
+layer, the IP address is used as the endpoint identifier, and on the
+link layer, the hardware address of the network interface is used. In
+\ac{HIP}, the transport layer is modified so that the connections are
+identified using the source and destination \acp{HI} as well as the
+source and destination ports. \ac{HIP} then provides a binding between
+the \acp{HI} and the IP addresses, e.g., using \ac{DNS}~\cite{rfc1034}.
+
+\begin{figure}[htb]
+\begin{center}
+\includegraphics[scale=0.7]{fig/stack_model}
+\end{center}
+\caption{The current IP stack and the \ac{HIP} based stack}
+\label{fig:stack_model}
+\end{figure}
+
+Basically, a \ac{HI} is a public key, which serves as the endpoint
+identifier of the node. Each host will have at least one \ac{HI}
+assigned to its networking kernel or stack. The \ac{HI} can be either
+public or anonymous. Public \acp{HI} may be stored in directories,
+such as \ac{DNS}, in order to allow the host to be contacted by other
+hosts. A host may have several \acp{HI}, and it may also generate
+temporary (anonymous) \acp{HI} on the fly for establishing connections
+to other hosts. The main purpose of anonymous \acp{HI} is to provide
+privacy protection to the host, should the host not wish to use its
+public \acp{HI}.
+
+Public keys tend to be rather long, and we need shorter presentations
+of \acp{HI}. A \ac{HIT} is a 128-bit hash of the \ac{HI}. Another
+representation of the \ac{HI} is the \ac{LSI}, which has a size of 32
+bits, and it is used only internally in the host. Its main purpose is
+to support backwards compatibility with the IPv4 \ac{API}.
+
+The main advantage of using \ac{HIT} in protocols instead of the
+\ac{HI} is that its fixed length makes protocol coding easier. It does
+not add as much overhead to the data packets as a public key would. It
+also presents a consistent format to the protocol regardless of the
+underlying identity technology used. \ac{HIT} functions much like the
+\ac{SPI} does in \ac{IPsec}, but instead of being an arbitrary 32-bit
+value that identifies the \ac{SA} for a datagram (together with the
+destination IP address and security protocol), \ac{HIT} identifies the
+public key that can validate the packet authentication.
+
+The probability that a collision will occur is extremely small. To
+ensure that the number of collision is even smaller, a 256 bit version
+of the \ac{HIT} has been specified. The 128 bit version can still be
+used internally for IPv6 API calls in the implementations. Should
+there be two public keys for one \ac{HIT}, the \ac{HIT} acts as a hint
+for the correct public key to use.
+
+The \ac{HIP} architecture basically solves the problems of dynamic
+readdressing, anonymity, and authentication. As the IP address no
+longer functions as an endpoint identifier, the problem of mobility
+becomes trivial, as a node may easily change its HI and IP address
+bindings as it moves. Anonymity is provided by anonymous
+\acp{HI}. Furthermore, as the namespace is cryptographically based, it
+becomes possible to perform authentication based on the \acp{HI}. In
+\cite{ndss-inthip}, the concept of integrating security, mobility, and
+multihoming based on \ac{HIP} is discussed further.
+
+\subsection{Base Exchange}
+
+\ac{HIP} is a signaling protocol between the communicating
+endpoints. The main purpose of the protocol is to perform mutual
+end-to-end authentication and to create \ac{IPsec}
+\ac{ESP}~\cite{rfc2406} \acp{SA} to be used for integrity protection
+and possibly also encryption. Furthermore, the protocol performs
+reachability verification using a simple challenge-response scheme.
+
+The base exchange is depicted in \autoref{fig:base_exchange}. In the
+first message, I1, the initiator I sends its own \ac{HIT} and the
+\ac{HIT} of the responder to the responder. The responder R replies
+with message R1, which contains the \acp{HI} of I and itself as well
+as a puzzle based challenge for I to solve. The purpose of the
+challenge is to make the protocol resistant to denial-of-service
+attacks \footnote{Puzzle based schemes have been previously used for
+providing \ac{DoS} protection to both
+authentication~\cite{clientpuzzle} and encryption~\cite{opportkey}
+protocols}. I solves the puzzle and sends in I2 the \acp{HIT} of
+itself and R as well as the solution to the puzzle, and performs the
+authentication. R2 now commits itself to the communication, and
+responds with the \acp{HIT} of I and itself, and performs the
+authentication. After this, I and R have performed the mutual
+authentication and established Security Associations for \acp{ESP},
+and can now engage in secure communications. Furthermore, reachability
+is verified by the fact that the protocol has more than two rounds.
+
+\begin{figure}[htt]
+\begin{center}
+\includegraphics[scale=0.7]{fig/base_exchange}
+\end{center}
+\caption{The base exchange}
+\label{fig:base_exchange}
+\end{figure}
+
+If I does not have any prior information of R, it may retrieve the
+information from a repository, such as \ac{DNS}. I sends a lookup
+query to the \ac{DNS} server, which replies with R's address, \ac{HI},
+and \ac{HIT}.
+
+\subsection{Mobility and Multihoming Extentension}
+\label{sec:mm-ext}
+
+There are some other message types in the \ac{HIP}. One of them is the
+UPDATE packet which provides the peer system a new \ac{SPI} to use
+when sending outbound data. UPDATE also provides possibly a new
+\ac{DH} key to produce new keying material, and provides any
+intermediate system with the mapping of the old
+\ac{SPI} to the new.
+
+\cite{hip-ietf-mm-00} provides a way for
+supporting mobility and multihoming using UPDATE packets. UPDATE
+packet includes then REA (contains a list of addresses of the host),
+SEQ, and ACK parameters, and possibly DIFFIE\_HELLMAN parameter. If
+the packet contains a NES parameter, rekeying is also performed. The
+existence of these parameters depends on the desired mobility scenario
+described in \cite{hip-ietf-mm-00}.
+
+A typical mobility exchange is quite simple. First the HIP module
+selects the addresses to be included in a REA parameter. The REA
+parameter and a sequence number in a SEQ parameter are added to the
+UPDATE packet. Then the UPDATE packet is sent to all of the peers with
+which there is an existing HIP security association.
+
+When a peer host receives the initial UPDATE packet, it must validate
+all addresses listed in the REA parameter. This is achieved by sending
+a reply UPDATE packet to each of the addresses listed in the initial
+UPDATE packet. This reply UPDATE packet contains ECHO\_REQUEST and SEQ
+parameters.
+
+When a reply UPDATE packet is received, it must be acknowledged with
+an UPDATE packet which contains ECHO\_REPLY and ACK parameter. This is
+needed to verify that there really is a host at the address where the
+UPDATE was sent from. When a host receives these address verification
+UPDATE packets, it can start using them when sending data to its peer.
+
+If the reply UPDATE packet is not replied, the address corresponding
+to the address tested in the REA parameter of the initial UPDATE
+packet is not reachable and therefore the address is not usable for
+any communication until next readdressing of the peer.
+
+An example mobility exchange is depicted in figure
+\ref{fig:mm-readdress}.
+
+\begin{figure}[hbt]
+ \centering
+ \includegraphics[scale=0.8]{fig/mm-update}
+ \caption{Multihoming and Mobility, readdress with mobile-initiated rekey}
+ \label{fig:mm-readdress}
+\end{figure}
+
+\subsection{About the HIPL Project}
+
+Linux was selected as the platform for implementing \ac{HIP}. It was a
+natural choice because the developers were already familiar with
+Linux. Documentation about kernel development was also needed because
+all of the project members were unfamiliar with kernel development in
+the beginning of the project. There was enough documentation about
+Linux kernel development (for example
+\url{http://www.kernelhacking.org/},
+\cite{kernelarch,kernellinks,kmodguide,linuxtcpipstack,ldd}) that made
+Linux platform a reasonable choice.
+
+When the \ac{HIPL} project begun, the standard Linux kernel series 2.4
+did not include \ac{IPsec} functionality which is needed for
+\ac{HIP}. There were two projects providing \ac{IPsec} support for the
+Linux kernel: USAGI Linux~\cite{usagi} and
+FreeS/WAN~\cite{freeswan}. USAGI Linux was selected because FreeS/WAN
+did not support IPv6 and project members wanted to concentrate on
+developing an IPv6 implementation of \ac{HIP}. Now that the
+implementation was moved to kernel series 2.6, the \ac{IPsec} support
+is built-in into the kernel.
+
+The main goal of the project is to develop a \ac{HIP}
+drafts~\cite{hip,hiparch,hipimpl,hip-ietf-mm-00,rvs-00} compliant
+implementation of \ac{HIP}. We also participate in the \ac{IETF}
+standardization effort for \ac{HIP}.
+
+\section{Implementation Architecture}
+\label{sec:implementation_architecture}
+
+This section describes the architecture of the implementation as it
+is. A general model of operation is first discussed because it affects
+the design of all components in the system. The components of the
+architecture is are the explained. The section is concluded with an
+practical example that shows how the components interact with each
+other.
+
+\subsection{HIP module}
+\label{sec:kernel_model_architecture}
+
+The HIP layer is located conceptually between the transport and the
+network layer in the networking stack. One of our goals has been not
+to affect the transport layer with minimum amount of changes.
+
+The HIP protocol handler is registered with IPv6 on bootup (or when
+the module is loaded into the kernel). This enables us to use the
+kernel's built-in functionality of passing the IPv6 packets with a HIP
+header straight to our code.
+
+Most of the \ac{HIP} processing is done by the \verb|khipd| kernel
+thread. The \ac{HIP} thread will sleep in a semaphore waiting for
+other parts of the kernel to give it work orders. The implementation
+is a simple queue, protected by a semaphore.
+
+Currently all the \ac{HIP} packets coming from the network will cause
+a work order to be created and passed to the kernel thread. The reason
+for passing the work orders is that the network packets are received
+in soft irq, and we want to minimize the time spent in soft irq locks.
+Also, the \ac{HIP} thread can be easily controlled (niced, preempted
+etc.).
+
+There are also few other cases where a work order is
+created. Userspace communicates with the kernel module using \ac{HIP}
+specific sockets. Usually the userspace applications request adding or
+deleting mappings from the \ac{HADB}.
+
+\subsection{Internal data structures}
+
+\ac{HIPL} contains a couple of global data structures. In this
+section, we describe their intended use and locking policies.
+
+\subsubsection{Host Association Data Base}
+\label{sec:hadb}
+
+The \ac{HADB} is a container for \acp{HA}. A \ac{HA} holds the
+necessary information to establish and maintain a \ac{HIP} association
+between two hosts. It consists of both parties' \acp{HIT}, \acp{SPI}
+values required for \ac{ESP} traffic, IPv6 addresses, security keys,
+keying material to derive new keys and some state information. It is
+needed when sending or receiving \ac{IPsec} data in \ac{ESP}, or due
+to \ac{HIP} control messages (base exchange, readdressing etc).
+
+The \ac{HA} has internal state. This state varies between
+\verb|HIP_HASTATE_INVALID| and \verb|HIP_HASTATE_HITOK|, meaning that
+\ac{HA} is not fully usable yet or it is inserted in the HIT hash
+table, respectively.
+
+The \ac{HADB} is implemented as a hash table to support fast
+searching. The hash table is indexed by \ac{HIT}. However, the support
+for multiple \ac{IPsec} \acp{SA} cannot be implemented
+efficiently just by indexing using \acp{HIT}. Therefore, the \ac{HIP}
+module has an auxiliary hash table that maps inbound \ac{SPI} values
+to peer \acp{HIT}. It is used only when an incoming \ac{ESP} packet
+arrives and the \ac{HIP} module needs to map it to a certain \ac{HA}.
+At that moment, the module is not aware of the \acp{HIT}
+involved, but knows only the \ac{SPI} value from the \ac{ESP} packet. The
+host looks up the corresponding \ac{HIT} from the auxiliary hash table,
+and after that the host can get the correct \ac{HA} by using the
+retrieved \ac{HIT} as the hash key.
+
+\subsubsection{HADB Locking}
+
+To maintain integrity of the \ac{HADB}, we use a couple of techniques.
+First, the \ac{HA} hash table has a global spin lock. Certain
+\ac{HADB} functions use these to isolate the critical sections. The
+basic policy is to use these locks only when operating (reading or
+writing) on the hash table itself. The macros that do the job are:
+\verb|HIP_LOCK_HT| and \verb|HIP_UNLOCK_HT|.
+
+Second, we guarantee that no \ac{HA} can be deleted accidentally while
+some other thread/process uses it. This is accomplished by having a
+reference counter in each \ac{HA}. This counter must be incremented
+using \verb|hip_hold_ha()| macro whenever we reference the
+\ac{HA}. Obviously the reverse holds for decrementing the counter
+using \verb|hip_put_ha()|. When the reference counter reaches zero,
+the memory allocated for the \ac{HA} is automatically deleted.  A
+reference to a \ac{HA} can only be acquired through certain \ac{HADB}
+functions. These guarantee that there cannot be a situation where we
+would be deleting the \ac{HA} (due to its reference counter reaching
+zero), and some other thread wanting to acquire the \ac{HA}.
+
+Third, each \ac{HA} has its own spin lock. This lock must be held
+when the information in \ac{HA} is accessed, either for reading of
+writing.  The two macros \verb|HIP_LOCK_HA| and \verb|HIP_UNLOCK_HA|
+provide the correct means to handle \acp{HA}.  These macros use
+\verb|spin_lock_bh| and \verb|spin_unlock_bh|, respectively, to
+acquire and release the locks and at the same time to disable and
+enable bottom handlers.
+
+The reason why the specifically bottom handler lock is used is related
+to the contexts in which \ac{HIP} code is executed in the kernel.  Due
+to the architecture of \ac{HIPL}, there are 3 different contexts, in
+which the \ac{HIP} code is executed: bottom handler/softirq, kernel
+thread and user context.  The softirq context is used when receiving
+packet from the network and it has the highest priority. A \ac{HIP}
+worker thread is operating in the kernel thread context.  Userspace
+\ac{HIP} configuration tools, \ac{HIP} sockets API etc. run in the
+user context.  An incoming network packet will preempt every other
+context. If a process/thread in a lower priority context has acquired
+a lock, it will not be able to release it. Thus, to avoid deadlocks,
+we need to disable soft irqs, as it is the highest priority in which
+\ac{HIP} code is executed.
+
+\subsection{HIP Work Queue}
+\label{sec:work_queue_architecture}
+
+The purpose of a work queue in is to defer processing of HIP-related
+messages. The work queue is maintained by a \ac{HIP} kernel
+thread. Networking stack defers the processing of \ac{HIP} packets by
+inserting them as work orders for the kernel thread.
+
+Working queue is simple linked list \footnote{At the moment it is not
+bounded, but it definitely should be, if the code is ever used in a
+real, production server}. The list is protected by a semaphore. The
+kernel thread sleeps in the semaphore until some entity (usually the
+networking stack) defers some work order to it. Basically, this
+follows the producer-consumer model, where the networking stack and
+user configuration tools produce work orders for the kernel thread to
+consume. The work order is usually related to the \ac{HIP} base
+exchange, or other control traffic.  Normal data transfer does not insert
+any work orders in the work queue.
+
+Originally, there were two reasons for using the kernel thread
+model. The first one was to simplify accessing the internal data
+structures. The second one was to make the \ac{HIP} module to be more
+controllable.  For example, \ac{HIP} thread's priority can be raised
+or lowered, giving it more or less \ac{CPU} time.  Currently, the data
+structures are accessible to everybody (and in every context), thus
+the first reason does not hold anymore.
+
+\subsection{Asymmetric Cryptography Support in the Linux Kernel}
+
+The implementation architecture was revised to be completely kernel
+orientated and asymmetric cryptography was integrated to make the
+\ac{DSA} and \ac{DH} algorithms available in the kernelspace. The
+cryptographic routines were merged from the GNU cryptographic library
+(libgcrypt) version 1.12.
+
+\subsection{Networking Stack}
+\label{sec:networking_stack_architecture}
+
+\ac{HIP} headers are needed to be inserted to and captured from
+network traffic in any implementation of the \ac{HIP} protocol. There
+were two alternatives on how to do this, and a comparison of them is
+in \autoref{sec:networking_stack_design_choices}. The \ac{HIPL}
+implementation is based on the ``hooks'' approach, which is described
+in more detail in this section.
+
+Some of the hooks were placed in the IPv6 part of the networking
+stack. Originally the hooks were bound to the \verb|connect| system
+call in \ac{TCP} code, but they were refactored into IPv6 related code
+so that \ac{UDP} and other transport layer protocols would work
+transparently.
+
+Only a single packet will be queued in the output side of the IPv6
+stack during base exchange. This means that \ac{TCP} retransmissions
+will be dropped during a slow \ac{HIP} base exchange, for example. A
+more closer view on the implementation of the hooks is provided in the
+following paragraphs.
+
+The hooks in the output side of the IPv6 stack intercept packets that
+are destined to \ac{HIT} addresses. The hooks do nothing for an
+outgoing packet if the destination address is an IPv6 address. If the
+destination address is a \ac{HIT}, the hooks check for an earlier base
+exchange with the destination \ac{HIT}. If a base exchange has not
+been yet done with the destination \ac{HIT}, the original packet is
+queued and an I1 packet is sent instead of the original packet. If a
+base exchange has already been done with the destination HIT, the
+hooks catch the packet when it is built ready (including IPv6 and
+\ac{ESP} headers). Source and destination addresses are \acp{HIT} at
+this point but they will be converted to IPv6 addresses before the
+IPv6 layer can transmit the packet to network.
+
+There is no actual hook in the input side of the IPv6 stack. \ac{HIP}
+is registered as a normal transport layer protocol listening for the
+packets in the base exchange. When a \ac{HIP} connection is
+established, a hook in the input handler of \ac{ESP} is
+triggered. This hook checks the \ac{SPI} of the incoming packet. If
+the incoming packet is not associated with a \ac{HIT}, the packet is
+returned as normally. If the \ac{SPI} belongs to a \ac{HIP}
+connection, the source and destination \acp{HIT} corresponding to the
+\ac{SPI} are searched from kernel database and they are copied over
+source and destination IPv6 addresses. Finally control of flow returns
+to normal \ac{ESP} handler.
+
+Additional functions not directly related to sending or receiving
+packets were also needed for effective \ac{HIP}. Address events are
+these kind of things which needed to be modified. A host wants to know
+if it has a new IPv6 address or an IPv6 address is deleted. The
+function \verb|hip_handle_ipv6_dad_completed| handles \ac{DAD} events
+and function \verb|hip_handle_inet6_addr_del| handles the events
+caused by single address deletion.
+
+Input and output side of the hooks are visualized in
+\autoref{fig:input_hooks} and \autoref{fig:output_hooks}.
+\autoref{tbl:hook_descriptions} explains each numbered point in the
+figures. An interface name in code and an explanation for each point
+is given in the figure. 
+
+\begin{figure}
+   \begin{minipage}[b]{0.5\textwidth}
+      \centering
+      \includegraphics[height=0.4\textheight]{fig/input}
+      \caption{Input side of networking stack}
+      \label{fig:input_hooks}
+   \end{minipage}%
+   \hfill%
+   \begin{minipage}[b]{0.5\textwidth}
+      \centering
+      \centering
+      \includegraphics[height=0.4\textheight]{fig/output}
+      \caption{Output side of networking stack}
+      \label{fig:output_hooks}
+   \end{minipage}%
+\end{figure}
+
+\setlongtables
+\begin{longtable}{|p{0.05\textwidth}|p{0.30\textwidth}|p{0.6\textwidth}|}
+\hline
+\endhead
+\endfoot
+Hook & Function Name & Operation \\\hline
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+a & \verb|hip_inbound| &
+
+A packet with a \ac{HIP} header is received. This is not really a hook;
+the function has been registered as a HIP protocol handler using linux
+kernel interfaces. \\
+
+b & \verb|hip_handle_esp| &
+
+Received an ESP packet that has a SPI that belongs to \ac{HIP}. The IPv6
+addresses are replaced with the corresponding \acp{HIT} before the ESP handling
+can proceed. \\
+
+c & \verb|hip_handle_output| &
+
+An IPv6 packet is being sent out that has a HIT as the destination
+address. An IPv6 address corresponding to the HIT is searched from the
+kernel database. The HIT will be replaced with the corresponding IPv6
+address in the IPv6 header. The hook is called from two points of the
+IPv6 code to guarantee that both the TCP and UDP code reach this hook. \\
+
+d & \verb|hip_trigger_bex| &
+
+A hook to trigger the base exchange. \\
+
+e & \verb|hip_handle_ipv6_dad_compl| &
+
+This hook is called when a new IPv6 address is added. When the kernel
+has performed the \ac{DAD} successfully, we call this hook and notify
+active \ac{HIP} peers about the new address. Events caused by link
+local addresses are ignored. \\
+
+f & \verb|hip_handle_inet6_addr_del| &
+
+This hook is called when an IPv6 address is deleted.\\
+
+g & \verb|hip_get_addr| &
+  
+A small modification in routing and neighbor discovery is needed
+because they behave in a rather odd way in Linux: transport protocols
+select the routes to be used even though it should really be selected
+by network layer protocols. This hook would not be needed if the
+kernel routing behaved ``intuitively''. The hook is physically
+located in routing handler and it is triggered by transport
+layer. Routing handler receives a query for the route to the given HIT
+address and the hook tells the routing handler the IPv6 address
+corresponding to the HIT. \\
+
+\hline
+\caption{Descriptions for \autoref{fig:input_hooks} and
+\autoref{fig:output_hooks}}
+\label{tbl:hook_descriptions}
+\end{longtable}
+
+\subsection{IPsec Usage}
+
+When the \ac{HIP} module is initialized, it registers two \acp{SP},
+one for incoming and one for outgoing network traffic. The prefix
+\verb|4000::/2| is preallocated for \ac{HIP} use, although it is not
+officially allocated by the Internet Assigned Numbers Authority
+(IANA). There is also a ``type 2'' HIT defined as \verb|8000::/2|, but
+it is not in use, and we do not support it currently.
+
+When plain IPv6 network traffic is sent, the \ac{IPsec} does not match
+the \ac{HIP} \ac{SP}, and thus no \ac{HIP} action will be
+performed. When a \ac{HIP} network connection is initiated, the
+\ac{HIP} \ac{SP} will match, and \ac{IPsec} will query for a
+\ac{SA}. If there is no ready \ac{SA} available, as is the case when
+we first connect to the peer, the \ac{HIP} module starts the \ac{HIP}
+base exchange.
+
+The caller process will be put to sleep until the \ac{SA} is valid, or
+has timeouted.  Default timeout period is 30 seconds as defined by the
+Linux 2.6 IPsec stack. The process will sleep even if the socket is
+a non-blocking one.
+
+% timeout .. in ACQ state ?
+
+If the \ac{HIP} base exchange procedure is successful, we have two
+valid \acp{SA}: one for outgoing and one for incoming network
+traffic. All the sleeping processes waiting for the outgoing \ac{SA}
+will be now waked up. Now the calling process (usually
+\verb|connect()|), can proceed with e.g. \ac{TCP} handshake. This part
+will no longer sleep, if the socket has been set to non-blocking.
+
+\subsection{Mobility and Multihoming}
+\label{sec:mobility_and_multihoming_architecture}
+
+The implementation has some level of support for the mobility and
+multihoming features defined in the draft
+\cite{hip-ietf-mm-00}. Scenarios ``Mobility with single SA pair'' and
+``Host multihoming'' were the main targets of the current
+implementation. The rest of the scenarios are not planned to be
+implemented in the near future.
+
+%Old style support for REA, AC, and ACR packets is removed. Current
+%implementation uses UPDATE packets for mobility and multihoming.
+
+The changes needed compared to the previous version can be consireded
+major. Most notable change had to be done to the \ac{HADB} (see
+\ref{sec:hadb}). The previous version was designed for
+\acp{HA} which know only of one simultaneous \ac{SPI} at the same
+time. However, the mobility draft \cite{hip-ietf-mm-00} shows how to
+use many simultaneous \ac{SPI} values. It also describes how IPv6
+addresses can be bound to the \acp{SPI}. The SPI-HIT hash table (see
+\ref{sec:hadb}) was needed because if the peer has many \ac{SPI}
+values, the hashing values will be different and we would get
+incorrect results for \ac{HA} lookup in the case if only single hash
+table were used.
+
+The current implementation implements the suggestion ``one \ac{IPsec}
+\ac{SA} per one network interface'' proposed in
+\cite{hip-ietf-mm-00}. If only \ac{SA} was used, the \ac{ESP} replay
+window might drop incoming packets if packets arrive at many different
+paths having different characteristics. Having many simultaneous
+\acp{SA}, the other \acp{SA} do not affect the replay window of any
+other \ac{SA}.
+
+%\autoref{fig:rea} depicts \ac{HIP} mobility and multihoming.
+The \ac{HIP} network module is notified when an IPv6 address is added
+to or removed from some of its network interface(s). Another type of
+events are network device events. The \ac{HIP} module is notified when
+a network device goes down or comes up. Actually, the event when
+network comes up is ignored, because at that time the interface
+usually has no usable addresses, so the module waits for IPv6 address
+addition events.
+
+When a change occurs in an interface, the HIP module selects the
+addresses within the interface and proceeds as described in
+\autoref{sec:mm-ext}.
+
+\subsection{Rendezvous Mechanism/Server}
+\label{sec:rendezvous_server}
+
+For the rendezvous server functionality, we had to add a new hash
+table, where we store the \ac{RVA}. The hash table uses peer's HIT as
+the indexing key, just like the other \ac{HADB} hash tables.
+
+The responder needs to inform the rendezvous erver, and ask for
+rendezvous service. This is accomplished by adding a special control
+bit (RVS\_CAPABLE) in I1 packet, as specified in \cite{rvs-00}.  To
+the I2 packet, we add an optional RVA\_REQUEST parameter if, and only
+if, the rendezvous server also used the RVS\_CAPABLE bit in R1 packet.
+Otherwise, the rendezvous erver signals that is not capable of
+providing the rendezvous service the responder asked for. We then end
+the base exchange.
+
+Having added the RVA\_REQUEST parameter to the I2, the initiator
+proceeds with the rest steps of building the I2 packet, and sends
+it. Then rest goes as in the normal base exchange procedure.
+
+On the rendezvous server side, the process is slightly
+different. Always when the rendezvous server receives I1 packet, it
+has to check if it is destined for itself, or if it belongs to a
+\ac{HIP} node, that it is serving.
+
+%\subsection{HIP Bootstrap Support}
+%\label{sec:bos_architecture}
+% XX FIX
+
+\subsection{Sockets API}
+\label{sec:api_architecture}
+
+A typical network application makes a connection to a peer by using
+the \ac{FQDN} of the peer. The \ac{FQDN} is queried from \ac{DNS} to
+get the corresponding IPv6 address. The querying interface is
+specified in the network socket application interface and it is
+commonly known as the \verb|resolver|.
+
+Network applications need additional support in the network socket
+interface for two different reasons if \ac{HIP} is to be used. The
+first reason is that a hostname query from \ac{DNS} should result in
+\acp{HIT} instead of IPv6 addresses or otherwise the kernel module would
+assume a connection without \ac{HIP}. This is discussed in more detail
+\vpageref[below]{sec:api_architecture}. The second reason is that a
+\ac{HIT} to IPv6 mapping should be sent to the kernel as a side effect
+of a hostname query. Otherwise the kernel knows that it will be using
+\ac{HIP} but the networking layer does not have a physical address
+where to send packets to. This is further discussed
+\vpageref[below]{sec:mapping_architecture}.
+
+There are different groups of network applications from the \ac{HIP}
+point of view. Two specific groups with different needs have been
+identified in our implementation architecture: legacy applications and
+\ac{HIP} aware applications. Legacy applications should be able to run
+\ac{HIP} without any changes in source code. \ac{HIP} aware
+applications can require or deny the use of \ac{HIP} explicitly. A
+motivation for the application to require \ac{HIP} could be the
+end-to-end security, for example. Performance reasons could be a
+reason to deny usage of \ac{HIP}, for example, in a small device with
+a limited computing capacity.
+
+\subsubsection{Legacy Sockets API}
+\label{sec:legacy_api_architecture}
+
+Traditional UNIX systems have a library called \verb|libc| which
+contains an implementation for the BSD socket interface~\cite{stevens}
+which are needed by network applications. USAGI has a separate libc
+implementation for testing purposes and it is called
+\verb|libinet6|. It is also used in the \ac{HIPL} project.
+
+Network applications typically use \ac{DNS} names to address
+peers. \ac{DNS} names have to be resolved to IPv6 addresses in libc
+before network connections can be established with peers. The resolver
+routines have been modified in the implementation so that \ac{DNS}
+queries prefer \acp{HIT} to IPv6 addresses as return values. Otherwise
+the kernel would just receive IPv6 addresses and assume that \ac{HIP}
+will not be used.
+
+It appeared to be sufficient to modify only one resolver function,
+\verb|getaddrinfo|, for experimentation purposes. It was preferred to
+the other resolver functions because it was the most generic function
+of them all. Two new flags were added to the function and the flags
+modify the behavior of the resolver function. The motivation behind
+the flags is that some legacy systems may want to use \ac{HIP} without
+no changes in application code. Some other systems may require or deny
+the use of \ac{HIP} explicitly.
+
+\textit{Transparent mode} in the \ac{API} means that \ac{DNS} queries
+resolve silently to \acp{HIT} instead of IPv6 addresses. This is only
+possible because \acp{HIT} are stored in the same data structures as
+IPv6 addresses. \acp{HIT} and IPv6 addresses can then be distinguished
+by the two upper bits in the address.
+
+Backwards compatibility of legacy network applications is the greatest
+benefit of transparent mode because no changes are required in source
+files of the existing network applications to enable \ac{HIP}
+connections. To be more specific about changes, applications which are
+dynamically linked to \verb|libc| do not need any changes, but
+statically linked applications require to be recompiled. The
+recompilation of applications may even be omitted by overriding the
+\verb|libc| as presented in \cite{libcoverride}.
+
+Transparent mode is set or unset by a compile time flag in
+libinet6. This means that transparent mode is system specific instead
+of application specific. Transparent mode is enabled by default.
+
+The other flag is concerned about enforcing the use of \ac{HIP}
+independently of transparent mode. The name of the flag is
+\verb|AI_HIP| and it is passed as a parameter to the resolver
+routine. If the flag is set, the resolver returns only \acp{HIT} as the
+result for query of the hostname. Effectively, this means that
+connections will be established with \ac{HIP} or not at all.
+
+A typical example of a network application that used \verb|AI_HIP|
+flag would be a \ac{HIP} aware application that needs end-to-end
+authentication and security or mobility features provided by
+\ac{HIP}. A source code example for such an application is shown in
+\autoref{tbl:ai_hip_example}. Legacy applications cannot use this
+option because it is an extension to the existing network sockets API.
+
+\begin{table}[hbt]
+\begin{verbatim}
+01  struct addrinfo hints;
+02  struct addrinfo *res;
+03  int err;
+04  int fd;
+05
+06  hints.ai_flags = AI_HIP | AI_CANONNAME;
+07  hints.ai_family = AF_INET6;
+08  hints.ai_socktype = SOCK_STREAM;
+09  hints.ai_protocol = 0;
+10
+11  err = getaddrinfo("hip.host.org", "echo", &hints, &res);
+12  fd = socket(res->ai_family, res->ai_socktype, res->protocol);
+13  connect(fd, res->ai_addr, res->ai_addrlen);
+14  close(fd);
+15  freeaddrinfo(res);
+\end{verbatim}
+\caption{Example use of \texttt{AI\_HIP} flag in C language.}
+\label{tbl:ai_hip_example}
+\end{table}
+
+There are many address resolving routines in the network socket
+\ac{API}. The implementation supports \verb|getaddrinfo|, because it
+is the most generic resolver function. Supporting just one function
+seemed also to be enough for experimentation purposes. The output of
+\verb|getaddrinfo| with different combinations of the \verb|AI\_HIP|
+flag and the transparency flag is shown in
+\autoref{tbl:getaddrinfo_combo}. The table is valid only if the object
+of the query is a \ac{FQDN} name, otherwise \verb|getaddrinfo| behaves
+as without \ac{HIPL} modifications.
+
+\begin{table}[htb]
+\centering
+\begin{tabular}{|l|l|l|l|l|} \hline
+Transparent mode & \verb|AI_HIP|  & output                   \\\hline
+off        & not set        & no HITs                    \\
+off        & set            & only HITs                  \\
+on         & set            & only HITs                  \\
+on         & not set        & HITs before IPv6 addresses \\
+\hline
+\end{tabular}
+\caption{The output of \texttt{getaddrinfo} with different combinations of
+the transparent mode flag and the \texttt{AI\_HIP} flag. }
+\label{tbl:getaddrinfo_combo}
+\end{table}
+
+If both transparency and \verb|AI_HIP| are not set, it is assumed that
+the administrator of the system has consciously disabled \ac{HIP} in
+the system. A reason for this may be that the host cannot handle the
+overhead of the \ac{HIP} protocol. On the other hand, if \verb|AI_HIP|
+is set, only \acp{HIT} will be returned because the application is
+assumed to require \ac{HIP}. This means that the application is
+\ac{HIP} aware and, for example, wants to benefit from the end-to-end
+security provided by \ac{HIP}. The type of the application is assumed
+to be legacy if transparency mode is off and no \verb|AI_HIP| flag is
+explicitly set. Legacy applications are not \ac{HIP} aware but the
+administrator of the system has enabled \ac{HIP} transparency mode so
+that even legacy applications can use \ac{HIP}.
+
+\subsubsection{Mappings}
+\label{sec:mapping_architecture}
+
+This section discusses a modification in the resolver that is not
+visible to network application developers and users. The modification
+is about mapping of \acp{HIT} and IPv6 addresses. It is separated from
+the \ac{API} discussion \vpageref[above]{sec:api_architecture} because
+it is a side effect in the resolver and does not change the way
+\ac{API} is used.
+
+A typical network application commonly addresses hosts in \ac{FQDN}
+form instead of using an IPv6 address directly. The \ac{FQDN} name is
+mapped to a \ac{HIT} using a resolver call as discussed
+\vpageref[above]{sec:api_architecture}. The mapping is communicated to
+kernel during the resolver call in the implementation. The resolver is
+queried for a \ac{FQDN} which is resolved to both a \ac{HIT} and an
+IPv6 address. The \ac{HIT} and the IPv6 address are sent to the kernel
+module as a side effect so that the kernel module knows the network
+address of the peer later upon a \verb|connect| call.
+
+There are two problems related to mapping. The first one is a local
+security problem and the second one is related to establishing a
+connection without a resolver call. Problem descriptions and simple
+solutions for both of the problems in the implementation are described
+below.
+
+The local security problem is a consequence of sending the mappings
+directly from the resolver to the kernel. In a typical Unix system,
+all users are allowed to use network applications and thereby also the
+resolver must be accessible to all users. The resolver is linked to
+the network application and therefore the resolver is executed using
+the privileges of the user of the network application. As a result of
+this, the kernel module must allow incoming mapping from every user of
+the local system. The core of the problem is that a local intruder
+could mimic the behavior of the resolver and send a large amount
+invalid mapping entries to the kernel module. The mapping table of the
+kernel module would then be poisoned if the mapping table was shared
+between all users. The poisoning of mapping tables would effectively
+result a \ac{DoS} for \ac{HIP} applications in the system.
+
+The security problem is solved by tagging each mapping with the
+\ac{UID} of the user of the application. When kernel searches for a
+mapping upon connection attempt, valid mappings and connection
+initiator's mappings are preferred first. The worst thing the intruder
+could then do is to poison his own mapping tables. The preference of
+\acp{UID} is listed below:
+
+\begin{enumerate}
+\item Valid mappings
+\item User
+\item Root
+\item Other users
+\end{enumerate}
+
+A valid mapping means that a \ac{HIP} security association has once
+been successfully created using the specified mapping. Therefore valid
+mappings are preferred first. Mapping of the application user and the
+system administrator are second and third in the preference list
+because they are trusted users. It is important to leave the other
+users as the last group to avoid poisoning. Other users have to have
+the lowest preference because a local attacker could otherwise poison
+the mapping tables of the other users.
+
+The other problem occurs when a network application attempts to
+connect directly to a \ac{HIT} without any resolver call. The resolver
+call is essential for the connection to succeed because the resolver
+sends the \ac{HIT} to IPv6 mappings to the kernel module as a side
+effect. Otherwise the kernel just knows the \ac{HIT} of the peer but
+cannot actually deliver the packet to the network because the
+corresponding IPv6 address is not known. The only option to handle
+this problem in the implementation is manual mapping which can be
+performed using a command line tool.
+
+\subsubsection{Native Sockets API}
+\label{sec:native_api_architecture}
+
+The native HIP sockets API increases the application's control over
+the HIP \acp{SA}. The advanced applications can control also \ac{HI}
+and locator bindings explicitly. Typical applications just use the new
+endpoint resolver to hide the details of \acp{HI} and locators.
+
+The \ac{ED} concept provides the means to conceal details of the
+\acp{HI}s and ephemeral locators. An \ac{ED} is an opaque handle to a
+\ac{HI} and it can be used directly in the sockets API function
+calls. The ED needs support in the networking stack.
+
+The API allows the application to fall back to plain TCP/IP networking
+if the peer host does not support HIP. It is also possible to
+explicitly request for ``opportunistic HIP mode'' if the application
+is willing to establish a connection without a prior knowledge of the
+HI of the peer. The application can also specify its own HI and
+delegate the right to use the key to the host.
+
+The most important kernelspace component of the implementation is the
+HIP socket handler, which was built on top of an existing kernel based
+HIP implementation.  The socket handler is isolated from the rest of
+the networking stack by introducing the HIP specific protocol family,
+\verb|PF_HIP|. The isolation is necessary to avoid breaking the
+backwards compatibility with the existing sockets API. The details can
+be found from \cite{hipapithesis}.
+
+\subsubsection{Interaction Between the Components}
+
+The interaction between the components is illustrated using sequence
+diagrams. The sequence diagrams show the control flow through
+different function calls from the userspace to kernelspace. We do
+not show the full execution trace but instead focus on the most
+relevant functions. The reader should not become confused by the naming
+of the functions, because the IPv6 module reuses some of the IPv4
+functions (e.g. \verb|inet_create|). However, some functions are IPv6
+specific (e.g. \verb|inet6_bind|).
+
+The diagrams are based on a use scenario where we have two simple
+network applications with host specified identities. The server
+application binds to a port on the server host, listens for
+connections, and accepts the connections. The client application on
+the client host calls the resolver to get the ED of the server
+host. The client application then connects to the server port and
+sends some data to the server, which is successfully received by the
+server application. The applications use \ac{TCP} for data
+transmission and, for simplicity, the sockets are assumed to be
+blocking.
+
+\paragraph{Setup on the Server}
+
+The socket initialization of the server application is visualized in
+\autoref{fig:bind_diagram}. The server application creates a socket
+with the \verb|socket| call, which eventually calls the
+\verb|hip_create_socket| function in the HIP socket handler. The
+socket handler wraps the call to the transport/network module, which
+calls \verb|inet_create| to create a \verb|socket| structure. The
+control returns to the server application and it calls
+\verb|getendpointinfo| resolver. The resolver queries the necessary
+HIs and locators and calls \verb|setlocaled| to return a local ED
+corresponding to the HI and locator information. The \verb|setlocaled|
+call sends the information to the HIP module. The HIP module generates
+a local ED, stores it to the local ED data structure described in the
+HIP module and returns the ED to the resolver. The resolver returns
+the ED to the application.
+
+\begin{figure}[htb]
+\begin{center}
+\includegraphics[width=0.95\textwidth]{fig/bind_diagram}
+\end{center}
+\caption{Bind sequence diagram}
+\label{fig:bind_diagram}
+\end{figure}
+
+The server application is now ready to bind to the socket using the ED
+and the port number. The \verb|bind| call eventually translates to a
+\verb|hip_bind| call in the HIP socket hander. The socket handler maps
+the ED to a local HIT using \verb|hip_db_get_lhi_by_ed| and stores the
+HIT into the \verb|socket| structure. It binds to the HIT by calling
+\verb|inet6_bind| in the transport/network module. The bind call
+returns and the application execution is resumed.
+
+The server application is now almost ready to receive data from the
+socket. The server application calls \verb|listen|, which calls
+\verb|hip_listen| and \verb|inet_listen| in a row. The application
+resumes its control and calls \verb|accept| to receive a new socket
+descriptor, which the server application needs in order to communicate
+with the client. The \verb|accept| call translates first to a
+\verb|hip_accept| and then to a \verb|inet_accept| call. The 
+\verb|accept| call blocks until the client connects to the server.
+
+\paragraph{Connection Setup on the Client}
+
+The connection setup on the client is depicted in
+\autoref{fig:connect_diagram}. Initially, the setup is very similar to
+the server. A \verb|socket| structure is created with
+\verb|hip_create_socket|. The application calls \verb|getendpointinfo|
+to resolve the peer {endpoint}. The call also sends the peer HI
+and locators to the HIP module. The HIP module generates an ED for the
+peer, stores it into the peer ED data structure, and returns the ED.
+
+\begin{figure}[htb]
+\begin{center}
+\includegraphics[width=0.95\textwidth]{fig/connect_diagram}
+\end{center}
+\caption{Connect sequence diagram}
+\label{fig:connect_diagram}
+\end{figure}
+
+The client initiates the TCP connection using \verb|connect|, which
+eventually calls \\ {\verb|hip_connect|} in the HIP socket handler. The
+socket handler maps the peer ED value to the peer HIT with
+\verb|hip_hadb_get_lhi_by_ed|. The handler stores the HIT into the
+\verb|socket| structure. The socket handler calls the
+\verb|inet_stream_connect| in the transport/network module to initiate
+TCP handshake. The transport/network module generates the first SYN
+packet, and the global HIT based SP triggers IPsec processing. If the
+IPsec module cannot find a valid SA, it triggers a base exchange and
+the application sleeps until the SA is established. If a valid SA
+exists, the client sends the SYN packet encapsulated in an ESP
+packet. Finally, the application resumes its control.
+
+There is one thing that is not illustrated in the figure, but is worth
+mentioning. The \verb|inet_stream_connect| call also triggers
+\verb|inet_autobind|, because the client application does not make an
+explicit bind. The call assigns an ephemeral port for the socket.  The
+source ED is bound to a default HI of the host and the corresponding
+locator set is assigned to any interface available on the host.
+
+The server application was being blocked by the \verb|accept| call. It
+continues execution and it can now receive data from the client
+application.
+
+\paragraph{Sending Data}
+
+Now it is time for the client application to send some data to the
+server application. The execution path is illustrated in
+\autoref{fig:send_diagram}. The application makes a \verb|send| call,
+which is translated into \verb|hip_send| call in the HIP socket
+handler. There is no need for a ED to HIT conversion here as the
+corresponding \verb|socket| structure has already been configured to
+use the peer HIT as the destination IPv6 address.
+
+\begin{figure}[htb]
+\begin{center}
+\includegraphics[width=0.95\textwidth]{fig/send_diagram}
+\end{center}
+\caption{Send diagram}
+\label{fig:send_diagram}
+\end{figure}
+
+The socket handler calls \verb|inet_sendmsg| in the transport/network
+module to transmit the data into the network. The global SP takes care
+of encapsulating the data into ESP envelopes. Before the the packet to
+the network, \verb|hip_handle_output| hook intercepts the packet and
+notices that the destination address is a HIT, instead of an IPv6
+address. The hook replaces the HIT with an IPv6 addresses. Finally,
+the hook returns control of the flow to the transport/network module
+that transmits the ESP encapsulated packet to the network
+\footnote{There is a minor caveat related to the global SP that
+matches to any HIT. The \texttt{hip\_handle\_output} is called first
+to replace the source and destination HITs with IPv6 addresses. The
+\texttt{esp\_output} is called after that to check for a match on the
+global SP based on HITs. It works because the decision to use ESP is
+made before calling the \texttt{hip\_handle\_output} function}.
+
+\paragraph{Receiving Data}
+
+The data retrieval is illustrated in \autoref{fig:recv_diagram}.  The
+server application calls \verb|recv| to receive the data from the
+client application. The \verb|recv| is translated into a
+\verb|inet_recvmsg| call, which blocks until some data is
+received. The data packet arrives from the network and eventually
+enters the \verb|xfrm6_rcv| function, which handles the ESP processing
+in the packet. The function is hooked with the \verb|hip_handle_esp|
+to replace the IPv6 addresses with HITs so that the proper SA can be
+found in the IPsec module. Finally, the IPsec module wakes up the
+application to read the data from the socket.
+
+\begin{figure}[htb]
+\begin{center}
+\includegraphics[width=0.95\textwidth]{fig/recv_diagram}
+\end{center}
+\caption{Recv diagram}
+\label{fig:recv_diagram}
+\end{figure}
+
+\section{Future Work}
+\label{sec:future_work}
+
+\ac{HIPL} is still a work in progress and all features described in
+this document are not yet fully implemented. The most important future
+work areas in the implementation is described in this section.
+
+\subsection{Kernel Model}
+\label{sec:kernel_model_future_work}
+
+Once all the cryptographic functions are ported to kernel, major
+changes to the kernel model are required. Firstly, the idea is to
+isolate the \ac{HIP} working thread out of the other contexts and
+events. This is probably done by creating working queues for incoming,
+outgoing and daemon messages.  The worker thread continuously polls
+(by some means) all the queues.  The working thread's running cycle
+completes when it has performed the action that the message
+requires. And then the cycle begins again.
+
+Since there will be more than one message queue, it will be
+interesting to find out, how to prioritize different queues. Is
+incoming packet more important than outgoing ones? Or should the
+daemon messages be always handled first? What happens then if some
+malicious user succeeds in constantly sending daemon messages to the
+\ac{HIP} module?  We could also consider if there is a way to make
+sure that the \ac{HIP} module does not consume too much processing
+time.
+
+What happens in multiprocessor machine? The initial plan is to add one
+worker per processor. All workers would have separate working queues.
+This way they are isolated from each other as much as possible.
+Naturally there are common data structures that need to be protected.
+That protection should be quite straight forward, as the worker
+threads are not ran in sensitive contexts. This means that they can
+sleep without causing harm to the system. The same does not if the we
+would process the packets straight as they come from the network stack
+in an interrupt context.
+
+All in all, for future the kernel model provides lots of challenges to
+be researched.
+
+\subsection{Networking Stack}
+\label{sec:networking_stack_future_work}
+
+% vanha ?
+Implementation work was first focused on the base exchange, but
+currently there is more interest to implement \ac{HIP} mobility and
+multihoming features according to the \cite{hip-ietf-mm-00} draft.
+
+An automated unit testing framework has been created for testing the
+userspace and kernelspace code. Some of the functions related to the
+networking stack can be tested using the unit testing framework, but
+most of the code is so dependent of the standard Linux networking
+stack code that the \ac{HIP} part of the code is quite difficult to
+test in isolation. Black box testing has been used instead.
+
+IPv4 support has been excluded from the project goals but it would be
+an appealing feature in \ac{HIPL}. IPv4 support requires its own
+hooking mechanism because IPv4 and IPv6 layer code are separated in
+the kernel. The development of IPv4 support is in progress.
+
+\subsection{Mobility and Multihoming}
+\label{sec:future_mobility_and_multihoming}
+
+The general problem of selecting ``the best'' destination address for
+a peer is also present in the current implementation. Currently, we
+try to use the address which peer has advertised us to be the
+preferred address. If that becomes unreachable, an another available
+address belonging to the same \ac{SA} is used. When a \ac{SA} has no
+usable addresses, we try to use some address from an another outbound
+\ac{SA}. While this approach seems to work most of the time, bad destination
+address selection might result in degraded performance if an address
+with low \ac{QoS} characteristics is selected for the destination
+address. However, the \ac{QoS} service issues are out of the scope.
+
+More experience is needed for mobility testings. Test areas include
+hosts having multiple addresses and network interfaces, interfaces
+with different characteristics, and hosts that are distant from each
+other (that is, there are many hops between them).
+
+HIPL has already experimented with its own small extensions to the
+mobility draft, but they have not been merged into the draft, because
+we are expecting more comments on it from the mailing list. This
+proposal was made when we noticed that in the current draft there is
+no way for telling the peer that it should immediately stop using some
+addresses. Current draft assumes only that addresses timeout or the
+peer notices some problems later on, possible when there are already
+problems.
+
+\subsection{Sockets API}
+
+\subsubsection{Legacy Sockets API}
+
+The lack of an socket \ac{API} specified for \ac{HIP} is a problem for
+the \ac{API}. An official draft should be created to force the
+unification of the \ac{API} of different
+implementations. \cite{hipapi} serves as a first step towards such a
+draft.
+
+\ac{HIPL} specification for the \ac{API}
+\vpageref{sec:api_architecture} is purely tentative and it is expected
+to changed radically in \cite{hipapi}. \ac{HIPL} \ac{API} contributes
+only a solution to the IPv6 address space and ignores IPv4 issues
+altogether, which is a major drawback. \cite{boeing} describes also a
+small interface enhancement for the IPv4 sockets.
+
+Other resolver functions, such as \verb|gethostbyname|, should also be
+modified to support \ac{HIP}. Until then, \verb|getaddrinfo| suffices
+for testing purposes.
+
+Transparent mode is controlled by a static compilation flag in
+libinet6. This means that transparent mode is host specific and not
+application specific. There has been some talk about a more dynamic
+method to control transparent mode, such as using function
+\verb|setsockopt|. This is a bit contradictory because the transparent
+mode is targeted for the legacy applications and the source code in
+legacy applications should not be altered.
+
+Transparent mode may break existing applications, such as IP
+integrated applications. This should be investigated and tested with
+existing applications.
+
+\subsubsection{Native Sockets API}
+
+\subsubsection{Mapping}
+\label{sec:mapping_future_work}
+
+Mapping of \acp{HIT} to IPv6 addresses is sent to the kernel as a side
+effect of resolver calls. This is not architecturally the most elegant
+way to do this but it has to do until some better mechanism is
+invented.
+
+The side effect in the resolver does not solve the situation where a
+connection is established directly to a \ac{HIT} without any resolver
+call. Either \ac{DNS} should support searching of the \acp{HIT} or
+some other \ac{HIT} capable directory should be used. \ac{DNS} is a
+bit troublesome because it is hierarchical and \acp{HIT} are not
+hierarchical even though there has been some discussion about
+hierarchical \acp{HIT}. This issue remains to be a research problem.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+In this document, we described the \ac{HIP} architecture, which has
+been designed to overcome problems mainly with respect to security,
+mobility, and privacy in the current Internet. \ac{HIP} adds a new
+layer between the networking and transport layer in the IP stack, and
+introduces a \ac{HI} to serve as an endpoint identifier of the
+host. Typically, the \ac{HI} is represented by a public key. Each host
+will have at least one \ac{HI} assigned to its networking kernel or
+stack. As the \ac{HI} is used to identify the hosts, the IP addresses
+are used merely for routing purposes.
+
+The purpose of the \ac{HIP} base exchange is to perform end-to-end
+authentication and to establish \ac{IPsec} \acp{SA}.
+
+HIP mobility draft shows that it is possible to extend the basic HIP
+functionality by introducing new parameters and adding related changes
+to the packet handling without breaking the base specifications. Our
+working implementation proves that HIP mobility is feasible to implement.
+
+As part of this document, we presented our IPv6 based implementation
+of \ac{HIP} for Linux. Our implementation is the only completely
+kernel based \ac{HIP} implementation.  The advantage of our approach
+is that the kernel can remain as intact as possible, with only minor
+modifications. Furthermore, the modifications are backwards compatible
+so that the host is able to do networking without \ac{HIP}. Our
+implementation is based on Linux kernel 2.6 series.

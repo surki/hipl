@@ -1,0 +1,46 @@
+#!/bin/bash
+
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+process_no=-1
+check_previous=""
+stop_result=-1
+
+. /lib/lsb/init-functions
+
+case "$1" in
+    start)
+        #Check if it is already running
+        check_previous=`ps ax |grep -c "/bamboo_v6/bin/"`
+
+        if [ $check_previous == 1 ]; then
+                log_daemon_msg "Starting" "bamboo_v6"
+                start_daemon --user=nobody /opt/bamboo_v6/bin/run-java bamboo.lss.DustDevil /opt/gateway_v6.cfg 2>>/var/log/bamboo_v6
+                log_end_msg $?
+        else
+                log_daemon_msg "Not starting, bamboo_v6 daemon is already running:"
+        fi
+    ;;
+  stop)
+        log_daemon_msg "Stopping" "bamboo_v6"
+        process_no=`cat /var/run/bamboo_v6.pid`
+
+        #kill the process
+        kill -9 $process_no 2>/dev/null
+        stop_result=$?
+
+        echo "" > /var/run/bamboo_v6.pid
+
+        log_end_msg "$stop_result"
+    ;;
+  force-reload|restart)
+    $0 stop
+    $0 start
+    ;;
+  *)
+    echo "Usage: /etc/init.d/atd {start|stop|restart|force-reload}"
+    exit 1
+    ;;
+esac
+
+exit 0
+

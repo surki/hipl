@@ -1,0 +1,25 @@
+INTRODUCTION
+============
+
+HIPL (HIP for Linux) is a software project at Helsinki Institute for
+Information Technology (HIIT) and Helsinki University of Technology
+(HUT). The purpose is to implement the Host Identity Protocol on Linux.
+
+DOCUMENTATION
+=============
+
+The documentation is divided in the following topics:
+
+Topic                                   Location
+-------------------------------------------------------------------
+Architecture				hipl/doc/design_choices
+Developer guide				hipl/doc/HACKING
+Kernelspace API				hipl/linux/hipl-func
+Usage and installation			hipl/doc/HOWTO.xml
+
+Architectural and kernelspace API documentation are available in
+various formats but they require building. For building instructions,
+see HOWTO.xml. You can build a txt version of the HOWTO by typing
+"make HOWTO.txt" in the docs directory and html version by typing
+"make HOWTO.html in the docs directory. The result of the html building
+goes to subdirectory howto-html. The tool xmlto is required.

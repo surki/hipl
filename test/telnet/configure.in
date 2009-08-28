@@ -1,0 +1,20 @@
+AC_INIT(telnet.cc)
+AC_PREFIX_DEFAULT(/usr/local/v6)
+
+CXXFLAGS="-fpermissive $CXXFLAGS"
+
+AC_PROG_CXX
+AC_PROG_CXXCPP
+AC_PROG_INSTALL
+INSTALL_LIB="\${INSTALL_DATA}"
+AC_SUBST(INSTALL_LIB)
+INSTALL_DIR="\${INSTALL} -d"
+AC_SUBST(INSTALL_DIR)
+
+AC_CHECK_HEADERS(termcap.h ncurses/termcap.h)
+AC_CHECK_LIB(ncurses, main)
+
+CXXFLAGS="$CXXFLAGS -I../../tools -I../../libinet6/include -I../.. -I../../libhiptool -DUSE_HIP -g"
+LIBS="-L../../libinet6/.libs -linet6 -L../../libhiptool/.libs -lhiptool -lcrypto $LIBS"
+
+AC_OUTPUT(Makefile)

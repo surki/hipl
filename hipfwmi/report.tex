@@ -1,0 +1,278 @@
+\documentclass[a4paper,titlepage]{article}
+\usepackage{fancyhdr}
+\usepackage{a4wide}
+\usepackage{moreverb}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{supertabular}
+\usepackage{varioref}
+\usepackage{hyperref}       % keep this as the last one
+\usepackage{acronym}
+\begin{document}
+
+\title{HIP Firewall Management Interface}
+
+\author{
+	Juha-Matti Tapio, \texttt{jmtapio@cs.Helsinki.FI} \\
+	Helsinki University of Technology: \\
+	Telecommunications Software and Multimedia Laboratory}
+\maketitle
+
+\fancyhf{} % Clear all fields
+\fancyhead[C]{\small HIP Firewall Management Interface}
+\fancyfoot[C]{ \thepage }
+\pagestyle{fancy}
+
+\tableofcontents
+
+\newpage
+
+\section*{Acknowledgements}
+
+Todo.
+
+\newpage
+
+\begin{abstract}
+
+Abstract.
+
+\end{abstract}
+
+\clearpage
+
+
+\section{Introduction}
+
+
+
+\section{Background}
+
+\subsection{Host Identity Protocol}
+
+\subsection{HIP Firewall}
+
+
+
+\section{Implementation Architecture}
+
+The HIP Firewall Management Interface is a proof of concept software
+for controlling multiple HIP firewalls centrally. Its goal is to make
+it easier for network administrators to change firewall policy without
+the need to individually log in to each firewall host and to use
+command line tools to interface with the firewall.
+
+The Management Interface consists of two separate parts. Firewall
+Controller and Management Logic are run together as daemons at each of
+the firewall hosts. They implement the firewall configuration changes
+that the administrator requests. Management Console on the other hand
+is placed on the organization's web server and it presents the
+administrator with the web user interface.
+
+\subsection{Firewall Controller}
+
+Firewall Controller is run at each of the firewall hosts. It is run
+with root privileges and its main function is to reload the HIP
+firewall when the configuration has changed. Firewall Controller
+spawns Management Logic as a separate process for processing the
+incoming configuration requests. Management Logic's functionality has
+been split off from Firewall Controller so that request processing can
+be done without root privileges and therefore with smaller security
+risks should Management Logic be compromised for some reason.
+
+Firewall Controller behaves like a normal UNIX daemon. It double forks
+and detaches into the background and logs about events via syslog.
+
+Access control to Management Logic is out of this software's
+scope. The HIP firewall should be used to grant access only from the
+host running Management Console.
+
+\subsection{Management Logic}
+
+Management Logic accepts configuration connections on a tcp socket.
+Configuration requests are received via a simple XML message passing
+protocol. Management Logic is responsible for maintaining the HIP
+firewall's rulefile and source keys.
+
+\subsection{Management Console}
+
+Management Console has been implemented as a CGI-script that connects
+to the individual firewall hosts' Management Logic -instances and
+presents a HTML user interface to the administrator. Management
+Console authenticates the administrator with HTTP Basic Authentication
+\cite{rfc2617}.
+
+It should be noted that Management Console targets HTML
+4.01\cite{html401} and aims to be standard compliant. Therefore it
+uses even parts of the HTML standard (especially the
+$<$\texttt{button}$>$-tag) that Microsoft Internet Explorer does not
+implement at the time of writing. If need arises to implement
+workarounds, the best way to do that seems to create special HTML
+templates where $<$\texttt{button}$>$-tags are converted into
+$<$\texttt{input type="submit"}$>$-tags with separate forms. Such
+workarounds have not been implemented so far because it is difficult
+to create them without breaking some of the limits the HTML standard
+places on the location of $<$\texttt{form}$>$-tags.
+
+\subsection{Configuration Protocol}
+
+Management Console and Management Logic communicate with a custom
+message passing protocol. Management Console acts as a server and
+Management Logic acts as the client. Each connection consists of two
+phases: 1) the client sends a complete well formed XML request message
+to the server and 2) the server replies with another complete well
+formed XML response message.
+
+\subsubsection*{Possible Request Elements}
+
+\begin{description}
+\item \texttt{query} Main element containing all the parts of the request. \\
+	Must have attribute \texttt{protoversion=0.1}.
+\item \texttt{list\_rules} Ask for a list of the current rules.
+\item \texttt{empty\_rules} Delete all existing rules.
+\item \texttt{add\_rules} Append the included rules to the current rules.
+\item \texttt{remove\_rules} Remove rules matching the included rules.
+\item \texttt{list\_keys} Ask for a list of keys stored.
+\item \texttt{upload\_key} Upload a key contained within this element to the keystore. \\
+	Must have attribute \texttt{name} for filename.
+\item \texttt{delete\_key} Delete a key from the keystore. \\
+	Must have attribute \texttt{name} for filename.
+\item \texttt{echo} Echo contents of this request. For testing.
+\end{description}
+
+\subsubsection*{Possible Reply Elements}
+
+\begin{description}
+\item \texttt{results} Main element containing all the replies. \\
+	Must have attribute \texttt{protoversion=0.1}.
+\item \texttt{emptied\_rules} Existing rules were removed.
+\item \texttt{removed\_rules} Some rules were removed. \\
+	The count of removed rules is reported with attribute \texttt{count}.
+\item \texttt{added\_rules} Some rules were added. \\
+	The count of added rules is reported with attribute \texttt{count}.
+\item \texttt{list\_rules} Includes the current rules.
+\item \texttt{list\_keys} Includes the names of keys stored.
+\item \texttt{key} In \texttt{list\_keys} mentions a single key. \\
+	The name of the key is reported with attribute \texttt{name}.
+\item \texttt{echo} Repeats the contents of the \texttt{echo}-request. For testing.
+\end{description}
+
+\subsubsection*{Rule Elements}
+
+Rule elements specify the rules in XML. They can be used within
+\texttt{add\_rules} and \texttt{remove\_rules} for requests and within
+\texttt{list\_rules} for replies.
+
+All subelements have the \texttt{not} attribute. It must contain
+either ``0'' or ``1'' where the latter reverses the meaning of the
+element's main attribute. I.e. ``1'' corresponds to the ``!'' modifier
+of HIP firewall's native rule syntax.
+
+\begin{description}
+\item \texttt{rule} A single rule specification. \\
+	Must have attributes \texttt{hook} and \texttt{target}. \\
+	May contain at most one of each of the following elements.
+\item \texttt{src\_hit} Source HIT. \\
+	Must have attributes \texttt{not} and \texttt{hit}.
+\item \texttt{src\_hi} Source HI. \\
+	Must have attributes \texttt{not} and \texttt{hi}. \\
+	\texttt{hi} should match the name of a stored key.
+\item \texttt{dst\_hit} Destination HIT. \\
+	Must have attributes \texttt{not} and \texttt{hit}.
+\item \texttt{pkt\_type} Packet type. \\
+	Must have attributes \texttt{not} and \texttt{type}.
+\item \texttt{in\_iface} Incoming interface. \\
+	Must have attributes \texttt{not} and \texttt{iface}.
+\item \texttt{out\_iface} Outgoing interface. \\
+	Must have attributes \texttt{not} and \texttt{iface}.
+\item \texttt{state} Connection state. \\
+	Must have attributes \texttt{not}, \texttt{state}, \texttt{vrfy\_resp} and \texttt{acpt\_mobile}.
+\end{description}
+
+\subsubsection*{Example request}
+
+\begin{verbatim}
+<?xml version="1.0"?>
+<query protoversion="0.1">
+  <empty_rules/>
+  <add_rules>
+    <rule hook="FORWARD" target="ACCEPT">
+      <in_iface not="0" iface="eth0"/>
+    </rule>
+    <rule hook="OUTPUT" target="ACCEPT"/>
+    <rule hook="INPUT" target="ACCEPT">
+      <state not="0" state="ESTABLISHED" vrfy_resp="0" acpt_mobile="1"/>
+    </rule>
+  </add_rules>
+  <list_rules/>
+</query>
+\end{verbatim}
+
+\subsubsection*{Example reply}
+
+\begin{verbatim}
+<?xml version="1.0"?>
+<results protoversion="0.1">
+  <emptied_rules/>
+  <added_rules count="3"/>
+  <list_rules>
+    <rule hook="FORWARD" target="ACCEPT">
+      <in_iface not="0" iface="eth0"/>
+    </rule>
+    <rule hook="OUTPUT" target="ACCEPT"/>
+    <rule hook="INPUT" target="ACCEPT">
+      <state not="0" state="ESTABLISHED" vrfy_resp="0" acpt_mobile="1"/>
+    </rule>
+  </list_rules>
+</results>
+\end{verbatim}
+
+\section{Usage}
+
+Parts of the management interface need to run on all of the managed
+firewall hosts and on some web server. All hosts need to support HIP
+because Management Console (on the web server) uses HIP to communicate
+with Management Logic (on the firewall host).
+
+Configuration information is mostly stored in the configuration file
+\texttt{hipmi.conf} which should exist in management interface's
+current working directory. The file has been divided into sections
+denoted by brackets. The sections that are currently in use are
+\texttt{daemon} and \texttt{hipfirewall}. The first is used for configuring 
+Firewall Controller's behaviour and the latter is used to describe how
+the HIP Firewall has been configured to work.
+
+\subsubsection*{Example \texttt{hipmi.conf}}
+
+\begin{verbatim}
+[daemon]
+interface: ::1
+port: 11235
+pidfile: /var/run/hipmid.pid
+pid: 1000
+gid: 1000
+
+[hipfirewall]
+reloadcommand: /etc/init.d/hipfw force-reload
+rulefile: /var/lib/hipfw/hipfw-rules
+keydirectory: /var/lib/hipfw/keys
+\end{verbatim}
+
+\subsection{On the firewall host}
+
+todo
+
+\subsection{On the web server}
+
+todo
+
+\section{Conclusion}
+
+
+\bibliographystyle{plain}
+\bibliography{report}
+
+\appendix
+\newpage
+
+\end{document}

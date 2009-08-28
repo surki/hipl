@@ -1,0 +1,59 @@
+reset
+
+set title "RTT with ping (with PC as middlebox)"
+#set terminal png transparent nocrop enhanced size 420,320
+set terminal png nocrop enhanced
+set output 'rtt-with_pcfw.png'
+
+set xrange [0:5]
+set yrange [0:1.5]
+set xtics nomirror
+set ytics nomirror
+set xlabel ""
+set ylabel "ms"
+set xtics ("no HIP" 1, "Kernelmode" 2, "Usermode" 3, "ESP Extension" 4)
+set style data boxes
+set style fill solid border -1
+set boxwidth 0.9
+plot 'current_data/no_hipd-with_kernelipsec-no_esp_ext-with_pcfw-no_wanem-rtt' using (1):1 title '', '' using (1):1:($1-$2):($1+$2) title '' with yerrorbars, 'current_data/with_hipd-with_kernelipsec-no_esp_ext-with_pcfw-no_wanem-rtt' using (2):1 title '', '' using (2):1:($1-$2):($1+$2) title '' with yerrorbars, 'current_data/with_hipd-with_useripsec-no_esp_ext-with_pcfw-no_wanem-rtt' using (3):1 title '', '' using (3):1:($1-$2):($1+$2) title '' with yerrorbars, 'current_data/with_hipd-with_useripsec-with_esp_ext-with_pcfw-no_wanem-rtt' using (4):1 title '', '' using (4):1:($1-$2):($1+$2) title '' with yerrorbars
+
+
+reset
+
+set title "TCP throughput with iperf (with PC as middlebox)"
+#set terminal png transparent nocrop enhanced size 420,320
+set terminal png nocrop enhanced
+set output 'tcp-with_pcfw.png'
+
+set xrange [0:5]
+set yrange [0:100]
+set xtics nomirror
+set ytics nomirror
+set xlabel ""
+set ylabel "Mbits/sec"
+set xtics ("no HIP" 1, "Kernelmode" 2, "Usermode" 3, "ESP Extension" 4)
+set style data boxes
+set style fill solid border -1
+set boxwidth 0.9
+plot 'current_data/no_hipd-with_kernelipsec-no_esp_ext-with_pcfw-no_wanem-tcp' using (1):1 title '', '' using (1):1:($1-$2):($1+$2) title '' with yerrorbars, 'current_data/with_hipd-with_kernelipsec-no_esp_ext-with_pcfw-no_wanem-tcp' using (2):1 title '', '' using (2):1:($1-$2):($1+$2) title '' with yerrorbars, 'current_data/with_hipd-with_useripsec-no_esp_ext-with_pcfw-no_wanem-tcp' using (3):1 title '', '' using (3):1:($1-$2):($1+$2) title '' with yerrorbars, 'current_data/with_hipd-with_useripsec-with_esp_ext-with_pcfw-no_wanem-tcp' using (4):1 title '', '' using (4):1:($1-$2):($1+$2) title '' with yerrorbars
+
+
+reset
+
+set title "UDP throughput with iperf (with PC as middlebox)"
+#set terminal png transparent nocrop enhanced size 420,320
+set terminal png nocrop enhanced
+set output 'udp-with_pcfw.png'
+
+set xrange [0:5]
+set yrange [0:100]
+set xtics nomirror
+set ytics nomirror
+set xlabel ""
+set ylabel "Mbits/sec"
+set xtics ("no HIP" 1, "Kernelmode" 2, "Usermode" 3, "ESP Extension" 4)
+set style data boxes
+set style fill solid border -1
+set boxwidth 0.9
+plot 'current_data/no_hipd-with_kernelipsec-no_esp_ext-with_pcfw-no_wanem-udp' using (1):1 title '', '' using (1):1:($1-$2):($1+$2) title '' with yerrorbars, 'current_data/with_hipd-with_kernelipsec-no_esp_ext-with_pcfw-no_wanem-udp' using (2):1 title '', '' using (2):1:($1-$2):($1+$2) title '' with yerrorbars, 'current_data/with_hipd-with_useripsec-no_esp_ext-with_pcfw-no_wanem-udp' using (3):1 title '', '' using (3):1:($1-$2):($1+$2) title '' with yerrorbars, 'current_data/with_hipd-with_useripsec-with_esp_ext-with_pcfw-no_wanem-udp' using (4):1 title '', '' using (4):1:($1-$2):($1+$2) title '' with yerrorbars
+

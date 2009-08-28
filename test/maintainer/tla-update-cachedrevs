@@ -1,0 +1,47 @@
+#!/bin/sh
+
+# Author:  miika@iki.fi
+# Licence: GNU/GPL
+# Purpose: create tla cacherevisions for the last patch in all branches in
+#          local archive to speed up "tla get" 
+# Notes:   works only for local archives, not for remote!
+
+ARCHIVE_NAME=hipl-dev@freelists.org--hipl
+ARCHIVE_LOCATION=/var/archive/hipl
+ARCHIVE_VERSION=hipl
+
+for BRANCH in `ls $ARCHIVE_LOCATION/$ARCHIVE_VERSION/*|grep -v :`
+do
+  LAST_PATCHREV="${BRANCH}--`tla revisions -A $ARCHIVE_NAME $BRANCH|tail -1`"
+  LAST_CACHEREV=`tla cachedrevs -A $ARCHIVE_NAME $BRANCH | tail -1`
+  BASE0="${BRANCH}--base-0"
+
+  echo "*** Checking $BRANCH ***"
+
+  # Create base-0 if missing  
+  #
+  if [ "x`tla cachedrevs -A $ARCHIVE_NAME $BRANCH | grep $BASE0`" = "x" ]
+  then
+    echo "base-0 missing, creating"
+    tla cacherev -A $ARCHIVE_NAME $BASE0
+  fi
+
+  # Create cacherev for the last patch
+  #
+  if [ "$LAST_CACHEREV" != "${LAST_PATCHREV}" ]
+  then
+    echo "Creating a new cacherev for ${LAST_PATCHREV}"
+    tla cacherev -A $ARCHIVE_NAME ${LAST_PATCHREV}
+  fi
+
+  # Remove the cacherevisions between base-0 and last patch to save space
+  #
+  for UNCACHEREV in `tla cachedrevs -A $ARCHIVE_NAME $BRANCH | \
+     grep -v $LAST_PATCHREV | grep -v $BASE0`
+  do
+    echo "Removing old cacherev $UNCACHEREV"
+    tla uncacherev -A $ARCHIVE_NAME $UNCACHEREV
+  done
+
+done
+

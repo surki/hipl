@@ -1,0 +1,29 @@
+rulelist ::= (rule "\n")*
+
+rule ::= hook (condition)* target
+
+hook ::= ("INPUT" | "OUTPUT" | "FORWARD")
+
+target ::= ("ACCEPT" | "DROP")
+
+condition ::= (src_hit | src_hi | dst_hit | type | iface | oface | state)
+
+src_hit ::= "--src_hit" ["!"] hit
+
+src_hi ::= "--src-hi" <file name>
+
+dst_hit ::= "--dst-hit" ["!"] hit
+
+type ::= 
+	"--type" ["!"] 
+	("I1" | "R1" | "I2" | "R2" | "CER" | "UPDATE" | "NOTIFY" | "CLOSE" | "CLOSE_ACK")
+
+iface ::=
+	"-i" ["!"] <interface>
+
+oface ::=
+	"-o" ["!"] <interface>
+
+state ::=
+	"--state" ["!"] ("NEW" | "ESTABLISHED") ["--verify_responder"] ["--accept_mobile"]
+

@@ -1,0 +1,25 @@
+#!/bin/sh
+
+DSTHOST=cochrane
+DSTHIT=6f01:a49f:e2a1:9dd5:4cc1:5f61:d7f7:42e2
+HIPLDIR=~/hipl
+
+seq 1 100 | while read i;do
+ echo "TEST $i"
+ ifconfig eth0 del 3ffe::20/0
+ ifconfig eth0 add 3ffe::10/0
+ $HIPLDIR/test/hipsetup -i $DSTHOST >/dev/null 2>&1
+ sleep 2
+ $HIPLDIR/test/performance/plotrxtxdelta $i &
+ PIDPLOT=$!
+ ttcp -v -6 -s -t $DSTHIT &
+ PIDTTCP=$! 
+ sleep 5
+ ifconfig eth0 add 3ffe::20/0
+ sleep 2
+ ifconfig eth0 del 3ffe::10/0
+ sleep 3
+ wait $PIDTTCP
+ kill $PIDPLOT
+ wait $PIDPLOT
+done

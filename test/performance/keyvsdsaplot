@@ -1,0 +1,32 @@
+set ylabel "time/s"
+set xlabel "puzzle difficulty K"
+#set xrange [15:25]
+#set yrange [0.0008:10]
+set ytics (0.13, 0.79, 2.03, 6.46, 25.61, 69.81)
+set xtics 2
+
+set trange [0:30]
+
+set output "keyvsdsaplot.fig"
+set terminal fig # color
+set terminal x11
+set multiplot
+set logscale y 2
+set key right bottom
+set parametric
+set autoscale
+
+dsa512(t)=0.130745214285714
+dsa1024(t)=0.791946607142857
+dsa1536(t)=2.02906842857143
+dsa2048(t)=6.45891614285714
+dsa3072(t)=25.6007468214286
+dsa4096(t)=69.8067389642857
+
+plot "logs/cookieperf-final" using 1:2:3 title "puzzle(K)" with yerrorbars,\
+     t,dsa512(t) title "DSA 512",\
+     t,dsa1024(t) title "DSA 1024",\
+     t,dsa1536(t) title "DSA 1536",\
+     t,dsa2048(t) title "DSA 2048",\
+     t,dsa3072(t) title "DSA 3078",\
+     t,dsa4096(t) title "DSA 4096"

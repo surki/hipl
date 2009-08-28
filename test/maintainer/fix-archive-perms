@@ -1,0 +1,24 @@
+#!/bin/sh
+
+# After upgrade to Fedora 9, the file privileges worked differently in the
+# OS of hipl.hiit.fi. A commit from a developer prevented commits from other
+# developers. This is a grude fix to restore file privileges of the tla
+# archive. It should be run every 5 minutes or less from cron and requires
+# sudo privileges.
+#
+# Notice that the following must be disabled from /etc/sudoers for the
+# sudo to work from crontab:
+# # Defaults    requiretty
+#
+# -miika
+
+for i in /var/archive/hipl/hipl/*/*/*/++revision-lock
+do
+	dirname=`dirname $i`
+	if test ! -w $i
+	then
+		echo "Changing $dirname perms"
+		sudo chmod g+w $dirname
+		sudo chmod -R g+w $i
+	fi		
+done

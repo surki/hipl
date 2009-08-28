@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# monitored device
+DEV=eth0
+
+L=$(grep $DEV /proc/net/dev | cut -d: -f2)
+RX0=$(echo $L | cut -d" " -f1)
+TX0=$(echo $L | cut -d" " -f9)
+T0=$(cut -f1 -d" " /proc/uptime)
+
+# time | sent packets since start | received packets since start
+
+while true;do
+ L=$(grep $DEV /proc/net/dev | cut -d: -f2)
+ RX=$(echo $L | cut -d" " -f1)
+ TX=$(echo $L | cut -d" " -f9)
+ T=$(cut -f1 -d" " /proc/uptime)
+ DT=$(echo -e "scale=5\n$T-$T0" | bc)
+ let DTX=$TX-$TX0
+ let DRX=$RX-$RX0
+ echo "$DT $DTX $DRX"
+ sleep 0.01
+done > tc10-plot-$1

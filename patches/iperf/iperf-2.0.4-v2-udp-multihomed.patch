@@ -1,0 +1,2289 @@
+diff -Naur iperf-1.7.0.orig/src/Listener.cpp iperf-1.7.0/src/Listener.cpp
+--- iperf-1.7.0.orig/src/Listener.cpp	2003-03-05 00:47:32.000000000 +0200
++++ iperf-1.7.0/src/Listener.cpp	2008-07-01 11:55:42.000000000 +0300
+@@ -150,6 +150,12 @@
+                     continue;
+                 }
+             }
++            
++            sockaddr_storage * localhost = udpMsg->getDest();
++	    if (udpMsg->isIPv6())
++	      ((struct sockaddr_in6 *)localhost)->sin6_port = mSettings->mPort;
++	    else
++	      ((struct sockaddr_in *)localhost)->sin_port = mSettings->mPort;            
+ #ifdef HAVE_THREAD
+             clients_mutex.Lock(); 
+             exist = Iperf_present( &peer, clients); 
+@@ -165,7 +171,15 @@
+                                   (((struct sockaddr*)&peer)->sa_family == AF_INET ? 
+                                    sizeof(sockaddr_in) : sizeof(sockaddr_in6)));
+ #endif // IPV6
+-                FAIL_errno( rc == SOCKET_ERROR, "connect UDP" );       
++                FAIL_errno( rc == SOCKET_ERROR, "connect UDP" ); 
++		
++                rc = bind (mSock, (struct sockaddr*) localhost, 
++#ifndef IPV6
++                                  sizeof(sockaddr_in));
++#else
++                                  (((struct sockaddr*)&localhost)->sa_family == AF_INET ? 
++                                   sizeof(sockaddr_in) : sizeof(sockaddr_in6)));
++#endif // IPV6
+ #ifndef WIN32
+                 listtemp = new Iperf_ListEntry;
+                 memcpy(listtemp, &peer, sizeof(peer));
+@@ -250,6 +264,14 @@
+                                    sizeof(sockaddr_in) : sizeof(sockaddr_in6)));
+ #endif // IPV6
+                 FAIL_errno( rc == SOCKET_ERROR, "connect UDP" );       
++
++                rc = bind (mSock, (struct sockaddr*) localhost, 
++#ifndef IPV6
++                                  sizeof(sockaddr_in));
++#else
++                                  (((struct sockaddr*)&peer)->sa_family == AF_INET ? 
++                                   sizeof(sockaddr_in) : sizeof(sockaddr_in6)));
++#endif // IPV6
+                 if ( !mSettings->mCompat ) {
+                     Settings::GenerateSpeakerSettings( mSettings, &tempSettings, 
+                                                         hdr, (sockaddr*) &peer );
+diff -Naur iperf-1.7.0.orig/src/Listener.cpp.orig iperf-1.7.0/src/Listener.cpp.orig
+--- iperf-1.7.0.orig/src/Listener.cpp.orig	1970-01-01 02:00:00.000000000 +0200
++++ iperf-1.7.0/src/Listener.cpp.orig	2008-06-30 17:00:59.000000000 +0300
+@@ -0,0 +1,408 @@
++/*--------------------------------------------------------------- 
++ * Copyright (c) 1999,2000,2001,2002,2003                              
++ * The Board of Trustees of the University of Illinois            
++ * All Rights Reserved.                                           
++ *--------------------------------------------------------------- 
++ * Permission is hereby granted, free of charge, to any person    
++ * obtaining a copy of this software (Iperf) and associated       
++ * documentation files (the "Software"), to deal in the Software  
++ * without restriction, including without limitation the          
++ * rights to use, copy, modify, merge, publish, distribute,        
++ * sublicense, and/or sell copies of the Software, and to permit     
++ * persons to whom the Software is furnished to do
++ * so, subject to the following conditions: 
++ *
++ *     
++ * Redistributions of source code must retain the above 
++ * copyright notice, this list of conditions and 
++ * the following disclaimers. 
++ *
++ *     
++ * Redistributions in binary form must reproduce the above 
++ * copyright notice, this list of conditions and the following 
++ * disclaimers in the documentation and/or other materials 
++ * provided with the distribution. 
++ * 
++ *     
++ * Neither the names of the University of Illinois, NCSA, 
++ * nor the names of its contributors may be used to endorse 
++ * or promote products derived from this Software without
++ * specific prior written permission. 
++ * 
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, 
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES 
++ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND 
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE CONTIBUTORS OR COPYRIGHT 
++ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
++ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, 
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE
++ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. 
++ * ________________________________________________________________
++ * National Laboratory for Applied Network Research 
++ * National Center for Supercomputing Applications 
++ * University of Illinois at Urbana-Champaign 
++ * http://www.ncsa.uiuc.edu
++ * ________________________________________________________________ 
++ *
++ * Listener.cpp
++ * by Mark Gates <mgates@nlanr.net> 
++ * &  Ajay Tirumala <tirumala@ncsa.uiuc.edu> 
++ * ------------------------------------------------------------------- 
++ * Listener sets up a socket listening on the server host. For each 
++ * connected socket that accept() returns, this creates a Server 
++ * socket and spawns a thread for it. 
++ * 
++ * Changes to the latest version. Listener will run as a daemon 
++ * Multicast Server is now Multi-threaded 
++ * ------------------------------------------------------------------- 
++ * headers 
++ * uses 
++ *   <stdlib.h> 
++ *   <stdio.h> 
++ *   <string.h> 
++ *   <errno.h> 
++ * 
++ *   <sys/types.h> 
++ *   <unistd.h> 
++ * 
++ *   <netdb.h> 
++ *   <netinet/in.h> 
++ *   <sys/socket.h> 
++ * ------------------------------------------------------------------- */ 
++
++
++#define HEADERS() 
++
++#include "headers.h" 
++#include "Listener.hpp" 
++#include "Server.hpp" 
++#include "Locale.hpp" 
++#include "Audience.hpp"
++#include "List.h"
++#include "Speaker.hpp"
++#include "Client.hpp"
++#include "util.h" 
++
++
++/* ------------------------------------------------------------------- 
++ * Stores local hostname and socket info. 
++ * ------------------------------------------------------------------- */ 
++
++Listener::Listener( ext_Settings *inSettings ) 
++: PerfSocket( inSettings ), 
++Thread() {
++
++    mCount = ( inSettings->mThreads != 0 );
++    mClients = inSettings->mThreads;
++
++    // open listening socket 
++    Listen( inSettings->mLocalhost, mSettings->mDomain ); 
++    ReportServerSettings( inSettings->mLocalhost ); 
++
++} // end Listener 
++
++/* ------------------------------------------------------------------- 
++ * Delete memory (hostname string). 
++ * ------------------------------------------------------------------- */ 
++Listener::~Listener() {
++    DELETE_ARRAY( mSettings->mHost      );
++    DELETE_ARRAY( mSettings->mLocalhost );
++    DELETE_ARRAY( mSettings->mFileName  );
++    DELETE_ARRAY( mSettings->mOutputFileName );
++    DELETE_PTR( mSettings );
++} // end ~Listener 
++
++/* ------------------------------------------------------------------- 
++ * Listens for connections and starts Servers to handle data. 
++ * For TCP, each accepted connection spawns a Server thread. 
++ * For UDP, handle all data in this thread for Win32 Only, otherwise
++ *          spawn a new Server thread. 
++ * ------------------------------------------------------------------- */ 
++void Listener::Run( void ) {
++    extern Mutex clients_mutex;
++    extern Iperf_ListEntry *clients;
++
++    Audience *theAudience=NULL;
++    SocketAddr     *client = NULL;
++    if ( mSettings->mHost != NULL ) {
++        client = new SocketAddr( mSettings->mHost, mSettings->mPort, mSettings->mDomain );
++    }
++    ext_Settings *tempSettings = NULL;
++    iperf_sockaddr peer;
++    Iperf_ListEntry *exist, *listtemp;
++
++    if ( mUDP ) {
++        struct UDP_datagram* mBuf_UDP  = (struct UDP_datagram*) mBuf;
++        client_hdr* hdr = (client_hdr*) (mBuf_UDP + 1);
++        // UDP uses listening socket 
++        // The server will now run as a multi-threaded server 
++
++        // Accept each packet, 
++        // If there is no existing client, then start  
++        // a new thread to service the new client 
++        // The main server runs in a single thread 
++        // Thread per client model is followed 
++        do {
++            peer = Accept_UDP(); 
++            if ( client != NULL ) {
++                if ( !SocketAddr::Hostare_Equal( client->get_sockaddr(), 
++                                                 (sockaddr*) &peer ) ) {
++                    continue;
++                }
++            }
++#ifdef HAVE_THREAD
++            clients_mutex.Lock(); 
++            exist = Iperf_present( &peer, clients); 
++            clients_mutex.Unlock(); 
++            int32_t datagramID = ntohl( mBuf_UDP->id ); 
++            if ( exist == NULL && datagramID >= 0 ) {
++                int rc = connect( mSock, (struct sockaddr*) &peer,
++                                  // Some OSes do not like the size of sockaddr_storage so we
++                                  // get more exact here..
++#ifndef IPV6
++                                  sizeof(sockaddr_in));
++#else
++                                  (((struct sockaddr*)&peer)->sa_family == AF_INET ? 
++                                   sizeof(sockaddr_in) : sizeof(sockaddr_in6)));
++#endif // IPV6
++                FAIL_errno( rc == SOCKET_ERROR, "connect UDP" );       
++#ifndef WIN32
++                listtemp = new Iperf_ListEntry;
++                memcpy(listtemp, &peer, sizeof(peer));
++                listtemp->next = NULL;
++                clients_mutex.Lock(); 
++                exist = Iperf_hostpresent( &peer, clients); 
++
++                if ( exist != NULL ) {
++                    listtemp->holder = exist->holder;
++                    exist->holder->AddSocket(mSock);
++                } else {
++                    clients_mutex.Unlock();
++                    tempSettings = NULL;
++                    if ( !mSettings->mCompat ) {
++                        Settings::GenerateSpeakerSettings( mSettings, &tempSettings, 
++                                                           hdr, (sockaddr*) &peer );
++                    }
++
++                    theAudience = new Audience( mSettings, mSock ); 
++
++                    if ( tempSettings != NULL ) {
++                        Speaker *theSpeaker = new Speaker( tempSettings );
++                        theSpeaker->OwnSettings();
++                        theSpeaker->DeleteSelfAfterRun();
++                        if ( tempSettings->mMode == kTest_DualTest ) {
++                            theSpeaker->Start();
++                        } else {
++                            theAudience->StartWhenDone( theSpeaker );
++                        }
++                    }
++
++                    listtemp->holder = theAudience;
++
++                    // startup the server thread, then forget about it 
++                    theAudience->DeleteSelfAfterRun(); 
++                    theAudience->Start(); 
++                    theAudience = NULL; 
++                    clients_mutex.Lock(); 
++                }
++                Iperf_pushback( listtemp, &clients ); 
++                clients_mutex.Unlock(); 
++#else /* WIN32 */ 
++                tempSettings = NULL;
++                if ( !mSettings->mCompat ) {
++                    Settings::GenerateSpeakerSettings( mSettings, &tempSettings, 
++                                                       hdr, (sockaddr*) &peer );
++                }
++
++                bool startLate = false;
++                Speaker *theSpeaker = NULL;
++                if ( tempSettings != NULL ) {
++                    theSpeaker = new Speaker( tempSettings );
++                    theSpeaker->OwnSettings();
++                    theSpeaker->DeleteSelfAfterRun();
++                    if ( tempSettings->mMode == kTest_DualTest ) {
++                        theSpeaker->Start();
++                    } else {
++                        startLate = true;
++                    }
++                }
++                // WIN 32 Does not handle multiple UDP stream hosts.
++                Server *theServer=NULL;
++                theServer = new Server(mSettings, mSock); 
++                theServer->Run(); 
++                DELETE_PTR( theServer );
++                if ( startLate && theSpeaker != NULL ) {
++                    theSpeaker->Start();
++                    theSpeaker = NULL;
++                }
++
++#endif /* WIN32 */
++#else // HAVE_THREAD
++            {
++                tempSettings = NULL;
++                int rc = connect( mSock, (struct sockaddr*) &peer,
++                                  // Some OSes do not like the size of sockaddr_storage so we
++                                  // get more exact here..
++#ifndef IPV6
++                                  sizeof(sockaddr_in));
++#else
++                                  (((struct sockaddr*)&peer)->sa_family == AF_INET ? 
++                                   sizeof(sockaddr_in) : sizeof(sockaddr_in6)));
++#endif // IPV6
++                FAIL_errno( rc == SOCKET_ERROR, "connect UDP" );       
++                if ( !mSettings->mCompat ) {
++                    Settings::GenerateSpeakerSettings( mSettings, &tempSettings, 
++                                                        hdr, (sockaddr*) &peer );
++                }
++                Server *theServer=NULL;
++                
++                theServer = new Server(mSettings, mSock);
++                theServer->DeleteSelfAfterRun();
++                theServer->Start();
++    
++                if ( tempSettings != NULL ) {
++                    Client *theClient = NULL;
++                    theClient = new Client( tempSettings );
++                    theClient->DeleteSelfAfterRun();
++                    theClient->Start();
++                    theClient = NULL;
++                    DELETE_PTR( tempSettings );
++                }
++#endif // HAVE_THREAD
++                // create a new socket 
++                mSock = -1; 
++                Listen( mSettings->mLocalhost, mSettings->mDomain );
++                mClients--; 
++            }
++        } while ( !mCount || ( mCount && mClients > 0 ) ); 
++    } else {
++        // TCP uses sockets returned from Accept 
++        client_hdr buf;
++        int connected_sock; 
++        do {
++            connected_sock = Accept(); 
++            if ( connected_sock >= 0 ) {
++                Socklen_t temp = sizeof( peer );
++                getpeername( connected_sock, (sockaddr*)&peer, &temp );
++                if ( client != NULL ) {
++                    if ( !SocketAddr::Hostare_Equal( client->get_sockaddr(), 
++                                                     (sockaddr*) &peer ) ) {
++                        close( connected_sock );
++                        continue;
++                    }
++                }
++                tempSettings = NULL;
++#ifdef HAVE_THREAD
++                clients_mutex.Lock(); 
++                exist = Iperf_hostpresent( &peer, clients); 
++                listtemp = new Iperf_ListEntry;
++                memcpy(listtemp, &peer, sizeof(peer));
++                listtemp->next = NULL;
++
++                if ( exist != NULL ) {
++                    listtemp->holder = exist->holder;
++                    exist->holder->AddSocket(connected_sock);
++                } else {
++                    clients_mutex.Unlock(); 
++                    if ( !mSettings->mCompat ) {
++                        if ( recv( connected_sock, (char*)&buf, sizeof(buf), 0) > 0 ) {
++                            Settings::GenerateSpeakerSettings( mSettings, &tempSettings, 
++                                                               &buf, (sockaddr*) &peer );
++                        }
++                    }
++
++                    theAudience = new Audience( mSettings, connected_sock ); 
++
++                    if ( tempSettings != NULL ) {
++                        Speaker *theSpeaker = new Speaker( tempSettings );
++                        theSpeaker->OwnSettings();
++                        theSpeaker->DeleteSelfAfterRun();
++                        if ( tempSettings->mMode == kTest_DualTest ) {
++                            theSpeaker->Start();
++                        } else {
++                            theAudience->StartWhenDone( theSpeaker );
++                        }
++                    }
++
++                    listtemp->holder = theAudience;
++
++                    // startup the server thread, then forget about it 
++                    theAudience->DeleteSelfAfterRun(); 
++                    theAudience->Start(); 
++                    theAudience = NULL; 
++                    clients_mutex.Lock(); 
++                }
++                Iperf_pushback( listtemp, &clients ); 
++                clients_mutex.Unlock();
++#else
++                if ( !mSettings->mCompat ) {
++                    if ( recv( connected_sock, (char*)&buf, sizeof(buf), 0 ) > 0 ) {
++                        Settings::GenerateSpeakerSettings( mSettings, &tempSettings, 
++                                                           &buf, (sockaddr*) &peer );
++                    }
++                }
++
++                Server* theServer = new Server( mSettings, connected_sock );
++                theServer->DeleteSelfAfterRun();
++                theServer->Start();
++                
++                if ( tempSettings != NULL ) {
++                    Client *theClient = new Client( tempSettings );
++                    theClient->DeleteSelfAfterRun();
++                    theClient->Start();
++                    DELETE_PTR( tempSettings );
++                }
++#endif
++                mClients--; 
++            }
++        } while ( !mCount || ( mCount && mClients > 0 ) ); 
++    }
++} // end Run 
++
++
++/**-------------------------------------------------------------------- 
++ * Run the server as a daemon  
++ * --------------------------------------------------------------------*/ 
++
++void Listener::runAsDaemon(const char *pname, int facility) {
++#ifndef WIN32 
++    pid_t pid; 
++
++    /* Create a child process & if successful, exit from the parent process */ 
++    if ( (pid = fork()) == -1 ) {
++        printf("error in first child create\n");     
++        exit(0); 
++    } else if ( pid != 0 ) {
++        exit(0); 
++    }
++
++    /* Try becoming the session leader, once the parent exits */
++    if ( setsid() == -1 ) {           /* Become the session leader */ 
++        fputs("Cannot change the session group leader\n",stdout); 
++    } else {
++    } 
++    signal(SIGHUP,SIG_IGN); 
++
++
++    /* Now fork() and get released from the terminal */  
++    if ( (pid = fork()) == -1 ) {
++        printf("error\n");   
++        exit(0); 
++    } else if ( pid != 0 ) {
++        exit(0); 
++    }
++
++    chdir("."); 
++    printf("Running Iperf Server as a daemon\n"); 
++    printf("The Iperf daemon process ID : %d\n",((int)getpid())); 
++    fflush(stdout);  
++    /*umask(0);*/ 
++
++    fclose(stdout); 
++    fclose(stdin); 
++    openlog(pname,LOG_CONS,facility); 
++#else 
++    printf("Use the precompiled windows version for service (daemon) option\n"); 
++#endif  
++
++} 
+diff -Naur iperf-1.7.0.orig/src/PerfSocket.cpp iperf-1.7.0/src/PerfSocket.cpp
+--- iperf-1.7.0.orig/src/PerfSocket.cpp	2003-03-12 20:54:52.000000000 +0200
++++ iperf-1.7.0/src/PerfSocket.cpp	2008-07-01 12:00:58.000000000 +0300
+@@ -97,8 +97,8 @@
+ PerfSocket::PerfSocket( ext_Settings *inSettings,
+                         Notify* toNotify )
+ : Socket( inSettings->mPort, (inSettings->mUDPRate > 0) ) {
+-
+     mSettings = inSettings;
++    udpMsg = new UDPMessage(mSettings->mDomain);
+     ptr_parent = toNotify;
+     mBuf = NULL;
+     extractor = NULL;
+@@ -106,6 +106,12 @@
+     // initialize buffer
+     mBuf = new char[ mSettings->mBufLen ];
+     pattern( mBuf, mSettings->mBufLen );
++    
++    iovec iov;
++    iov.iov_base 	= mBuf;
++    iov.iov_len 	= mSettings->mBufLen;
++    udpMsg->setIOVector(iov);
++    
+     sReportCount = 0;
+     if ( mSettings->mServerMode == kMode_Client ) {
+         if ( mSettings->mFileInput ) {
+@@ -378,24 +384,24 @@
+         int mtu = 0;
+ 
+         if ( checkMSS_MTU( inMSS, 1500 ) ) {
+-            net = "ethernet";
++	  net = (char *)"ethernet";
+             mtu = 1500;
+         } else if ( checkMSS_MTU( inMSS, 4352 ) ) {
+-            net = "FDDI";
++	  net = (char*)"FDDI";
+             mtu = 4352;
+         } else if ( checkMSS_MTU( inMSS, 9180 ) ) {
+-            net = "ATM";
++	  net = (char*)"ATM";
+             mtu = 9180;
+         } else if ( checkMSS_MTU( inMSS, 65280 ) ) {
+-            net = "HIPPI";
++	  net = (char*)"HIPPI";
+             mtu = 65280;
+         } else if ( checkMSS_MTU( inMSS, 576 ) ) {
+-            net = "minimum";
++	  net = (char*)"minimum";
+             mtu = 576;
+             printf( warn_no_pathmtu );
+         } else {
+             mtu = inMSS + 40;
+-            net = "unknown interface";
++            net = (char*)"unknown interface";
+         }
+ 
+         printf( report_mss,
+@@ -553,6 +559,18 @@
+             FAIL_errno( rc == SOCKET_ERROR, "setsockopt TCP_NODELAY" );
+         }
+ #endif
++    } else {
++
++    	int err = 0, on = 1;
++    	if (mSettings->mDomain) {
++    		err = setsockopt(mSock, IPPROTO_IPV6,
++    				DSTADDRV6_SOCKOPT, &on, sizeof(on));
++		
++    	} else {
++    		err = setsockopt(mSock, IPPROTO_IP,
++    				DSTADDRV4_SOCKOPT, &on, sizeof(on));
++    	}
++    	FAIL_errno( err != 0, "setsockopt IP_PKTINFIO" );
+     }
+ }
+ // end SetSocketOptions
+diff -Naur iperf-1.7.0.orig/src/PerfSocket.cpp.orig iperf-1.7.0/src/PerfSocket.cpp.orig
+--- iperf-1.7.0.orig/src/PerfSocket.cpp.orig	1970-01-01 02:00:00.000000000 +0200
++++ iperf-1.7.0/src/PerfSocket.cpp.orig	2008-06-30 17:00:59.000000000 +0300
+@@ -0,0 +1,559 @@
++/*--------------------------------------------------------------- 
++ * Copyright (c) 1999,2000,2001,2002,2003                              
++ * The Board of Trustees of the University of Illinois            
++ * All Rights Reserved.                                           
++ *--------------------------------------------------------------- 
++ * Permission is hereby granted, free of charge, to any person    
++ * obtaining a copy of this software (Iperf) and associated       
++ * documentation files (the "Software"), to deal in the Software  
++ * without restriction, including without limitation the          
++ * rights to use, copy, modify, merge, publish, distribute,        
++ * sublicense, and/or sell copies of the Software, and to permit     
++ * persons to whom the Software is furnished to do
++ * so, subject to the following conditions: 
++ *
++ *     
++ * Redistributions of source code must retain the above 
++ * copyright notice, this list of conditions and 
++ * the following disclaimers. 
++ *
++ *     
++ * Redistributions in binary form must reproduce the above 
++ * copyright notice, this list of conditions and the following 
++ * disclaimers in the documentation and/or other materials 
++ * provided with the distribution. 
++ * 
++ *     
++ * Neither the names of the University of Illinois, NCSA, 
++ * nor the names of its contributors may be used to endorse 
++ * or promote products derived from this Software without
++ * specific prior written permission. 
++ * 
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, 
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES 
++ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND 
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE CONTIBUTORS OR COPYRIGHT 
++ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
++ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, 
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE
++ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. 
++ * ________________________________________________________________
++ * National Laboratory for Applied Network Research 
++ * National Center for Supercomputing Applications 
++ * University of Illinois at Urbana-Champaign 
++ * http://www.ncsa.uiuc.edu
++ * ________________________________________________________________ 
++ *
++ * PerfSocket.cpp
++ * by Mark Gates <mgates@nlanr.net>
++ *    Ajay Tirumala <tirumala@ncsa.uiuc.edu>
++ * -------------------------------------------------------------------
++ * Has routines the Client and Server classes use in common for
++ * performance testing the network.
++ * Changes in version 2.0
++ *     for extracting data from files
++ * -------------------------------------------------------------------
++ * headers
++ * uses
++ *   <stdlib.h>
++ *   <stdio.h>
++ *   <string.h>
++ *
++ *   <sys/types.h>
++ *   <sys/socket.h>
++ *   <unistd.h>
++ *
++ *   <arpa/inet.h>
++ *   <netdb.h>
++ *   <netinet/in.h>
++ *   <sys/socket.h>
++ * ------------------------------------------------------------------- */
++
++
++#define HEADERS()
++
++#include "headers.h"
++
++#include "PerfSocket.hpp"
++#include "Locale.hpp"
++#include "util.h"
++
++bool PerfSocket::sInterupted = false;
++Mutex PerfSocket::sReporting;
++
++/* -------------------------------------------------------------------
++ * Initialize the count of how many report lines we've output.
++ * ------------------------------------------------------------------- */
++
++int PerfSocket::sReportCount = 0;
++
++/* -------------------------------------------------------------------
++ * Store socket info.
++ * Allocate buffer used for sending and receiving.
++ * If input for the stream is from a file,
++ * create the Extractor class for getting data from the file
++ * ------------------------------------------------------------------- */
++
++PerfSocket::PerfSocket( ext_Settings *inSettings,
++                        Notify* toNotify )
++: Socket( inSettings->mPort, (inSettings->mUDPRate > 0) ) {
++
++    mSettings = inSettings;
++    ptr_parent = toNotify;
++    mBuf = NULL;
++    extractor = NULL;
++
++    // initialize buffer
++    mBuf = new char[ mSettings->mBufLen ];
++    pattern( mBuf, mSettings->mBufLen );
++    sReportCount = 0;
++    if ( mSettings->mServerMode == kMode_Client ) {
++        if ( mSettings->mFileInput ) {
++            if ( !mSettings->mStdin )
++                extractor = new Extractor( mSettings->mFileName, mSettings->mBufLen );
++            else
++                extractor = new Extractor( stdin, mSettings->mBufLen );
++
++            if ( !extractor->canRead() ) {
++                mSettings->mFileInput = false;
++            }
++        }
++    }
++}
++// end PerfSocket
++
++/* -------------------------------------------------------------------
++ * Delete memory (buffer used for sending and receiving).
++ * ------------------------------------------------------------------- */
++
++PerfSocket::~PerfSocket() {
++    DELETE_ARRAY( mBuf );
++    DELETE_PTR( extractor );
++}
++// end ~PerfSocket
++
++/* -------------------------------------------------------------------
++ * Initialization done before any transfer.
++ * ------------------------------------------------------------------- */
++
++void PerfSocket::InitTransfer( void ) {
++    assert( mSock >= 0   );
++    assert( mBuf != NULL );
++    assert( mSettings->mBufLen > 0  );
++
++    ReportPeer( mSock );
++
++    // cummulative bytes written
++    mTotalLen = 0;
++
++    // UDP jitter calculations
++    mJitter = 0.0;
++
++    // for periodic reports of bandwidth and lost datagrams
++    mPInterval.set( mSettings->mInterval );
++    mPReporting      = (mSettings->mInterval > 0.0);
++    mPLastErrorcnt   = 0;
++    mPLastDatagramID = 0;
++    mPLastTotalLen   = 0;
++
++    // start timers
++    mStartTime.setnow();
++
++    if ( ptr_parent != NULL ) {
++        ptr_parent->StartTime(mStartTime);
++    }
++
++    mPLastTime = mStartTime;
++    mPNextTime = mStartTime;
++    mPNextTime.add( mPInterval );
++
++    // setup termination variables
++    mMode_time = ( mSettings->mAmount < 0 );
++    if ( mMode_time ) {
++        mEndTime = mStartTime;
++        mEndTime.add( (-mSettings->mAmount) / 100.0 );
++    } else {
++        mAmount = mSettings->mAmount;
++    }
++}
++// end InitTransfer
++
++/* -------------------------------------------------------------------
++ * Periodically report the bandwidth.
++ * ------------------------------------------------------------------- */
++
++void PerfSocket::ReportPeriodicBW( void ) {
++    if ( mPReporting  &&
++         mPacketTime.after( mPNextTime ) ) {
++
++        double inStart = mPLastTime.subSec( mStartTime );
++        double inStop = mPNextTime.subSec( mStartTime );
++
++        sReporting.Lock();
++        ReportBW( mTotalLen - mPLastTotalLen,
++                  inStart,
++                  inStop );
++
++        if ( ptr_parent ) {
++            ptr_parent->PeriodicUpdate( inStart,
++                                        inStop,
++                                        mTotalLen - mPLastTotalLen );
++        }
++        sReporting.Unlock();
++
++        mPLastTime = mPNextTime;
++        mPNextTime.add( mPInterval );
++
++        mPLastTotalLen   = mTotalLen;
++
++        if ( mPacketTime.after( mPNextTime ) ) {
++            ReportPeriodicBW();
++        }
++
++    }
++}
++
++/* -------------------------------------------------------------------
++ * Periodically report the bandwidth, jitter, and loss.
++ * Used by the UDP server only.
++ * ------------------------------------------------------------------- */
++
++void PerfSocket::ReportPeriodicBW_Jitter_Loss( int32_t errorCnt,
++                                               int32_t outofOrder,
++                                               int32_t datagramID ) {
++    if ( mPReporting  &&
++         mPacketTime.after( mPNextTime ) ) {
++
++        double inStart = mPLastTime.subSec( mStartTime );
++        double inStop = mPNextTime.subSec( mStartTime );
++
++        sReporting.Lock();
++        ReportBW_Jitter_Loss( mTotalLen - mPLastTotalLen,
++                              inStart,
++                              inStop,
++                              errorCnt - mPLastErrorcnt,
++                              outofOrder - mPLastOutofOrder,
++                              datagramID - mPLastDatagramID );
++        if ( ptr_parent ) {
++            ptr_parent->PeriodicUpdate( inStart,
++                                        inStop,
++                                        mTotalLen - mPLastTotalLen );
++        }
++        sReporting.Unlock();
++
++        mPLastTime = mPNextTime;
++        mPNextTime.add( mPInterval );
++
++        mPLastTotalLen   = mTotalLen;
++        mPLastDatagramID = datagramID;
++        mPLastErrorcnt   = errorCnt;
++        mPLastOutofOrder = outofOrder;
++
++        if ( mPacketTime.after( mPNextTime ) ) {
++            ReportPeriodicBW_Jitter_Loss( errorCnt, outofOrder, datagramID );
++        }
++
++    }
++}
++
++/* -------------------------------------------------------------------
++ * Report the bandwidth (inBytes / inSeconds).
++ * ------------------------------------------------------------------- */
++
++void PerfSocket::ReportBW( max_size_t inBytes,
++                           double inStart,
++                           double inStop ) {
++    // print a field header every 20 lines
++    if ( --sReportCount <= 0 ) {
++        printf( report_bw_header );
++        sReportCount = 20;
++    }
++
++    char bytes[ 32 ];
++    char speed[ 32 ];
++
++    byte_snprintf( bytes, sizeof(bytes), (double) inBytes,
++                   toupper( mSettings->mFormat));
++    byte_snprintf( speed, sizeof(speed),
++                   inBytes / (inStop - inStart), mSettings->mFormat);
++
++    printf( report_bw_format,
++            mSock, inStart, inStop, bytes, speed );
++    fflush( stdout );
++
++}
++// end ReportBW
++
++/* -------------------------------------------------------------------
++ * Report the bandwidth (inBytes / inSeconds).
++ * ------------------------------------------------------------------- */
++
++void PerfSocket::ReportBW_Jitter_Loss( max_size_t inBytes,
++                                       double inStart,
++                                       double inStop,
++                                       int32_t inErrorcnt,
++                                       int32_t inOutofOrder,
++                                       int32_t inDatagrams ) {
++    // print a field header every 20 lines
++    if ( --sReportCount <= 0 ) {
++        printf( report_bw_jitter_loss_header );
++        sReportCount = 20;
++    }
++
++    assert( inErrorcnt >= 0 );
++    assert( inDatagrams >= 0 );
++
++    char bytes[ 32 ];
++    char speed[ 32 ];
++
++    byte_snprintf( bytes, sizeof(bytes), (double) inBytes,
++                   toupper( mSettings->mFormat));
++    byte_snprintf( speed, sizeof(speed),
++                   inBytes / (inStop - inStart), mSettings->mFormat);
++
++    // assume most of the time out-of-order packets are not
++    // duplicate packets, so subtract them from the lost packets.
++    inErrorcnt -= inOutofOrder;
++    printf( report_bw_jitter_loss_format,
++            mSock, inStart, inStop, bytes, speed,
++            mJitter*1000.0, inErrorcnt, inDatagrams,
++            (100.0 * inErrorcnt) / inDatagrams );
++    if ( inOutofOrder > 0 ) {
++        printf( report_outoforder,
++                mSock, inStart, inStop, inOutofOrder );
++    }
++    fflush( stdout );
++}
++// end ReportBW_Jitter_Loss
++
++/* -------------------------------------------------------------------
++ * Report a socket's peer IP address.
++ * ------------------------------------------------------------------- */
++
++void PerfSocket::ReportPeer( int inSock ) {
++    assert( inSock >= 0 );
++
++    SocketAddr local  = getLocalAddress();
++    SocketAddr remote = getRemoteAddress();
++
++    // copy the inet_ntoa into temp buffers, to avoid overwriting
++    char local_addr[ REPORT_ADDRLEN ];
++    local.getHostAddress( local_addr, sizeof(local_addr));
++
++    char remote_addr[ REPORT_ADDRLEN ];
++    remote.getHostAddress( remote_addr, sizeof(remote_addr));
++
++    sReporting.Lock();
++
++    printf( report_peer,
++            inSock,
++            local_addr,  local.getPort(),
++            remote_addr, remote.getPort());
++    fflush( stdout );
++
++    sReporting.Unlock();
++}
++// end ReportPeer
++
++/* -------------------------------------------------------------------
++ * Report the MSS and MTU, given the MSS (or a guess thereof)
++ * ------------------------------------------------------------------- */
++
++// compare the MSS against the (MTU - 40) to (MTU - 80) bytes.
++// 40 byte IP header and somewhat arbitrarily, 40 more bytes of IP options.
++
++inline bool checkMSS_MTU( int inMSS, int inMTU );
++
++inline bool checkMSS_MTU( int inMSS, int inMTU ) {
++    return(inMTU-40) >= inMSS  &&  inMSS >= (inMTU-80);
++}
++
++void PerfSocket::ReportMSS( int inMSS ) {
++    sReporting.Lock();
++
++    if ( inMSS <= 0 ) {
++        printf( report_mss_unsupported, mSock );
++    } else {
++        char* net;
++        int mtu = 0;
++
++        if ( checkMSS_MTU( inMSS, 1500 ) ) {
++            net = "ethernet";
++            mtu = 1500;
++        } else if ( checkMSS_MTU( inMSS, 4352 ) ) {
++            net = "FDDI";
++            mtu = 4352;
++        } else if ( checkMSS_MTU( inMSS, 9180 ) ) {
++            net = "ATM";
++            mtu = 9180;
++        } else if ( checkMSS_MTU( inMSS, 65280 ) ) {
++            net = "HIPPI";
++            mtu = 65280;
++        } else if ( checkMSS_MTU( inMSS, 576 ) ) {
++            net = "minimum";
++            mtu = 576;
++            printf( warn_no_pathmtu );
++        } else {
++            mtu = inMSS + 40;
++            net = "unknown interface";
++        }
++
++        printf( report_mss,
++                mSock, inMSS, mtu, net );
++    }
++    fflush( stdout );
++
++    sReporting.Unlock();
++}
++// end ReportMSS
++
++/* -------------------------------------------------------------------
++ * Report the TCP window size/UDP buffer size and warn if not
++ * the same as that requested.
++ * ------------------------------------------------------------------- */
++
++void PerfSocket::ReportWindowSize( void ) {
++    // sReporting already locked from ReportClient/ServerSettings
++
++    int win = get_tcp_windowsize( mSock );
++    int win_requested = mSettings->mTCPWin;
++
++    char window[ 32 ];
++    byte_snprintf( window, sizeof(window), win,
++                   toupper( mSettings->mFormat));
++    printf( "%s: %s", (mUDP ? udp_buffer_size : tcp_window_size), window );
++
++    if ( win_requested == 0 ) {
++        printf( " %s", window_default );
++    } else if ( win != win_requested ) {
++        char request[ 32 ];
++        byte_snprintf( request, sizeof(request), win_requested,
++                       toupper( mSettings->mFormat));
++        printf( warn_window_requested, request );
++    }
++    printf( "\n" );
++    fflush( stdout );
++}
++// end ReportWindowSize
++
++/* -------------------------------------------------------------------
++ * Report all the client settings: port, UDP/TCP, local and remote
++ * addresses and ports, multicast TTL, TCP window size.
++ * ------------------------------------------------------------------- */
++
++void PerfSocket::ReportClientSettings( const char* inHost,
++                                       const char* inLocalhost ) {
++    sReporting.Lock();
++
++    // print settings
++    printf( seperator_line );
++    printf( client_port, inHost, (mUDP ? "UDP" : "TCP"), mPort );
++
++    if ( inLocalhost != NULL ) {
++        SocketAddr local = getLocalAddress();
++        char addr[ REPORT_ADDRLEN ];
++        local.getHostAddress( addr, sizeof(addr));
++        printf( bind_address, addr );
++    }
++
++    if ( mUDP ) {
++        printf( client_datagram_size, mSettings->mBufLen );
++
++        SocketAddr remote = getRemoteAddress();
++        if ( remote.isMulticast() ) {
++            printf( multicast_ttl, mSettings->mTTL);
++        }
++    }
++
++    ReportWindowSize();
++    printf( seperator_line );
++    fflush( stdout );
++
++    sReporting.Unlock();
++}
++
++/* -------------------------------------------------------------------
++ * Report all the server settings (prior to accept): port, UDP/TCP,
++ * local address, multicast group, TCP window size.
++ * ------------------------------------------------------------------- */
++
++void PerfSocket::ReportServerSettings( const char* inLocalhost ) {
++    sReporting.Lock();
++
++    // print settings
++    printf( seperator_line );
++    printf( server_port, (mUDP ? "UDP" : "TCP"), mPort );
++
++    if ( inLocalhost != NULL ) {
++        SocketAddr local = getLocalAddress();
++        char addr[ REPORT_ADDRLEN ];
++        local.getHostAddress( addr, sizeof(addr));
++
++        printf( bind_address, addr );
++
++        if ( local.isMulticast() ) {
++            printf( join_multicast, addr );
++        }
++    }
++    if ( mUDP ) {
++        printf( server_datagram_size, mSettings->mBufLen );
++    }
++    ReportWindowSize();
++    printf( seperator_line );
++    fflush( stdout );
++
++    sReporting.Unlock();
++}
++
++/* -------------------------------------------------------------------
++ * Signal handler sets the sInterupted flag, so the object can
++ * respond appropriately.. [static]
++ * ------------------------------------------------------------------- */
++
++void PerfSocket::Sig_Interupt( int inSigno ) {
++    sInterupted = true;
++}
++
++/* -------------------------------------------------------------------
++ * Set socket options before the listen() or connect() calls.
++ * These are optional performance tuning factors.
++ * TODO should probably reporting setting these.
++ * ------------------------------------------------------------------- */
++
++void PerfSocket::SetSocketOptions( void ) {
++    // set the TCP window size (socket buffer sizes)
++    // also the UDP buffer size
++    // must occur before call to accept() for large window sizes
++    set_tcp_windowsize( mSock, mSettings->mTCPWin );
++
++#ifdef IP_TOS
++
++    // set IP TOS (type-of-service) field
++    if ( mSettings->mTOS > 0 ) {
++        int  tos = mSettings->mTOS;
++        Socklen_t len = sizeof(tos);
++        int rc = setsockopt( mSock, IPPROTO_IP, IP_TOS,
++                             (char*) &tos, len );
++        FAIL_errno( rc == SOCKET_ERROR, "setsockopt IP_TOS" );
++    }
++#endif
++
++    if ( ! mUDP ) {
++        // set the TCP maximum segment size
++        setsock_tcp_mss( mSock, mSettings->mMSS );
++
++#ifdef TCP_NODELAY
++
++        // set TCP nodelay option
++        if ( mSettings->mNodelay ) {
++            int nodelay = 1;
++            Socklen_t len = sizeof(nodelay);
++            int rc = setsockopt( mSock, IPPROTO_TCP, TCP_NODELAY,
++                                 (char*) &nodelay, len );
++            FAIL_errno( rc == SOCKET_ERROR, "setsockopt TCP_NODELAY" );
++        }
++#endif
++    }
++}
++// end SetSocketOptions
++
+diff -Naur iperf-1.7.0.orig/src/PerfSocket.hpp iperf-1.7.0/src/PerfSocket.hpp
+--- iperf-1.7.0.orig/src/PerfSocket.hpp	2003-02-27 23:59:05.000000000 +0200
++++ iperf-1.7.0/src/PerfSocket.hpp	2008-06-30 17:00:59.000000000 +0300
+@@ -62,6 +62,7 @@
+ #include "Extractor.hpp"
+ #include "Notify.hpp"
+ #include "Settings.hpp"
++#include "UDPMessage.h"
+ 
+ 
+ class Notify;
+@@ -90,7 +91,7 @@
+     void write_UDP_AckFIN( max_size_t mTotalLen, Timestamp mEndTime,
+                            Timestamp mStartTime, int errorCnt,
+                            int outofOrder, int32_t datagramID );
+-
++    
+     // TCP, in PerfSocket_TCP.cpp
+     void Send_TCP( void );
+     void Recv_TCP( void );
+@@ -139,6 +140,8 @@
+ 
+     // buffer to do reads/writes
+     char *mBuf;
++    
++    UDPMessage * udpMsg;
+ 
+     // individual and cummulative bytes written
+     max_size_t mTotalLen;
+diff -Naur iperf-1.7.0.orig/src/PerfSocket.hpp.orig iperf-1.7.0/src/PerfSocket.hpp.orig
+--- iperf-1.7.0.orig/src/PerfSocket.hpp.orig	1970-01-01 02:00:00.000000000 +0200
++++ iperf-1.7.0/src/PerfSocket.hpp.orig	2008-06-30 17:00:59.000000000 +0300
+@@ -0,0 +1,174 @@
++/*--------------------------------------------------------------- 
++ * Copyright (c) 1999,2000,2001,2002,2003                              
++ * The Board of Trustees of the University of Illinois            
++ * All Rights Reserved.                                           
++ *--------------------------------------------------------------- 
++ * Permission is hereby granted, free of charge, to any person    
++ * obtaining a copy of this software (Iperf) and associated       
++ * documentation files (the "Software"), to deal in the Software  
++ * without restriction, including without limitation the          
++ * rights to use, copy, modify, merge, publish, distribute,        
++ * sublicense, and/or sell copies of the Software, and to permit     
++ * persons to whom the Software is furnished to do
++ * so, subject to the following conditions: 
++ *
++ *     
++ * Redistributions of source code must retain the above 
++ * copyright notice, this list of conditions and 
++ * the following disclaimers. 
++ *
++ *     
++ * Redistributions in binary form must reproduce the above 
++ * copyright notice, this list of conditions and the following 
++ * disclaimers in the documentation and/or other materials 
++ * provided with the distribution. 
++ * 
++ *     
++ * Neither the names of the University of Illinois, NCSA, 
++ * nor the names of its contributors may be used to endorse 
++ * or promote products derived from this Software without
++ * specific prior written permission. 
++ * 
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, 
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES 
++ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND 
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE CONTIBUTORS OR COPYRIGHT 
++ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
++ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, 
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE
++ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. 
++ * ________________________________________________________________
++ * National Laboratory for Applied Network Research 
++ * National Center for Supercomputing Applications 
++ * University of Illinois at Urbana-Champaign 
++ * http://www.ncsa.uiuc.edu
++ * ________________________________________________________________ 
++ *
++ * PerfSocket.hpp
++ * by Mark Gates <mgates@nlanr.net>
++ *  &  Ajay Tirumala <tirumala@ncsa.uiuc.edu>   
++ * -------------------------------------------------------------------
++ * Changes in version 1.6
++ *   Incorporates class declarations for fetching data from files 
++ * ------------------------------------------------------------------- */
++
++
++#ifndef PERFSOCKET_H
++#define PERFSOCKET_H
++
++#include "Socket.hpp"
++#include "Timestamp.hpp"
++#include "Mutex.hpp"
++#include "Extractor.hpp"
++#include "Notify.hpp"
++#include "Settings.hpp"
++
++
++class Notify;
++/* ------------------------------------------------------------------- */
++class PerfSocket : public Socket {
++public:
++    // stores port, UDP/TCP mode, and UDP rate
++    PerfSocket( ext_Settings *inSettings, Notify* toNotify = NULL );
++
++    // destroy the iperf socket object
++    virtual ~PerfSocket();
++
++    iperf_sockaddr Accept_UDP( void );
++
++    // lock while doing reporting; printf often isn't thread safe.
++    static Mutex sReporting;
++    static int sReportCount;
++
++
++protected:
++    // UDP, in PerfSocket_UDP.cpp
++    void Send_UDP( void );
++    void Recv_UDP( void );
++
++    void write_UDP_FIN( );
++    void write_UDP_AckFIN( max_size_t mTotalLen, Timestamp mEndTime,
++                           Timestamp mStartTime, int errorCnt,
++                           int outofOrder, int32_t datagramID );
++
++    // TCP, in PerfSocket_TCP.cpp
++    void Send_TCP( void );
++    void Recv_TCP( void );
++
++    // Used for automatic determining of Window size
++    void Client_Recv_TCP(void);
++    void Server_Send_TCP(void);
++
++    void Multicast_remove_client( iperf_sockaddr );
++
++    virtual void SetSocketOptions( void );
++    virtual int set_tcp_windowsize( int, int ) = 0;
++    virtual int get_tcp_windowsize( int ) = 0;
++
++    // General, in PerfSocket.cpp
++    void InitTransfer( void );
++
++    void ReportPeriodicBW( void );
++    void ReportBW( max_size_t inBytes, double inStart, double inStop );
++
++    void ReportPeriodicBW_Jitter_Loss( int32_t errorCnt,
++                                       int32_t outofOrder,
++                                       int32_t datagramID );
++
++    void ReportBW_Jitter_Loss( max_size_t inBytes,
++                               double inStart, double inStop,
++                               int32_t inErrorcnt,
++                               int32_t inOutofOrder,
++                               int32_t inDatagrams );
++
++    void ReportPeer( int inSock );
++    void ReportMSS( int MSS );
++    void ReportWindowSize( void );
++
++    void ReportClientSettings( const char* inHost,
++                               const char* inLocalhost );
++    void ReportServerSettings( const char* inLocalhost );
++
++    // handle interupts
++    static void Sig_Interupt( int inSigno );
++
++    static bool sInterupted;
++
++    // Extra Settings
++    ext_Settings *mSettings;
++
++    // buffer to do reads/writes
++    char *mBuf;
++
++    // individual and cummulative bytes written
++    max_size_t mTotalLen;
++
++    // termination variables
++    bool mMode_time;
++    max_size_t mAmount;
++
++    // UDP jitter and loss calculations
++    double mJitter;
++
++    Timestamp mPacketTime;
++    Timestamp mStartTime;
++    Timestamp mEndTime;
++
++    // periodic reporting bandwidth, loss, jitter
++    Timestamp mPLastTime;
++    Timestamp mPNextTime;
++    Timestamp mPInterval;
++
++    bool mPReporting;
++    int32_t mPLastErrorcnt;
++    int32_t mPLastOutofOrder;
++    int32_t mPLastDatagramID;
++    max_size_t mPLastTotalLen;
++
++    Extractor *extractor;
++    Notify    *ptr_parent;
++
++
++}; // end class PerfSocket
++
++#endif // PERFSOCKET_H
+diff -Naur iperf-1.7.0.orig/src/PerfSocket_UDP.cpp iperf-1.7.0/src/PerfSocket_UDP.cpp
+--- iperf-1.7.0.orig/src/PerfSocket_UDP.cpp	2003-03-05 22:30:50.000000000 +0200
++++ iperf-1.7.0/src/PerfSocket_UDP.cpp	2008-07-01 11:58:04.000000000 +0300
+@@ -87,6 +87,7 @@
+  * ------------------------------------------------------------------- */ 
+ 
+ void PerfSocket::Send_UDP( void ) {
++	SetSocketOptions();
+     long currLen; 
+     int32_t datagramID = 0; 
+     struct UDP_datagram* mBuf_UDP = (struct UDP_datagram*) mBuf; 
+@@ -118,7 +119,7 @@
+ 
+     Timestamp lastPacketTime; 
+     InitTransfer(); 
+-    // Indicates if the stream is readable 
++    // Indicates if the stream is readtype filter textable 
+     bool canRead; 
+ 
+     // Due to the UDP timestamps etc, included 
+@@ -233,6 +234,7 @@
+  * ------------------------------------------------------------------- */ 
+ 
+ void PerfSocket::Recv_UDP( void ) {
++	SetSocketOptions();
+     bool going = true; 
+     long currLen; 
+     int32_t datagramID     = 0; 
+@@ -257,7 +259,21 @@
+     InitTransfer(); 
+     do {
+         // perform read 
+-        currLen = read( mSock, mBuf, mSettings->mBufLen ); 
++        //currLen = read( mSock, mBuf, mSettings->mBufLen );
++        
++        Socklen_t peerlen; 
++
++        peerlen = sizeof(peer); 
++        
++        iovec iov;
++        iov.iov_base 	= mBuf;
++        iov.iov_len 	= mSettings->mBufLen;
++        udpMsg->setIOVector(iov);
++        udpMsg->setPeer((struct sockaddr*) &peer, peerlen);
++        
++        currLen = recvmsg(mSock, 
++        			 udpMsg->getMsgHdr(),
++        			 MSG_WAITALL);
+ 
+         mPacketTime.setnow(); 
+ 
+@@ -267,7 +283,8 @@
+         mTotalLen += currLen; 
+ 
+         // read the datagram ID and sentTime out of the buffer 
+-        datagramID = ntohl( mBuf_UDP->id ); 
++        datagramID = ntohl( mBuf_UDP->id );
++       
+         sentTime.set( ntohl( mBuf_UDP->tv_sec  ), 
+                       ntohl( mBuf_UDP->tv_usec )); 
+ 
+@@ -282,14 +299,17 @@
+             }
+             mJitter += (1.0/16.0) * (deltaTransit - mJitter); 
+         }
++
+         lastTransit = transit; 
+ 
+         // terminate when datagram begins with negative index 
+         // the datagram ID should be correct, just negated 
++
+         if ( datagramID < 0 ) {
+             going = false; 
+             datagramID = -datagramID; 
+         }
++
+         // packet loss occured if the datagram numbers aren't sequential 
+         if ( datagramID != lastDatagramID+1 ) {
+             if ( datagramID < lastDatagramID+1 ) {
+@@ -333,15 +353,33 @@
+  * ------------------------------------------------------------------- */ 
+ 
+ iperf_sockaddr PerfSocket::Accept_UDP( void ) {
++	
++	SetSocketOptions();
++	
+     iperf_sockaddr peer; 
+ 
+     Socklen_t peerlen; 
+     int rc; 
+ 
+     peerlen = sizeof(peer); 
+-    rc = recvfrom( mSock, mBuf, mSettings->mBufLen, 0, 
+-                   (struct sockaddr*) &peer, &peerlen ); 
+-
++    
++    iovec iov;
++    iov.iov_base 	= mBuf;
++    iov.iov_len 	= mSettings->mBufLen;
++    udpMsg->setIOVector(iov);
++    udpMsg->setPeer((struct sockaddr*) &peer, peerlen);
++    
++    
++    rc = recvmsg(mSock, 
++    			 udpMsg->getMsgHdr(),
++    			 MSG_WAITALL);
++    
++    sockaddr_storage * dsthost = udpMsg->getDest();
++    if (udpMsg->isIPv6())
++      ((struct sockaddr_in6 *)dsthost)->sin6_port = mSettings->mPort;
++    else
++      ((struct sockaddr_in *)dsthost)->sin_port = mSettings->mPort;
++    
+     FAIL_errno( rc == SOCKET_ERROR, "recvfrom" );       
+     return peer; 
+ } 
+@@ -362,8 +400,15 @@
+         count++; 
+ 
+         // write data 
+-        write( mSock, mBuf, mSettings->mBufLen ); 
++        iovec iov;
++        iov.iov_base 	= mBuf;
++        iov.iov_len 	= mSettings->mBufLen;
++        udpMsg->setIOVector(iov);
++        
++        write( mSock, mBuf, mSettings->mBufLen );
+ 
++	/*sendmsg(mSock, udpMsg->getMsgHdr(), 0); */
++	
+         // wait until the socket is readable, or our timeout expires 
+         FD_ZERO( &readSet ); 
+         FD_SET( mSock, &readSet ); 
+@@ -378,7 +423,21 @@
+             continue; 
+         } else {
+             // socket ready to read 
+-            rc = read( mSock, mBuf, mSettings->mBufLen ); 
++            //rc = read( mSock, mBuf, mSettings->mBufLen ); 
++            iperf_sockaddr peer; 
++
++            Socklen_t peerlen; 
++            peerlen = sizeof(peer); 
++            iovec iov;
++            iov.iov_base 	= mBuf;
++            iov.iov_len 	= mSettings->mBufLen;
++            udpMsg->setIOVector(iov);
++            udpMsg->setPeer((struct sockaddr*) &peer, peerlen);
++            
++            rc = recvmsg(mSock, 
++            			 udpMsg->getMsgHdr(),
++            			 MSG_WAITALL);
++            
+             FAIL_errno( rc < 0, "read" );
+             if ( rc >= (int) (sizeof(UDP_datagram) + sizeof(server_hdr)) ) {
+                 UDP_datagram *UDP_Hdr;
+@@ -425,7 +484,6 @@
+                                    int outofOrder, int32_t datagramID ) {
+ 
+     int rc; 
+-
+     fd_set readSet; 
+     FD_ZERO( &readSet ); 
+ 
+@@ -460,7 +518,14 @@
+         }
+ 
+         // write data 
+-        write( mSock, mBuf, mSettings->mBufLen ); 
++        iovec iov;
++        iov.iov_base 	= mBuf;
++        iov.iov_len 	= mSettings->mBufLen;
++        udpMsg->setIOVector(iov);
++                
++        //write( mSock, mBuf, mSettings->mBufLen );
++                
++        sendmsg(mSock, udpMsg->getMsgHdr(), 0);
+ 
+         // wait until the socket is readable, or our timeout expires 
+         FD_SET( mSock, &readSet ); 
+@@ -475,7 +540,20 @@
+             return; 
+         } else {
+             // socket ready to read 
+-            rc = read( mSock, mBuf, mSettings->mBufLen ); 
++            //rc = read( mSock, mBuf, mSettings->mBufLen ); 
++        	iperf_sockaddr peer; 
++        	Socklen_t peerlen; 
++        	peerlen = sizeof(peer);
++            iovec iov;
++            iov.iov_base 	= mBuf;
++            iov.iov_len 	= mSettings->mBufLen;
++            udpMsg->setIOVector(iov);
++            udpMsg->setPeer((struct sockaddr*) &peer, peerlen);
++            
++            
++            rc = recvmsg(mSock, 
++            			 udpMsg->getMsgHdr(),
++            			 MSG_WAITALL);
+             WARN_errno( rc < 0, "read" ); 
+             continue; 
+         } 
+diff -Naur iperf-1.7.0.orig/src/PerfSocket_UDP.cpp.orig iperf-1.7.0/src/PerfSocket_UDP.cpp.orig
+--- iperf-1.7.0.orig/src/PerfSocket_UDP.cpp.orig	1970-01-01 02:00:00.000000000 +0200
++++ iperf-1.7.0/src/PerfSocket_UDP.cpp.orig	2008-06-30 17:00:59.000000000 +0300
+@@ -0,0 +1,487 @@
++/*--------------------------------------------------------------- 
++ * Copyright (c) 1999,2000,2001,2002,2003                              
++ * The Board of Trustees of the University of Illinois            
++ * All Rights Reserved.                                           
++ *--------------------------------------------------------------- 
++ * Permission is hereby granted, free of charge, to any person    
++ * obtaining a copy of this software (Iperf) and associated       
++ * documentation files (the "Software"), to deal in the Software  
++ * without restriction, including without limitation the          
++ * rights to use, copy, modify, merge, publish, distribute,        
++ * sublicense, and/or sell copies of the Software, and to permit     
++ * persons to whom the Software is furnished to do
++ * so, subject to the following conditions: 
++ *
++ *     
++ * Redistributions of source code must retain the above 
++ * copyright notice, this list of conditions and 
++ * the following disclaimers. 
++ *
++ *     
++ * Redistributions in binary form must reproduce the above 
++ * copyright notice, this list of conditions and the following 
++ * disclaimers in the documentation and/or other materials 
++ * provided with the distribution. 
++ * 
++ *     
++ * Neither the names of the University of Illinois, NCSA, 
++ * nor the names of its contributors may be used to endorse 
++ * or promote products derived from this Software without
++ * specific prior written permission. 
++ * 
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, 
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES 
++ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND 
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE CONTIBUTORS OR COPYRIGHT 
++ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
++ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, 
++ * ARISING FROM, OUT OF OR IN CONNECTION WITH THE
++ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. 
++ * ________________________________________________________________
++ * National Laboratory for Applied Network Research 
++ * National Center for Supercomputing Applications 
++ * University of Illinois at Urbana-Champaign 
++ * http://www.ncsa.uiuc.edu
++ * ________________________________________________________________ 
++ *
++ * PerfSocket.cpp 
++ * by Mark Gates <mgates@nlanr.net> 
++ * &  Ajay Tirumala <tirumala@ncsa.uiuc.edu> 
++ * ------------------------------------------------------------------- 
++ * Has routines the Client and Server classes use in common for 
++ * performance testing the network. 
++ * ------------------------------------------------------------------- 
++ * headers 
++ * uses 
++ *   <stdlib.h> 
++ *   <stdio.h> 
++ *   <string.h> 
++ * 
++ *   <sys/types.h> 
++ *   <sys/socket.h> 
++ *   <unistd.h> 
++ * 
++ *   <arpa/inet.h> 
++ *   <netdb.h> 
++ *   <netinet/in.h> 
++ *   <sys/socket.h> 
++ * ------------------------------------------------------------------- */ 
++
++#define HEADERS() 
++
++#include "headers.h" 
++
++#include "PerfSocket.hpp" 
++#include "delay.hpp" 
++#include "Locale.hpp"
++#include "List.h"
++#include "util.h" 
++
++const double kSecs_to_usecs = 1e6; 
++const int    kBytes_to_Bits = 8; 
++
++/* ------------------------------------------------------------------- 
++ * Send data using the connected UDP socket, 
++ * until a termination flag is received. 
++ * Does not close the socket. 
++ * ------------------------------------------------------------------- */ 
++
++void PerfSocket::Send_UDP( void ) {
++    long currLen; 
++    int32_t datagramID = 0; 
++    struct UDP_datagram* mBuf_UDP = (struct UDP_datagram*) mBuf; 
++
++    int delay_target; 
++    int delay = 0; 
++    int adjust; 
++
++    // terminate loop nicely on user interupts 
++    sInterupted = false; 
++    SigfuncPtr oldINT = my_signal( SIGINT,  Sig_Interupt );
++    SigfuncPtr oldPIPE = my_signal( SIGPIPE, Sig_Interupt );
++
++    // compute delay for UDP bandwidth restriction, constrained to [0,1] seconds 
++    delay_target = (int) ( mSettings->mBufLen * ((kSecs_to_usecs * kBytes_to_Bits) 
++                                                 / mSettings->mUDPRate) ); 
++    if ( delay_target < 0  || 
++         delay_target > (int) 1 * kSecs_to_usecs ) {
++        printf( warn_delay_large, delay_target / kSecs_to_usecs ); 
++        delay_target = (int) kSecs_to_usecs * 1; 
++    }
++
++    // check if we're sending multicast, and set TTL 
++    // TODO is this the right place to put this??? 
++    SocketAddr remote = getRemoteAddress(); 
++    if ( remote.isMulticast() ) {
++        McastSetTTL( mSettings->mTTL, remote ); 
++    }
++
++    Timestamp lastPacketTime; 
++    InitTransfer(); 
++    // Indicates if the stream is readable 
++    bool canRead; 
++
++    // Due to the UDP timestamps etc, included 
++    // reduce the read size by an amount 
++    // equal to the header size
++    char* readAt = mBuf;
++    if ( mSettings->mFileInput )
++        if ( mSettings->mCompat ) {
++            extractor->reduceReadSize(sizeof(struct UDP_datagram));
++            readAt += sizeof(struct UDP_datagram);
++        } else {
++            extractor->reduceReadSize(sizeof(struct UDP_datagram) +
++                                      sizeof(struct client_hdr));
++            readAt += sizeof(struct UDP_datagram) +
++                      sizeof(struct client_hdr);
++        }
++
++    mStartTime.setnow(); 
++
++    do {
++        mPacketTime.setnow(); 
++
++        // Test case: drop 17 packets and send 2 out-of-order: 
++        // sequence 51, 52, 70, 53, 54, 71, 72 
++        //switch( datagramID ) { 
++        //  case 53: datagramID = 70; break; 
++        //  case 71: datagramID = 53; break; 
++        //  case 55: datagramID = 71; break; 
++        //  default: break; 
++        //} 
++
++        // store datagram ID into buffer 
++        mBuf_UDP->id      = htonl( datagramID++ ); 
++        mBuf_UDP->tv_sec  = htonl( mPacketTime.getSecs()); 
++        mBuf_UDP->tv_usec = htonl( mPacketTime.getUsecs()); 
++
++        // Read the next data block from 
++        // the file if it's file input 
++        if ( mSettings->mFileInput ) {
++            extractor->getNextDataBlock(readAt); 
++            canRead = extractor->canRead(); 
++        } else
++            canRead = true; 
++
++        // perform write 
++        currLen = write( mSock, mBuf, mSettings->mBufLen ); 
++        if ( currLen < 0 ) {
++            WARN_errno( currLen < 0, "write" ); 
++            break; 
++        }
++
++        // periodically report bandwidths 
++        ReportPeriodicBW(); 
++
++        mTotalLen += currLen; 
++
++        // delay between writes 
++        // make an adjustment for how long the last loop iteration took 
++        // TODO this doesn't work well in certain cases, like 2 parallel streams 
++        adjust = delay_target - mPacketTime.subUsec( lastPacketTime ); 
++        lastPacketTime = mPacketTime; 
++
++        if ( adjust > 0  ||  delay > 0 ) {
++            delay += adjust; 
++        }
++        if ( delay > 0 ) {
++            delay_loop( delay ); 
++        }
++
++    } while ( ! (sInterupted  || 
++                 (mMode_time   &&  mPacketTime.after( mEndTime ))  || 
++                 (!mMode_time  &&  mTotalLen >= mAmount)) && canRead ); 
++
++    if ( oldINT != Sig_Interupt ) {
++        // Return signal handlers to previous handlers
++        my_signal( SIGINT, oldINT );
++        my_signal( SIGPIPE, oldPIPE );
++    }
++
++    // stop timing 
++    mEndTime.setnow(); 
++    sReporting.Lock();
++    ReportBW( mTotalLen, 0.0, mEndTime.subSec( mStartTime )); 
++    sReporting.Unlock();
++
++    // send a final terminating datagram 
++    // Don't count in the mTotalLen. The server counts this one, 
++    // but didn't count our first datagram, so we're even now. 
++    // The negative datagram ID signifies termination to the server. 
++    mPacketTime.setnow(); 
++
++    // store datagram ID into buffer 
++    mBuf_UDP->id      = htonl( -datagramID  ); 
++    mBuf_UDP->tv_sec  = htonl( mPacketTime.getSecs()); 
++    mBuf_UDP->tv_usec = htonl( mPacketTime.getUsecs()); 
++
++    if ( remote.isMulticast() ) {
++        write( mSock, mBuf, mSettings->mBufLen ); 
++    } else {
++        write_UDP_FIN( ); 
++    } 
++
++    printf( report_datagrams, mSock, datagramID ); 
++    
++} 
++// end SendUDP 
++
++/* ------------------------------------------------------------------- 
++ * Receieve data from the (connected) UDP socket. 
++ * Sends termination flag several times at the end. 
++ * Does not close the socket. 
++ * ------------------------------------------------------------------- */ 
++
++void PerfSocket::Recv_UDP( void ) {
++    bool going = true; 
++    long currLen; 
++    int32_t datagramID     = 0; 
++    int32_t lastDatagramID = 0; 
++    struct UDP_datagram* mBuf_UDP  = (struct UDP_datagram*) mBuf; 
++    int errorCnt   = 0; 
++    int outofOrder = 0; 
++
++    extern Mutex clients_mutex;
++    extern Iperf_ListEntry *clients;
++
++    // get the remote address and remove it later from the set of clients 
++    SocketAddr remote = getRemoteAddress(); 
++    iperf_sockaddr peer = *(iperf_sockaddr *) (remote.get_sockaddr()); 
++
++    // for jitter 
++    Timestamp sentTime; 
++    double transit; 
++    double lastTransit = 0.0; 
++    double deltaTransit; 
++
++    InitTransfer(); 
++    do {
++        // perform read 
++        currLen = read( mSock, mBuf, mSettings->mBufLen ); 
++
++        mPacketTime.setnow(); 
++
++        // periodically report bandwidths 
++        ReportPeriodicBW_Jitter_Loss( errorCnt, outofOrder, datagramID ); 
++
++        mTotalLen += currLen; 
++
++        // read the datagram ID and sentTime out of the buffer 
++        datagramID = ntohl( mBuf_UDP->id ); 
++        sentTime.set( ntohl( mBuf_UDP->tv_sec  ), 
++                      ntohl( mBuf_UDP->tv_usec )); 
++
++        // TODO functionalize this 
++        // from RFC 1889, Real Time Protocol (RTP) 
++        // J = J + ( | D(i-1,i) | - J ) / 16 
++        transit = mPacketTime.subSec( sentTime ); 
++        if ( lastTransit != 0.0 ) {
++            deltaTransit = transit - lastTransit; 
++            if ( deltaTransit < 0.0 ) {
++                deltaTransit = -deltaTransit; 
++            }
++            mJitter += (1.0/16.0) * (deltaTransit - mJitter); 
++        }
++        lastTransit = transit; 
++
++        // terminate when datagram begins with negative index 
++        // the datagram ID should be correct, just negated 
++        if ( datagramID < 0 ) {
++            going = false; 
++            datagramID = -datagramID; 
++        }
++        // packet loss occured if the datagram numbers aren't sequential 
++        if ( datagramID != lastDatagramID+1 ) {
++            if ( datagramID < lastDatagramID+1 ) {
++                outofOrder++; 
++            } else {
++                errorCnt += datagramID - (lastDatagramID+1); 
++            } 
++        }
++        // never decrease datagramID (e.g. if we get an out-of-order packet) 
++        if ( datagramID > lastDatagramID ) {
++            lastDatagramID = datagramID; 
++        }
++
++    } while ( going ); 
++
++    // stop timing 
++    mEndTime.setnow(); 
++    sReporting.Lock();
++    ReportBW_Jitter_Loss( mTotalLen, 0.0, mEndTime.subSec( mStartTime ), 
++                          errorCnt, outofOrder, datagramID );
++    sReporting.Unlock(); 
++
++    // send a acknowledgement back only if we're NOT receiving multicast 
++    SocketAddr local = getLocalAddress(); 
++    if ( ! local.isMulticast() ) {
++        // send back an acknowledgement of the terminating datagram 
++        write_UDP_AckFIN( mTotalLen, mEndTime, mStartTime, errorCnt,
++                          outofOrder, datagramID ); 
++    }
++
++    clients_mutex.Lock();     
++    Iperf_delete ( &peer, &clients ); 
++    clients_mutex.Unlock(); 
++} 
++// end RecvUDP 
++
++/* ------------------------------------------------------------------- 
++ * Do the equivalent of an accept() call for UDP sockets. This waits 
++ * on a listening UDP socket until we get a datagram. Connect the 
++ * UDP socket for efficiency. 
++ * ------------------------------------------------------------------- */ 
++
++iperf_sockaddr PerfSocket::Accept_UDP( void ) {
++    iperf_sockaddr peer; 
++
++    Socklen_t peerlen; 
++    int rc; 
++
++    peerlen = sizeof(peer); 
++    rc = recvfrom( mSock, mBuf, mSettings->mBufLen, 0, 
++                   (struct sockaddr*) &peer, &peerlen ); 
++
++    FAIL_errno( rc == SOCKET_ERROR, "recvfrom" );       
++    return peer; 
++} 
++
++/* ------------------------------------------------------------------- 
++ * Send a datagram on the socket. The datagram's contents should signify 
++ * a FIN to the application. Keep re-transmitting until an 
++ * acknowledgement datagram is received. 
++ * ------------------------------------------------------------------- */ 
++
++void PerfSocket::write_UDP_FIN( ) {
++    int rc; 
++    fd_set readSet; 
++    struct timeval timeout; 
++
++    int count = 0; 
++    while ( count < 10 ) {
++        count++; 
++
++        // write data 
++        write( mSock, mBuf, mSettings->mBufLen ); 
++
++        // wait until the socket is readable, or our timeout expires 
++        FD_ZERO( &readSet ); 
++        FD_SET( mSock, &readSet ); 
++        timeout.tv_sec  = 0; 
++        timeout.tv_usec = 250000; // quarter second, 250 ms 
++
++        rc = select( mSock+1, &readSet, NULL, NULL, &timeout ); 
++        FAIL_errno( rc == SOCKET_ERROR, "select" ); 
++
++        if ( rc == 0 ) {
++            // select timed out 
++            continue; 
++        } else {
++            // socket ready to read 
++            rc = read( mSock, mBuf, mSettings->mBufLen ); 
++            FAIL_errno( rc < 0, "read" );
++            if ( rc >= (int) (sizeof(UDP_datagram) + sizeof(server_hdr)) ) {
++                UDP_datagram *UDP_Hdr;
++                server_hdr *hdr;
++
++                UDP_Hdr = (UDP_datagram*) mBuf;
++                hdr = (server_hdr*) (UDP_Hdr+1);
++
++                if ( (ntohl(hdr->flags) & HEADER_VERSION1) != 0 ) {
++                    mJitter = ntohl( hdr->jitter1 );
++                    mJitter += (double)ntohl( hdr->jitter2 ) / 1000000.0;
++                    sReporting.Lock();
++                    printf( server_reporting, mSock );
++                    ReportBW_Jitter_Loss( (((max_size_t) ntohl( hdr->total_len1 )) << 32) +
++                                          ntohl( hdr->total_len2 ), 
++                                          0.0,
++                                          ntohl( hdr->stop_sec ) + 
++                                          ntohl( hdr->stop_usec ) / 1000000.0,
++                                          ntohl( hdr->error_cnt ),
++                                          ntohl( hdr->outorder_cnt ),
++                                          ntohl( hdr->datagrams ));
++                    sReporting.Unlock();
++                }
++            }
++
++
++            return; 
++        } 
++    } 
++
++    printf( warn_no_ack, mSock, count ); 
++} 
++// end write_UDP_FIN 
++
++/* ------------------------------------------------------------------- 
++ * Send an AckFIN (a datagram acknowledging a FIN) on the socket, 
++ * then select on the socket for some time. If additional datagrams 
++ * come in, probably our AckFIN was lost and they are re-transmitted 
++ * termination datagrams, so re-transmit our AckFIN. 
++ * ------------------------------------------------------------------- */ 
++
++void PerfSocket::write_UDP_AckFIN( max_size_t mTotalLen, Timestamp mEndTime,
++                                   Timestamp mStartTime, int errorCnt,
++                                   int outofOrder, int32_t datagramID ) {
++
++    int rc; 
++
++    fd_set readSet; 
++    FD_ZERO( &readSet ); 
++
++    struct timeval timeout; 
++
++    int count = 0; 
++    while ( count < 10 ) {
++        count++; 
++
++        UDP_datagram *UDP_Hdr;
++        server_hdr *hdr;
++
++        UDP_Hdr = (UDP_datagram*) mBuf;
++
++        if ( mSettings->mBufLen > (int) ( sizeof( UDP_datagram )
++             + sizeof( server_hdr ) ) ) {
++            hdr = (server_hdr*) (UDP_Hdr+1);
++
++            hdr->flags        = htonl( HEADER_VERSION1 );
++            hdr->total_len1   = htonl( (long) (mTotalLen >> 32) );
++            hdr->total_len2   = htonl( (long) (mTotalLen & 0xFFFFFFFF) );
++            Timestamp temp( mEndTime.subSec( mStartTime ) );
++            hdr->stop_sec     = htonl( temp.getSecs() );
++            hdr->stop_usec    = htonl( temp.getUsecs() );
++            hdr->error_cnt    = htonl( errorCnt );
++            hdr->outorder_cnt = htonl( outofOrder );
++            hdr->datagrams    = htonl( datagramID );
++            int temp2 = (int)mJitter;
++            hdr->jitter1      = htonl( temp2 );
++            hdr->jitter2      = htonl( (long) ((mJitter - temp2) * 1000000) );
++
++        }
++
++        // write data 
++        write( mSock, mBuf, mSettings->mBufLen ); 
++
++        // wait until the socket is readable, or our timeout expires 
++        FD_SET( mSock, &readSet ); 
++        timeout.tv_sec  = 1; 
++        timeout.tv_usec = 0; 
++
++        rc = select( mSock+1, &readSet, NULL, NULL, &timeout ); 
++        FAIL_errno( rc == SOCKET_ERROR, "select" ); 
++
++        if ( rc == 0 ) {
++            // select timed out 
++            return; 
++        } else {
++            // socket ready to read 
++            rc = read( mSock, mBuf, mSettings->mBufLen ); 
++            WARN_errno( rc < 0, "read" ); 
++            continue; 
++        } 
++    } 
++
++    printf( warn_ack_failed, mSock, count ); 
++} 
++// end write_UDP_AckFIN 
++
+diff -Naur iperf-1.7.0.orig/src/#UDPMessage.h# iperf-1.7.0/src/#UDPMessage.h#
+--- iperf-1.7.0.orig/src/#UDPMessage.h#	1970-01-01 02:00:00.000000000 +0200
++++ iperf-1.7.0/src/#UDPMessage.h#	2008-07-01 12:06:04.000000000 +0300
+@@ -0,0 +1,141 @@
++#ifndef UDPMESSAGE_H_
++#define UDPMESSAGE_H_
++
++#if defined IP_RECVDSTADDR
++#define DSTADDRV4_SOCKOPT IP_RECVDSTADDR
++#define DSTADDRV4_SOCKOPT IP_RECVDSTADDR
++#define DSTADDR4_DATASIZE (CMSG_SPACE(sizeof(struct in_addr)))
++#define dstaddr(x) (CMSG_DATA(x))
++#elif defined IP_PKTINFO
++#define DSTADDRV4_SOCKOPT IP_PKTINFO
++#define DSTADDRV6_SOCKOPT IPV6_PKTINFO
++#define DSTADDR4_DATASIZE (CMSG_SPACE(sizeof(struct in_pktinfo)))
++#define DSTADDR6_DATASIZE (CMSG_SPACE(sizeof(struct in6_pktinfo)))
++#define dstaddr(x) (&(((struct in_pktinfo *)(CMSG_DATA(x)))->ipi_addr))
++#define dstaddr6(x) (&(((struct in6_pktinfo *)(CMSG_DATA(x)))->ipi6_addr))
++#else
++#error "can't determine socket option"
++#endif 
++
++#include <sys/types.h>
++#include <sys/socket.h>
++#include <sys/uio.h>
++
++#include <netinet/in.h>
++#include <arpa/inet.h> 
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++class UDPMessage
++{
++private:
++	msghdr udpMessage;
++	bool _isIPV6;
++	char          ipv6data[DSTADDR6_DATASIZE]; 
++	char          ipv4data[DSTADDR4_DATASIZE];
++
++public:
++	UDPMessage(bool isIPV6) {
++		memset(&udpMessage, 0, sizeof (udpMessage));
++		udpMessage.msg_flags 	       = 0;
++		if (isIPV6) {
++		  udpMessage.msg_control       = ipv6data;
++		  udpMessage.msg_controllen    = sizeof (ipv6data);
++		}else {
++		  udpMessage.msg_control       = ipv4data;
++		  udpMessage.msg_controllen    = sizeof (ipv4data);
++		}
++		_isIPV6 		       = isIPV6;
++	}
++
++	
++	UDPMessage(iovec iov, 
++		   	   sockaddr_storage * addr, 
++		   	   socklen_t addrlen,
++		   	   bool isIPV6) {
++	
++		memset(&udpMessage, 0, sizeof (udpMessage)); 
++	
++		udpMessage.msg_flags 		= 0;
++		
++		if (isIPV6) {
++		  udpMessage.msg_control        = ipv6data;
++		  udpMessage.msg_controllen     = sizeof (ipv6data);
++		}else {
++     		  udpMessage.msg_control        = ipv4data;
++	      	  udpMessage.msg_controllen     = sizeof (ipv4data);
++		}
++
++		udpMessage.msg_iov 		= &iov;
++		udpMessage.msg_iovlen 		= 1;
++		udpMessage.msg_name 		= (sockaddr *) addr;
++		udpMessage.msg_namelen 		= addrlen;
++		_isIPV6 			= isIPV6;
++	}
++
++	virtual ~UDPMessage() {
++		
++	}
++	
++	bool isIPv6(void) {
++		return _isIPV6;
++	}
++
++	void setIOVector(iovec & iov) {
++		udpMessage.msg_iov      = &iov;
++		udpMessage.msg_iovlen   = 1;
++	}
++
++	iovec * getIOVector() {
++		return udpMessage.msg_iov;
++	}
++
++	void setPeer(struct sockaddr * addr, socklen_t len) {
++		udpMessage.msg_name 		= addr;
++		udpMessage.msg_namelen 		= len;
++	}
++	
++	struct sockaddr_storage * getDest() {
++
++		struct sockaddr_storage * dst_addr = NULL;
++		
++
++
++		for (cmsg = CMSG_FIRSTHDR(&udpMessage);
++		     cmsg != NULL;
++		     cmsg = CMSG_NXTHDR(&udpMessage, cmsg)) {
++		  
++		  if (_isIPV6) {
++		    struct in6_pktinfo *info6 = 
++		      (struct in6_pktinfo *)CMSG_DATA(cmsg);
++		    struct sockaddr_in6 addr;
++		    memset (&addr, 0, sizeof(struct sockaddr_in6));
++		    addr.sin6_addr = info6->ipi6_addr; 
++		    addr.sin6_family = AF_INET6;
++		    dst_addr = (struct sockaddr_storage *) &addr;
++		  } else {
++		     if (cmsg->cmsg_level == IPPROTO_IP && 
++			cmsg->cmsg_type == DSTADDRV4_SOCKOPT) {
++		     struct in_pktinfo *info = 
++		      (struct in_pktinfo *)CMSG_DATA(cmsg);
++
++		     struct sockaddr_in addr;
++		     memset (&addr, 0, sizeof(struct sockaddr_in));		     
++		     addr.sin_addr = info->ipi_addr;
++		     addr.sin_family = AF_INET;
++		     dst_addr = (struct sockaddr_storage *) &addr;
++		    }
++		  }
++		}
++		return dst_addr;
++	}
++	struct msghdr * getMsgHdr() {
++		return &udpMessage;
++	}
++	
++	
++};
++
++#endif /*UDPMESSAGE_H_*/
+diff -Naur iperf-1.7.0.orig/src/UDPMessage.h iperf-1.7.0/src/UDPMessage.h
+--- iperf-1.7.0.orig/src/UDPMessage.h	1970-01-01 02:00:00.000000000 +0200
++++ iperf-1.7.0/src/UDPMessage.h	2008-07-01 12:06:31.000000000 +0300
+@@ -0,0 +1,141 @@
++#ifndef UDPMESSAGE_H_
++#define UDPMESSAGE_H_
++
++#if defined IP_RECVDSTADDR
++#define DSTADDRV4_SOCKOPT IP_RECVDSTADDR
++#define DSTADDRV4_SOCKOPT IP_RECVDSTADDR
++#define DSTADDR4_DATASIZE (CMSG_SPACE(sizeof(struct in_addr)))
++#define dstaddr(x) (CMSG_DATA(x))
++#elif defined IP_PKTINFO
++#define DSTADDRV4_SOCKOPT IP_PKTINFO
++#define DSTADDRV6_SOCKOPT IPV6_PKTINFO
++#define DSTADDR4_DATASIZE (CMSG_SPACE(sizeof(struct in_pktinfo)))
++#define DSTADDR6_DATASIZE (CMSG_SPACE(sizeof(struct in6_pktinfo)))
++#define dstaddr(x) (&(((struct in_pktinfo *)(CMSG_DATA(x)))->ipi_addr))
++#define dstaddr6(x) (&(((struct in6_pktinfo *)(CMSG_DATA(x)))->ipi6_addr))
++#else
++#error "can't determine socket option"
++#endif 
++
++#include <sys/types.h>
++#include <sys/socket.h>
++#include <sys/uio.h>
++
++#include <netinet/in.h>
++#include <arpa/inet.h> 
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++class UDPMessage
++{
++private:
++	msghdr udpMessage;
++	bool _isIPV6;
++	char          ipv6data[DSTADDR6_DATASIZE]; 
++	char          ipv4data[DSTADDR4_DATASIZE];
++
++public:
++	UDPMessage(bool isIPV6) {
++		memset(&udpMessage, 0, sizeof (udpMessage));
++		udpMessage.msg_flags 	       = 0;
++		if (isIPV6) {
++		  udpMessage.msg_control       = ipv6data;
++		  udpMessage.msg_controllen    = sizeof (ipv6data);
++		}else {
++		  udpMessage.msg_control       = ipv4data;
++		  udpMessage.msg_controllen    = sizeof (ipv4data);
++		}
++		_isIPV6 		       = isIPV6;
++	}
++
++	
++	UDPMessage(iovec iov, 
++		   	   sockaddr_storage * addr, 
++		   	   socklen_t addrlen,
++		   	   bool isIPV6) {
++	
++		memset(&udpMessage, 0, sizeof (udpMessage)); 
++	
++		udpMessage.msg_flags 		= 0;
++		
++		if (isIPV6) {
++		  udpMessage.msg_control        = ipv6data;
++		  udpMessage.msg_controllen     = sizeof (ipv6data);
++		}else {
++     		  udpMessage.msg_control        = ipv4data;
++	      	  udpMessage.msg_controllen     = sizeof (ipv4data);
++		}
++
++		udpMessage.msg_iov 		= &iov;
++		udpMessage.msg_iovlen 		= 1;
++		udpMessage.msg_name 		= (sockaddr *) addr;
++		udpMessage.msg_namelen 		= addrlen;
++		_isIPV6 			= isIPV6;
++	}
++
++	virtual ~UDPMessage() {
++		
++	}
++	
++	bool isIPv6(void) {
++		return _isIPV6;
++	}
++
++	void setIOVector(iovec & iov) {
++		udpMessage.msg_iov      = &iov;
++		udpMessage.msg_iovlen   = 1;
++	}
++
++	iovec * getIOVector() {
++		return udpMessage.msg_iov;
++	}
++
++	void setPeer(struct sockaddr * addr, socklen_t len) {
++		udpMessage.msg_name 		= addr;
++		udpMessage.msg_namelen 		= len;
++	}
++	
++	struct sockaddr_storage * getDest() {
++
++		struct sockaddr_storage * dst_addr = NULL;
++
++		struct cmsghdr *cmsg;
++
++		for (cmsg = CMSG_FIRSTHDR(&udpMessage);
++		     cmsg != NULL;
++		     cmsg = CMSG_NXTHDR(&udpMessage, cmsg)) {
++		  
++		  if (_isIPV6) {
++		    struct in6_pktinfo *info6 = 
++		      (struct in6_pktinfo *)CMSG_DATA(cmsg);
++		    struct sockaddr_in6 addr;
++		    memset (&addr, 0, sizeof(struct sockaddr_in6));
++		    addr.sin6_addr = info6->ipi6_addr; 
++		    addr.sin6_family = AF_INET6;
++		    dst_addr = (struct sockaddr_storage *) &addr;
++		  } else {
++		     if (cmsg->cmsg_level == IPPROTO_IP && 
++			cmsg->cmsg_type == DSTADDRV4_SOCKOPT) {
++		     struct in_pktinfo *info = 
++		      (struct in_pktinfo *)CMSG_DATA(cmsg);
++
++		     struct sockaddr_in addr;
++		     memset (&addr, 0, sizeof(struct sockaddr_in));		     
++		     addr.sin_addr = info->ipi_addr;
++		     addr.sin_family = AF_INET;
++		     dst_addr = (struct sockaddr_storage *) &addr;
++		    }
++		  }
++		}
++		return dst_addr;
++	}
++	struct msghdr * getMsgHdr() {
++		return &udpMessage;
++	}
++	
++	
++};
++
++#endif /*UDPMESSAGE_H_*/

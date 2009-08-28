@@ -1,0 +1,125 @@
+% $Id: design_choices.tex,v 1.237 2003/10/24 10:24:24 mkomu Exp $
+
+%%%%%%%%%%%%%%%%%%%% GENERAL TODO SECTION %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% - Merge Torsten's comments in this paper
+%   - Long sections should be split into smaller
+%     - Example: \textbf{Keyword} begins this section..
+%   - Some sections contain repeated information, is this bad?
+%     - Resolver architecture contains redundant information
+%       - Network socket API: The motivation behind the flags...
+%       - If both transparency and AI_HIP...
+%     - Userspace network applications
+%        - HIP aware applications may require...
+%        - Technically this is a correct way...
+% - Jouni Korhonen suggested
+%   - more stuff to DNS part -> Miika's thesis corrects this.
+%   - more punctuality with the solutions (state/sequence transition graphs)
+%   - separate ``we did not implement x because'' things from the text
+%     because they are being repeated all over the text
+%   - clarify the things we did not implement
+%   - clarify why we implemented x with method y
+% - mention about transport/tunnel mode and which/why our implementation
+%   uses it
+% - Merge Henderson's email comments in this paper
+%   - One packet buffer - compare to Jukka's thoughts
+%   - HIs can be distributed using CERTs - requires PKI
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[a4paper,titlepage]{article}
+\usepackage{fancyhdr}
+\usepackage{a4wide}
+%\usepackage{alltt}
+\usepackage{moreverb}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{supertabular}
+\usepackage{array}          % XX TODO: is this needed?
+%\usepackage{enumerate}
+\usepackage{varioref}
+\usepackage{hyperref}       % keep this as the last one
+\usepackage{acronym}
+\begin{document}
+
+\input{design_choices_macros}
+
+\title{Host Identity Protocol for Linux}
+\author{
+	Mika Kousa, \texttt{mika.kousa@hiit.fi} \\
+        Miika Komu, \texttt{miika.komu@hiit.fi} \\
+	Kristian Slavov, \texttt{kristian.slavov@hiit.fi} \\
+        Catharina Candolin, \texttt{candolin@tml.hut.fi} \\
+	Janne Lundberg, \texttt{jlu@tcs.hut.fi} \\
+	\\
+        Helsinki Institute for Information Technology \\       
+        Helsinki University of Technology: \\
+        Telecommunications Software and Multimedia Laboratory}
+\maketitle
+
+
+\fancyhf{} % Clear all fields
+\fancyhead[C]{\small Host Identity Protocol for Linux}
+\fancyfoot[C]{ \thepage }
+\pagestyle{fancy}
+
+\tableofcontents
+
+\newpage
+
+\section*{Acknowledgements}
+
+This research is funded by the National Technology Agency of Finland
+(TEKES), Elisa Communications, Ericsson, Nokia, TeliaSonera, Creanor,
+and More Magic Software. We thank Jukka Ylitalo, Jorma Wall, Petri
+Jokela, and especially Pekka Nikander from Ericsson Research for
+fruitful cooperation and interoperability testing with their
+implementation of HIP for FreeBSD. Furthermore, we are grateful for
+the valuable discussions and comments we have had with Andrew
+McGregor, Thomas Henderson, and Jeff Ahrenholz. Torsten R{\"u}ger
+(HIIT) and Jouni Korhonen (TeliaSonera) gave also some valuable
+comments on this document. Jaakko Kangasharju has kindly provided some
+editorial comments.
+
+\newpage
+
+%%%%%%%%%%%%%%%%%%%%%%%% DOCUMENT %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{abstract}
+
+One of the main problems with IP has been its lack of security.
+Although IPsec and DNSSEC have provided some level of security to IP,
+the notion of a endpoint identity for hosts is still missing.
+Typically, the IP address of the host has been used as the host
+identity in the transport layer, regardless of the fact that it is
+nothing more than routing information.  The purpose of the Host
+Identity Protocol (HIP) architecture is to enhance the IP protocol
+with a new cryptographically based namespace. The Host Identity serves
+as the identity of the host at the transport layer, whereas the IP
+address at the network layer is merely used for routing purposes.  The
+separation of the transport and network layer identifiers facilitates
+the support of end-host mobility and multihoming.  Further, the
+cryptographic nature of the new namespace makes it possible to support
+end-host mobility and multihoming in secure way.  In this document, we
+briefly describe the HIP architecture, and present our implementation
+of HIP for Linux.
+
+\end{abstract}
+
+\clearpage
+
+\input{acronyms.tex}
+
+\input{hipl.tex}
+
+\bibliographystyle{plain}
+\bibliography{design_choices}
+
+
+\appendix
+\newpage
+\pagebreak
+
+\include{catalogue}
+
+\end{document}

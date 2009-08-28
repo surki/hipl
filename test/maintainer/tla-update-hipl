@@ -1,0 +1,42 @@
+#!/bin/sh
+
+set -e
+
+PATH=/p/bin:$PATH
+
+# Use abs dir names in TMP_DIR, WWW_DIR and OUTPUT_FILE
+TMP_DIR=~/.tla.get.hipl.cache
+REVISION=hipl--main--2.6
+WWW_DIR=/var/www/infrahip/html/hipl
+OUTPUT_FILE=$WWW_DIR/hipl.tar.gz
+TMP_OUTPUT_FILE=~/temp/tla-update-hipl.tmp
+CHANGE_LOG_FILE=ChangeLog
+
+# Update to the latest version and check out what patches need to be generated
+#
+if test -x  $TMP_DIR
+then
+    cd $TMP_DIR/$REVISION
+    tla replay >/dev/null
+    tla changes --link
+else
+    mkdir $TMP_DIR
+    tla get --link --no-pristine ${REVISION} $TMP_DIR/$REVISION
+    cd $TMP_DIR/$REVISION
+fi
+
+# Generate a ChangeLog file
+#
+tla changelog --no-files >$TMP_DIR/$REVISION/doc/$CHANGE_LOG_FILE
+
+# Make a HIP tarball
+#
+cd $TMP_DIR
+tar --exclude '{arch}' --exclude '.arch-ids' --exclude ',,patch.*' \
+  --exclude .arch-inventory -czf $TMP_OUTPUT_FILE $REVISION
+mv $TMP_OUTPUT_FILE $OUTPUT_FILE
+chmod a+r $OUTPUT_FILE
+
+# Copy the ChangeLog to web
+#
+cp $TMP_DIR/$REVISION/doc/$CHANGE_LOG_FILE $WWW_DIR

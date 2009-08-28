@@ -1,0 +1,31 @@
+set ylabel "time/s"
+set xlabel "puzzle difficulty K"
+#set xrange [15:30]
+#set yrange [0.0008:10]
+set ytics (0.03, 0.09, 0.30, 0.72, 2.51, 8.80)
+set xtics 2
+
+set output "keyvsrsaplot.fig"
+set terminal fig # color
+set terminal x11
+set multiplot
+set logscale y 2
+set key right bottom
+set parametric
+set autoscale
+set trange [0:30]
+
+rsa512(t)=0.0250705517241379
+rsa1024(t)=0.0938668888888889
+rsa1536(t)=0.296386034482759
+rsa2048(t)=0.722985821428571
+rsa3072(t)=2.50780725
+rsa4096(t)=8.79918962068965
+
+plot "logs/cookieperf-final" using 1:2:3 title "puzzle(K)" with yerrorbars,\
+     t,rsa512(t) title "RSA 512",\
+     t,rsa1024(t) title "RSA 1024",\
+     t,rsa1536(t) title "RSA 1536",\
+     t,rsa2048(t) title "RSA 2048", \
+     t,rsa3072(t) title "RSA 3078",\
+     t,rsa4096(t) title "RSA 4096"

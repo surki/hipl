@@ -1,0 +1,42 @@
+#
+# USAGI - Linux IPv6 Development Project
+# 
+# $USAGI: README.USAGI,v 1.2 2001/02/18 16:01:36 sekiya Exp $
+#
+
+Project Goals:
+        We try to improve
+                - IPv6 stack in the Linux Kernel,
+                - IPv6 APIs in the glibc library and
+                - IPv6 capable applications.
+
+Description:
+	USAGI libinet6 library.
+
+Base Version:
+	glibc-2.2.1 / glibc-2.1.3
+
+Features of this snapshot:
+	- getaddrinfo() / getnameinfo() with sin6_scope_id support.
+	- AI_ADDRCONF, AI_V4MAPPED, AI_ALL flags for getaddrinfo()
+	- NI_NUMERICSCOPE flag for getnameinfo().
+	- inet6_options_XXX(), inet6_rthdr_XXX() (defined in RFC2292)
+	- getifaddrs() (appeared in BSDI)
+	- other fixes include include files.
+
+Installation:
+	% ./configure
+	% make
+	# make install
+	# make install-includes
+
+	NOTE: install-includes will override existing /usr/include.
+
+Web:
+	http://www.linux-ipv6.org
+
+FTP:
+	ftp://ftp.linux-ipv6.org/pub/usagi/
+
+You can access cvs repository via HTTP: 
+	http://www.linux-ipv6.org/cvsweb/

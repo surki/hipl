@@ -1,0 +1,9 @@
+These patches are made for version 1.0.99 of Wireshark
+
+wireshark-1.1.0-hip-midauth.patch
+wireshark-1.1.0-hip.patch
+
+1.1.0 version number is the result of the debian packaging script of Wireshark.
+
+So, just as a clarification, these patches can be applied to the 1.0.99 sources 
+from the svn repository of Wireshark. 

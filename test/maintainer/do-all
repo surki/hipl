@@ -1,0 +1,7 @@
+#!/bin/sh
+
+/home/hipl/bin/tla-update-hipl
+/usr/bin/tla archive-mirror hipl-dev@freelists.org--hipl
+/home/hipl/bin/update-html-howto
+/home/hipl/bin/update-html-code
+/home/hipl/bin/tla-update-cachedrevs

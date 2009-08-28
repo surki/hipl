@@ -1,0 +1,7 @@
+#!/bin/sh
+
+invoke-rc.d --force --quiet hipdnsproxy stop 
+
+exit 0
+
+

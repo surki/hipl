@@ -1,0 +1,57 @@
+$Id: testing.txt,v 1.6 2003/08/12 13:18:21 mkomu Exp $
+
+- performance
+  - crypto
+    - on / off
+    - varying keylengths
+  - cookies
+    - varying k values
+  - resolver
+    - manual keying or from DNS
+  - the effect of the network 
+    - packet transfer latency included / excluded
+    - performance time with HIP and without HIP
+    - fragmentation
+    - wlan
+    - hand-over
+  - meters   
+    - measure the performance of subcomponents to find the bottlenecks
+      - coarse grained: packets I1, I2, jne.
+      - fine grained: operations (signing, verifying)
+    - stress tests: several simultaneous base exchanges
+    - system load
+    - comparisons between ..
+      - different implementations
+      - different protocols (e.g. MobileIP)
+    - run the tests in ... level
+      - userspace
+      - transport
+      - ip
+  - math and graphs
+    - variance
+    - averages
+    - graphs
+    - tests have to be run several times!
+  - tools
+    - own set of tools
+    - netperf
+    - iperf
+    - netpipe
+
+- reliability
+  - DoS
+  - stress tests
+    - multiple simultaneous base exchanges
+      - tests also dead locks
+  - compatibility tests
+    - Ericsson, IndraNet, Boeing, (Cisco?)
+  - unit-testing
+    - userspace
+       - daemon
+       - crypto
+       - libinet6
+    - kernel
+      - test the functions that can be tested
+      - trigger testing e.g. with hipconf
+    - shared code
+      - packet builder

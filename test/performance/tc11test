@@ -1,0 +1,17 @@
+#!/bin/sh
+
+seq 1 100 | while read i;do
+ tcpdump -w t11dat -n -i eth0 'port 500' > /dev/null 2>&1 &
+ PIDTD=$!
+ ipsec auto --delete testv6 > /dev/null 2>&1
+ pfkey -F any > /dev/null 2>&1
+ ipsec auto --add testv6 > /dev/null 2>&1
+ ipsec auto --ready > /dev/null 2>&1
+ ipsec auto --up testv6 > /dev/null 2>&1
+ kill $PIDTD
+ wait $PIDTD
+ P0=$(tcpdump -r t11dat -tt -n | head -1 | cut -f1 -d" ")
+ P1=$(tcpdump -r t11dat -tt -n | tail -1 | cut -f1 -d" ")
+ dt=$(echo "$P1-$P0" | bc)
+ echo "$i $dt"
+done

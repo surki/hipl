@@ -1,0 +1,29 @@
+#!/bin/sh
+
+echo "Firewall flush; may cause warnings on hipfw init."
+echo "Deleting hipfw subchains from main chains."
+
+iptables -D INPUT -j HIPFW-INPUT
+iptables -D OUTPUT -j HIPFW-OUTPUT
+iptables -D FORWARD -j HIPFW-FORWARD
+ip6tables -D INPUT -j HIPFW-INPUT
+ip6tables -D OUTPUT -j HIPFW-OUTPUT
+ip6tables -D FORWARD -j HIPFW-FORWARD
+
+echo "Flushing hipfw chains..."
+
+iptables -F HIPFW-INPUT
+iptables -F HIPFW-OUTPUT
+iptables -F HIPFW-FORWARD
+ip6tables -F HIPFW-INPUT
+ip6tables -F HIPFW-OUTPUT
+ip6tables -F HIPFW-FORWARD
+
+echo "Deleting hipfw chains..."
+
+iptables -X HIPFW-INPUT
+iptables -X HIPFW-OUTPUT
+iptables -X HIPFW-FORWARD
+ip6tables -X HIPFW-INPUT
+ip6tables -X HIPFW-OUTPUT
+ip6tables -X HIPFW-FORWARD

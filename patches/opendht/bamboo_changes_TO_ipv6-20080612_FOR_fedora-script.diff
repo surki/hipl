@@ -1,0 +1,121 @@
+diff -urN bamboo1/bin/run-java bamboo1_script/bin/run-java
+--- bamboo1/bin/run-java	2008-01-10 16:28:29.000000000 +0200
++++ bamboo1_script/bin/run-java	2008-10-21 15:21:54.000000000 +0300
+@@ -99,4 +99,7 @@
+   echo "CLASSPATH=$CLASSPATH" 1>&2
+   echo $JAVA -Djava.library.path="$LD_LIBRARY_PATH" $PREARGS $JAVA_ARGS $* 1>&2
+ fi
+-exec $JAVA -Djava.library.path="$LD_LIBRARY_PATH" $PREARGS $JAVA_ARGS $*
++
++exec $JAVA -Djava.library.path="$LD_LIBRARY_PATH" $PREARGS $JAVA_ARGS $* 1>>/var/log/bamboo_v6 2>>/var/log/bamboo_v6 3>>/var/log/bamboo_v6  &
++echo "$!" > /var/run/bamboo_v6.pid
++
+diff -urN bamboo1/bin/run-java~ bamboo1_script/bin/run-java~
+--- bamboo1/bin/run-java~	1970-01-01 02:00:00.000000000 +0200
++++ bamboo1_script/bin/run-java~	2008-10-21 15:21:51.000000000 +0300
+@@ -0,0 +1,105 @@
++#!/bin/sh
++#
++# Copyright (c) 2001-2003 Regents of the University of California.
++# All rights reserved.
++#
++# See the file LICENSE included in this distribution for details.
++#
++# $Id: run-java,v 1.29 2005/06/03 04:53:11 srhea Exp $
++
++# Set the BASE_DIR variable to the "dhtb/" or equivalent.
++BASEDIR="${0%/*}";
++
++MEMSET=
++QUIET=
++
++while test -n "$1"
++do
++   case $1 in
++       -mx*) MEMSET=1; PREARGS="$PREARGS $1" ;;
++       -q*) QUIET=1 ;;
++       -*) PREARGS="$PREARGS $1" ;;
++       *) break ;;
++   esac;
++   shift 1
++done
++
++if test -z $QUIET
++then
++    echo "$0" 1>&2;
++fi
++
++if test -z $MEMSET
++then 
++    PREARGS="$PREARGS -mx4M"
++fi
++
++if [ -z "$JAVAHOME" ]
++then
++    if [ -d /usr/local/jdk1.5.0 ]
++    then
++	JAVAHOME=/usr/local/jdk1.5.0
++    else 
++        JAVAHOME=`which java`
++        JAVAHOME=${JAVAHOME%%/bin/java}
++    fi
++fi
++if [ -z "$JAVA" ]
++then
++    if [ -x $JAVAHOME/bin/java ]
++    then
++	JAVA=$JAVAHOME/bin/java
++    else
++	echo Cannot find java in $JAVAHOME/bin/java 1>&2
++	exit 1;
++    fi
++fi
++if [ -z "$JAVA_ARGS" ]
++then
++    #-Xrunjmp:nomethods
++    JAVA_ARGS="-verify -ea:bamboo..."
++fi
++ARCH=`uname`	# Should be 'OS' not 'ARCH'
++case $ARCH in
++	Linux ) ARCHDIR=linux ;;
++	FreeBSD ) ARCHDIR=freebsd ;;
++	Darwin ) ARCHDIR=darwin ;;
++	CYGWIN_NT* ) ARCHDIR=win32;;
++	* )
++		echo "Unknown architecture $ARCH" 1>&2
++		exit -1
++		;;
++esac
++
++# No += in sh.
++CLASSPATH=$CLASSPATH:$BASEDIR/../src
++CLASSPATH=$CLASSPATH:$BASEDIR/../lib/ostore-seda-emu.jar
++CLASSPATH=$CLASSPATH:$BASEDIR/../lib/db-4.2.52.jar
++CLASSPATH=$CLASSPATH:$BASEDIR/../lib/diva-26Sep02.jar
++CLASSPATH=$CLASSPATH:$BASEDIR/../lib/log4j-1.2.8.jar
++CLASSPATH=$CLASSPATH:$BASEDIR/../lib/jrpcgen.jar
++CLASSPATH=$CLASSPATH:$BASEDIR/../lib/oncrpc.jar
++CLASSPATH=$CLASSPATH:$BASEDIR/../lib/je-1.5.1.jar
++CLASSPATH=$CLASSPATH:$BASEDIR/../lib/xmlrpc-1.2-b1.jar
++CLASSPATH=$CLASSPATH:$BASEDIR/../lib/commons-cli-1.0.jar
++export CLASSPATH
++export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$BASEDIR/../lib/$ARCHDIR:/usr/local/lib
++
++if [ "$OS" = "Windows_NT" ]
++then
++    CLASSPATH=`cygpath -pw $CLASSPATH`
++    LD_LIBRARY_PATH=`cygpath -pw $LD_LIBRARY_PATH`
++    export PATH=$BASEDIR/../lib/win32:$PATH
++fi
++
++if test -z $QUIET
++then
++  echo "PID: $$" 1>&2
++  echo "LD_LIBRARY_PATH=$LD_LIBRARY_PATH" 1>&2
++  echo "CLASSPATH=$CLASSPATH" 1>&2
++  echo $JAVA -Djava.library.path="$LD_LIBRARY_PATH" $PREARGS $JAVA_ARGS $* 1>&2
++fi
++
++exec $JAVA -Djava.library.path="$LD_LIBRARY_PATH" $PREARGS $JAVA_ARGS $* 1>>/var/log/bamboo_v6 2>>/var/log/bamboo_v6 3>>/var/log/bamboo_v6  &
++echo "$!" > /var/run/bamboo_v6.pid
++

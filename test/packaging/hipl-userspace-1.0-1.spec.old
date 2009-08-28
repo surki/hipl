@@ -1,0 +1,83 @@
+# spec file for HIPL userspace software
+#
+Name: hipl-userspace
+Summary: Userspace software for the HIPL kernel
+Version: 1.0
+Release: 1
+License: GPL
+Group: System Environment/Kernel
+Vendor: The InfraHIP project
+URL: http://infrahip.hiit.fi/
+Packager: Miika Komu <miika@iki.fi>
+#BuildRoot: %_tmppath/%name-%version
+Source: hipl-userspace-1.0-1.tgz
+#Requires: openssl >= 0.9.7a
+%define __spec_install_post /usr/lib/rpm/brp-compress || :
+%define debug_package %{nil}
+
+%description
+This package contains the necessary tools, libraries and documents
+for the HIPL kernel.
+
+%pre
+echo PRE_INSTALL
+
+%post
+if test "`echo /etc/hip/hip_host_*_key*`" = "/etc/hip/hip_host_*_key*";then
+ echo "Creating host keys under /etc/hip"
+ hipconf new hi default
+else
+ echo "Not creating host keys under /etc/hip, they already exist"
+fi
+
+
+%prep
+echo PREP
+#cd $RPM_BUILD_ROOT
+#%setup -c -n $RPM_BUILD_ROOT
+%setup -c
+#mkdir -p $RPM_BUILD_ROOT
+
+
+%build
+echo BUILD
+#cd $RPM_BUILD_ROOT
+if test -x ./autogen.sh;then
+./autogen.sh
+fi
+./configure && make
+make -C doc all
+
+%install
+#echo INSTALL
+#cd $RPM_BUILD_ROOT/testpkg-1.0
+make install
+make -C doc install
+ldconfig
+
+%clean
+make clean
+make -C doc clean
+
+%files
+%defattr (-, root, root)
+/usr/local/sbin/hipconf
+/usr/local/bin/conntest-client
+/usr/local/bin/conntest-client-native-user-key
+/usr/local/bin/conntest-client-gai
+/usr/local/bin/conntest-server
+/usr/local/bin/conntest-client-native
+/usr/local/bin/conntest-server-legacy
+/usr/local/bin/conntest-server-native
+/usr/local/sbin/hipsetup
+/usr/local/lib/libinet6.a
+/usr/local/lib/libinet6.so
+/usr/local/lib/libinet6.so.0.0.0
+/usr/local/lib/libinet6.la
+/usr/local/lib/libinet6.so.0
+%dir /etc/hip
+%doc /usr/share/doc/hipl
+
+%changelog
+* Tue Feb 14 2006 Miika Komu <miika@iki.fi>
+- added changelog

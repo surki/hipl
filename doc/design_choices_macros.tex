@@ -1,0 +1,58 @@
+%%%%%%%%%%%%%%%%%%%%%%%% MACROS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Some redifinitions for easy syncing with Fuego-Core -miika
+%
+\newcommand{\appchapter}{\section}
+\newcommand{\appsection}{\subsection}
+\newcommand{\appsubsection}{\subsubsection}
+
+\newcommand{\TODO}[1]{\textbf{XX TODO: #1}}
+
+% purpose: display a design choice item
+% params:  {contents of the item}
+% notes:   use these in the order in which they are listed
+%
+\newcommand{\alt}[1]{Alternatives & #1 \\}
+\newcommand{\select}[1]{Selection & #1 \\}
+\newcommand{\record}[1]{Date & #1 \\}
+\newcommand{\background}[1]{Background & #1 \\}
+\newcommand{\reason}[1]{Reason & #1 \\}
+\newcommand{\comparison}[1]{Comparison & #1 \\}
+\newcommand{\revision}[1]{Revision & #1 \\}
+
+% purpose: display a design choice with its subitems
+% params:  {design choice name}
+%
+\newenvironment{designchoice}[1]{
+\tablehead{\hline}
+\tabletail{\hline}
+\begin{supertabular}{|p{.17\textwidth}|p{0.70\textwidth}|}
+\multicolumn{2}{|p{.87\textwidth}|}{\textbf{#1}}\\\hline
+}{
+\end{supertabular}
+\bigskip
+}
+
+% purpose: display a C structure member
+% params:  {type}
+%          {len}
+%          {description}
+%
+\newcommand{\member}[3]{#1 & #2 & #3 \\}
+
+% purpose: display a C structure
+% params:  {explanation}
+%
+\newenvironment{struct}[1]{
+\bottomcaption{#1}
+\begin{supertabular}{|p{.3\textwidth}|p{.2\textwidth}|p{.3\textwidth}|} \hline
+Type & Name & Description \\\hline
+}{
+\hline
+\end{supertabular}
+}
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

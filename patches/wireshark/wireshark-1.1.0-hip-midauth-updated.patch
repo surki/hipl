@@ -1,0 +1,136 @@
+#
+# HIP midauth protocol patch for wireshark-1.0.0
+#
+# Requires application of wireshark-1.0.0-hip.patch before applying this
+# patch.
+#
+# 4/08 draft-heer-hip-middle-auth-00
+#
+# Author:       Thomas Jansen <mithi@mithi.net>
+#
+# 7/08 Adaptation to the Wireshark 1.1.0
+#
+# Author:       Samu Varjonen <samu.varjonen@hiit.fi>
+#
+diff -Nur wireshark-1.1.2-SVN-26909.orig/epan/dissectors/packet-hip.h wireshark-1.1.2-SVN-26909/epan/dissectors/packet-hip.h
+--- wireshark-1.1.2-SVN-26909.orig/epan/dissectors/packet-hip.h	2008-12-04 12:34:57.000000000 +0100
++++ wireshark-1.1.2-SVN-26909/epan/dissectors/packet-hip.h	2008-12-04 12:32:22.000000000 +0100
+@@ -67,6 +67,7 @@
+ 
+ #define PARAM_PUZZLE			257
+ #define PARAM_SOLUTION			321
++#define PARAM_SOLUTION_M		322
+ #define PARAM_SEQ			385
+ #define PARAM_ACK			449
+ #define PARAM_DIFFIE_HELLMAN		513
+@@ -81,6 +82,7 @@
+ #define PARAM_REG_RESPONSE		934
+ #define PARAM_REG_FAILED		936
+ #define PARAM_ECHO_RESPONSE		961
++#define PARAM_ECHO_RESPONSE_M		962
+ #define PARAM_ESP_TRANSFORM		4095
+ #define PARAM_TRANSFORM_LOW		2048 /* defines range for transforms */
+ #define PARAM_TRANSFORM_HIGH		4095
+@@ -90,6 +92,8 @@
+ #define PARAM_HIP_SIGNATURE		61697
+ #define PARAM_ECHO_REQUEST_NOSIG	63661
+ #define PARAM_ECHO_RESPONSE_NOSIG	63425
++#define PARAM_ECHO_REQUEST_M		65332
++#define PARAM_PUZZLE_M			65334
+ 
+ /* 
+    TBD by IANA these are the numbers used by 
+diff -Nur wireshark-1.1.2-SVN-26909.orig/epan/dissectors/packet-hip.c wireshark-1.1.2-SVN-26909/epan/dissectors/packet-hip.c
+--- wireshark-1.1.2-SVN-26909.orig/epan/dissectors/packet-hip.c	2008-12-04 12:34:57.000000000 +0100
++++ wireshark-1.1.2-SVN-26909/epan/dissectors/packet-hip.c	2008-12-04 12:26:35.000000000 +0100
+@@ -87,6 +87,11 @@
+ static int hf_hip_tlv_puzzle_o = -1;
+ static int hf_hip_tlv_puzzle_i = -1;
+ static int hf_hip_tlv_puzzle_j = -1;
++static int hf_hip_tlv_puzzle_m_k = -1;
++static int hf_hip_tlv_puzzle_m_life = -1;
++static int hf_hip_tlv_puzzle_m_o = -1;
++static int hf_hip_tlv_puzzle_m_i = -1;
++static int hf_hip_tlv_puzzle_m_j = -1;
+ static int hf_hip_tlv_seq_updid = -1;
+ static int hf_hip_tlv_ack_updid = -1;
+ static int hf_hip_tlv_dh_group_id = -1;
+@@ -430,6 +435,26 @@
+ 	        { &hf_hip_tlv_puzzle_j,
+ 		{ "Puzzle Solution J", "hip.tlv_puzzle_j", 
+                   FT_BYTES, BASE_HEX, NULL, 0x0, "", HFILL }},
++
++               { &hf_hip_tlv_puzzle_m_k,
++               { "Puzzle_M Difficulty K", "hip.tlv_puzzle_m_k", 
++                 FT_UINT8, BASE_DEC, NULL, 0x0, "", HFILL }},
++               
++               { &hf_hip_tlv_puzzle_m_life,
++               { "Puzzle_M Lifetime", "hip.tlv_puzzle_m_life", 
++                 FT_UINT8, BASE_DEC, NULL, 0x0, "", HFILL }},
++               
++               { &hf_hip_tlv_puzzle_m_o,
++               { "Puzzle_M Opaque Data", "hip.tlv_puzzle_m_o", 
++                 FT_BYTES, BASE_HEX, NULL, 0x0, "", HFILL }},
++               
++               { &hf_hip_tlv_puzzle_m_i,
++               { "Puzzle_M Random I", "hip.tlv.puzzle_m_i", 
++                 FT_BYTES, BASE_HEX, NULL, 0x0, "", HFILL }},
++               
++               { &hf_hip_tlv_puzzle_m_j,
++               { "Puzzle_M Solution J", "hip.tlv_puzzle_m_j", 
++                 FT_BYTES, BASE_HEX, NULL, 0x0, "", HFILL }},
+ 				
+ 	        { &hf_hip_tlv_ei_res,
+ 		{ "Reserved", "hip.tlv_ei_res", 
+@@ -794,6 +819,18 @@
+ 	case PARAM_ECHO_RESPONSE_NOSIG:
+ 	    sprintf(s, "ECHO_RESPONSE (No sig.)");
+ 	    break;
++        case PARAM_ECHO_REQUEST_M:
++            sprintf(s, "ECHO_REQUEST_M");
++            break;
++        case PARAM_ECHO_RESPONSE_M:
++            sprintf(s, "ECHO_RESPONSE_M");
++            break;
++        case PARAM_PUZZLE_M:
++            sprintf(s, "PUZZLE_M");
++            break;
++        case PARAM_SOLUTION_M:
++            sprintf(s, "SOLUTION_M");
++            break;
+         case PARAM_NAT_TRANSFORM:
+             sprintf(s, "NAT_TRANSFORM");
+             break;
+@@ -1049,6 +1086,23 @@
+ 			data);
+ 	    }
+ 	    break;
++        case PARAM_PUZZLE_M:
++        case PARAM_SOLUTION_M:
++            t = proto_item_add_subtree(ti, ett_hip_tlv_data);
++            proto_tree_add_uint(t, hf_hip_tlv_puzzle_m_k, tvb, offset+4, 1,
++                                tvb_get_guint8(tvb, offset+4));
++            proto_tree_add_uint(t, hf_hip_tlv_puzzle_m_life, tvb, offset+5, 1,
++                                tvb_get_guint8(tvb, offset+5));
++            tvb_memcpy(tvb, (guint8*)data, offset+6, 6);
++            proto_tree_add_bytes(t, hf_hip_tlv_puzzle_m_o, tvb,offset+6, 6, data);
++            tvb_memcpy(tvb, (guint8*)data, offset+12, 8);
++            proto_tree_add_bytes(t, hf_hip_tlv_puzzle_m_i, tvb,offset+12, 8, data);
++            if (type == PARAM_SOLUTION_M) { /* solution also contains J */
++                tvb_memcpy(tvb, (guint8*)data, offset+20, 8);
++                proto_tree_add_bytes(t, hf_hip_tlv_puzzle_m_j, tvb, offset+20, 8,
++                        data);
++            }
++            break;
+ 	case PARAM_SEQ: /* SEQ */
+ 	    t = proto_item_add_subtree(ti, ett_hip_tlv_data);
+ 	    proto_tree_add_uint(t, hf_hip_tlv_seq_updid, tvb, offset+4, 4,
+@@ -1262,6 +1316,8 @@
+ 	    break;
+ 	case PARAM_ECHO_REQUEST: /* ECHO REQUEST */
+ 	case PARAM_ECHO_RESPONSE: /* ECHO RESPONSE */
++        case PARAM_ECHO_REQUEST_M: /* ECHO REQUEST */
++        case PARAM_ECHO_RESPONSE_M: /* ECHO RESPONSE */
+ 	case PARAM_ECHO_REQUEST_NOSIG: /* ECHO REQUEST */
+ 	case PARAM_ECHO_RESPONSE_NOSIG: /* ECHO RESPONSE */
+ 	    t = proto_item_add_subtree(ti, ett_hip_tlv_data);

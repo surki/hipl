@@ -1,0 +1,4 @@
+content	hipext	content/
+locale	hipext	en-US	locale/en-US/
+skin	hipext	classic/1.0	skin/
+overlay	chrome://browser/content/browser.xul	chrome://hipext/content/hipext.xul

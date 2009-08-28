@@ -1,0 +1,73 @@
+##
+## settings
+##
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+sbindir=@sbindir@
+bindir=@bindir@
+mandir=@mandir@
+
+##
+## autoconf
+##
+CPP=@CPP@
+CXXCPP=@CXXCPP@
+CC=@CC@
+CXX=@CXX@
+DEFS=-D_USAGI -DINET6 @DEFS@
+CFLAGS=@CFLAGS@ $(DEFS) \
+	'-DISSUE_FILE="/etc/issue.net"' -DPARANOID_TTYS \
+	-DNO_REVOKE -DKLUDGELINEMODE -DDIAGNOSTICS
+CXXFLAGS=@CXXFLAGS@ $(DEFS) -DUSE_TERMIO -DKLUDGELINEMODE \
+	'-DISSUE_FILE="/etc/issue.net"' -DPARANOID_TTYS \
+	-DNO_REVOKE -DKLUDGELINEMODE -DDIAGNOSTICS
+
+OBJS=
+LIBOBJS=@LIBOBJS@
+LDFLAGS=@LDFLAGS@
+LIBS=@LIBS@
+
+INSTALL=@INSTALL@
+INSTALL_PROG=@INSTALL_PROGRAM@
+INSTALL_DATA=@INSTALL_DATA@
+INSTALL_DIR=@INSTALL_DIR@
+LN_S=@LN_S@
+
+##
+## targets
+##
+TARGET = telnetd
+
+all: $(TARGET)
+
+clean:
+	-rm -f *.o $(TARGET)
+
+distclean: clean
+	-rm -f config.*
+	-rm Makefile
+
+install: all
+	$(INSTALL_DIR) $(sbindir)
+	$(INSTALL_PROG) -s telnetd $(sbindir)/in.telnetd
+	$(INSTALL_DIR) $(mandir)/man5
+	$(INSTALL_DATA) issue.net.5 $(mandir)/man5
+	$(INSTALL_DIR) $(mandir)/man8
+	$(INSTALL_DATA) telnetd.8 $(mandir)/man8/in.telnetd.8
+	$(LN_S) -f in.telnetd.8 $(mandir)/man8/telnetd.8
+
+##
+## dependencies
+##
+OBJS = telnetd.o state.o termstat.o slc.o sys_term.o utility.o \
+	global.o setproctitle.o
+
+# authenc.o (empty)
+
+# logout.o logwtmp.o (now from -lutil)
+
+telnetd: $(OBJS)
+	$(CC) $(LDFLAGS) $^ $(LIBS) -o $@
+
+$(OBJS): defs.h ext.h pathnames.h telnetd.h logwtmp.h logout.h setproctitle.h
+

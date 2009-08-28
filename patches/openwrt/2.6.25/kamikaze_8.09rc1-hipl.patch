@@ -1,0 +1,486 @@
+diff -Nur kamikaze_8.09_rc1.orig/package/hipl/files/hipd.init kamikaze_8.09_rc1/package/hipl/files/hipd.init
+--- kamikaze_8.09_rc1.orig/package/hipl/files/hipd.init	1970-01-01 02:00:00.000000000 +0200
++++ kamikaze_8.09_rc1/package/hipl/files/hipd.init	2008-09-19 14:37:51.000000000 +0300
+@@ -0,0 +1,26 @@
++#!/bin/sh /etc/rc.common
++# Copyright (C) 2006 OpenWrt.org
++
++START=65
++STOP=65
++
++HIPD_OPTS="-bk"
++
++start() {
++	echo -n "Starting hipd"
++	hipd ${HIPD_OPTS}
++	echo "."
++}
++
++restart() {
++	echo -n "Restarting hipd"
++	killall hipd
++	hipd ${HIPD_OPTS}
++	echo "."
++}
++
++stop() {
++	echo -n "Stopping hipd"
++	killall hipd
++	echo "."
++}
+diff -Nur kamikaze_8.09_rc1.orig/package/hipl/files/hipfw.init kamikaze_8.09_rc1/package/hipl/files/hipfw.init
+--- kamikaze_8.09_rc1.orig/package/hipl/files/hipfw.init	1970-01-01 02:00:00.000000000 +0200
++++ kamikaze_8.09_rc1/package/hipl/files/hipfw.init	2008-09-19 14:37:51.000000000 +0300
+@@ -0,0 +1,21 @@
++#!/bin/sh /etc/rc.common
++# Copyright (C) 2006 OpenWrt.org
++
++START=65
++STOP=65
++
++HIPFW_INIT=/etc/hip/test/firewall.init
++HIPFW_START=/etc/hip/test/firewall.start
++
++start() {
++	echo -n "Starting hipfw"
++	${HIPFW_INIT}
++	${HIPFW_START}
++	echo "."
++}
++
++stop() {
++	echo -n "Stopping hipfw"
++	killall hipfw
++	echo "."
++}
+diff -Nur kamikaze_8.09_rc1.orig/package/hipl/files/hipl.modules kamikaze_8.09_rc1/package/hipl/files/hipl.modules
+--- kamikaze_8.09_rc1.orig/package/hipl/files/hipl.modules	1970-01-01 02:00:00.000000000 +0200
++++ kamikaze_8.09_rc1/package/hipl/files/hipl.modules	2008-09-19 14:37:51.000000000 +0300
+@@ -0,0 +1,17 @@
++hmac
++crypto_null
++sha1
++crypto_hash
++aes
++ipv6
++af_key
++xfrm_user
++ah4
++esp4
++xfrm4_tunnel
++ipcomp
++ah6
++esp6
++tunnel6
++xfrm6_tunnel
++ipcomp6
+diff -Nur kamikaze_8.09_rc1.orig/package/hipl/files/test/firewall.flush kamikaze_8.09_rc1/package/hipl/files/test/firewall.flush
+--- kamikaze_8.09_rc1.orig/package/hipl/files/test/firewall.flush	1970-01-01 02:00:00.000000000 +0200
++++ kamikaze_8.09_rc1/package/hipl/files/test/firewall.flush	2008-09-19 14:37:51.000000000 +0300
+@@ -0,0 +1,6 @@
++#!/bin/sh
++
++ip6tables -F INPUT
++ip6tables -F OUTPUT
++ip6tables -F FORWARD
++
+diff -Nur kamikaze_8.09_rc1.orig/package/hipl/files/test/firewall.init kamikaze_8.09_rc1/package/hipl/files/test/firewall.init
+--- kamikaze_8.09_rc1.orig/package/hipl/files/test/firewall.init	1970-01-01 02:00:00.000000000 +0200
++++ kamikaze_8.09_rc1/package/hipl/files/test/firewall.init	2008-09-19 14:37:51.000000000 +0300
+@@ -0,0 +1,22 @@
++#!/bin/sh
++
++NET_INTNAT=192.168.6.0/24
++
++iptables -P INPUT ACCEPT
++iptables -P OUTPUT ACCEPT
++iptables -P FORWARD ACCEPT
++
++ip6tables -A FORWARD -p 253 -j QUEUE
++ip6tables -A FORWARD -p 50 -j QUEUE
++ip6tables -A FORWARD -p 22 -j ACCEPT
++ip6tables -A INPUT -p 253 -j QUEUE
++ip6tables -A INPUT -p 50 -j QUEUE
++ip6tables -A INPUT -p 22 -j ACCEPT
++ip6tables -A OUTPUT -p 253 -j QUEUE
++ip6tables -A OUTPUT -p 50 -j QUEUE
++ip6tables -A OUTPUT -p 22 -j ACCEPT
++
++iptables -t nat -F
++
++iptables -t nat -A POSTROUTING -s ${NET_INTNAT} -d ${NET_INTNAT} -j ACCEPT
++iptables -t nat -A POSTROUTING -s ${NET_INTNAT} -j MASQUERADE
+diff -Nur kamikaze_8.09_rc1.orig/package/hipl/files/test/firewall.rules kamikaze_8.09_rc1/package/hipl/files/test/firewall.rules
+--- kamikaze_8.09_rc1.orig/package/hipl/files/test/firewall.rules	1970-01-01 02:00:00.000000000 +0200
++++ kamikaze_8.09_rc1/package/hipl/files/test/firewall.rules	2008-09-19 14:37:51.000000000 +0300
+@@ -0,0 +1,11 @@
++# HOOK [match] TARGET
++# HOOK ::= <INPUT|OUTPUT|FORWARD>
++# match ::= src_hit [!] <hit value> --hi <file name>
++#           -dst_hit [!] <hit>
++#           -type [!] <hip packet type>
++#           -i [!] <incoming interface>
++#           -o [!] <outgoing interface>
++#          -state [!] <state> --verify_responder --accept_mobile
++# TARGET::= <ACCEPT|DROP>
++
++
+diff -Nur kamikaze_8.09_rc1.orig/package/hipl/files/test/firewall.start kamikaze_8.09_rc1/package/hipl/files/test/firewall.start
+--- kamikaze_8.09_rc1.orig/package/hipl/files/test/firewall.start	1970-01-01 02:00:00.000000000 +0200
++++ kamikaze_8.09_rc1/package/hipl/files/test/firewall.start	2008-09-19 14:37:51.000000000 +0300
+@@ -0,0 +1,43 @@
++#!/bin/sh
++
++# HOOK [match] TARGET
++# HOOK ::= <INPUT|OUTPUT|FORWARD>
++# match ::= src_hit [!] <hit value> --hi <file name>
++#           -dst_hit [!] <hit>
++#           -type [!] <hip packet type>
++#           -i [!] <incoming interface>
++#           -o [!] <outgoing interface>
++#          -state [!] <state> --verify_responder --accept_mobile
++# TARGET::= <ACCEPT|DROP>
++
++export PATH=.:../../firewall:$PWD/test/performance:$PWD/firewall:$PATH
++
++RULE_FILE=/tmp/fw.tmp
++TIMEOUT=0
++HIPFW_OPTS="-dbkm"
++
++# agony: 2001:1c:fa08:bdca:9401:417e:1589:7c8b
++# envy:  2001:1e:cf29:ce40:e828:c2f2:17e3:5516
++
++ACCEPT_INIT_LIST=2001:1c:fa08:bdca:9401:417e:1589:7c8b
++#ACCEPT_INIT_LIST=
++#DROP_INIT_LIST=2001:1c:fa08:bdca:9401:417e:1589:7c8b
++DROP_INIT_LIST=
++
++RESP=2001:1e:cf29:ce40:e828:c2f2:17e3:5516
++
++rm $RULE_FILE 2>/dev/null
++
++for INIT in $ACCEPT_INIT_LIST
++do
++  echo "FORWARD -src_hit $INIT -dst_hit $RESP ACCEPT" >> $RULE_FILE
++  echo "FORWARD -src_hit $RESP -dst_hit $INIT ACCEPT" >> $RULE_FILE
++done
++
++for INIT in $DROP_INIT_LIST
++do
++  echo "FORWARD -src_hit $INIT -dst_hit $RESP DROP"   >> $RULE_FILE
++  echo "FORWARD -src_hit $RESP -dst_hit $INIT DROP"   >> $RULE_FILE
++done
++
++hipfw ${HIPFW_OPTS} $RULE_FILE $TIMEOUT
+diff -Nur kamikaze_8.09rc1.orig/package/hipl/Makefile kamikaze_8.09rc1/package/hipl/Makefile
+--- kamikaze_8.09rc1.orig/package/hipl/Makefile	1970-01-01 02:00:00.000000000 +0200
++++ kamikaze_8.09rc1/package/hipl/Makefile	2008-09-29 14:52:02.000000000 +0300
+@@ -0,0 +1,203 @@
++include $(TOPDIR)/rules.mk
++
++PKG_NAME:=hipl
++PKG_BRANCHNAME:=main
++PKG_VERSION:=0.9
++PKG_RELEASE:=2
++
++PKG_SOURCE:=$(PKG_NAME)-$(PKG_BRANCHNAME).tar.gz
++PKG_SOURCE_URL:=http://hipl.hiit.fi/hipl/contrib/openwrt/
++PKG_CAT:=zcat
++
++PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_BRANCHNAME)
++PKG_INSTALL_DIR:=$(PKG_BUILD_DIR)/ipkg-install
++
++include $(INCLUDE_DIR)/package.mk
++
++define Package/hipl-hipd
++  SECTION:=net
++  CATEGORY:=Network
++  DEPENDS:=+hipl-common +genl +ip +kmod-ipsec +kmod-ipsec4 +kmod-ipsec6 +kmod-loop +kmod-nbd +kmod-tun +libpthread +libuuid +losetup
++           # TODO: probably not needed:
++           #+kmod-capi +libpcap +udevtrigger +ipsec-tools +isakmpd
++  TITLE:=HIPL deamon
++  URL:=http://hipl.hiit.fi/
++endef
++
++define Package/hipl-hipd/description
++ The deamon for HIPL.
++endef
++
++define Package/hipl-hipfw
++  SECTION:=net
++  CATEGORY:=Network
++  DEPENDS:=+hipl-common +iptables +ip6tables +kmod-ip6tables +kmod-ipt-queue
++           # TUN/TAP support - might be needed at some point instead of kmod-ipt-queue
++           #+kmod-tun
++  TITLE:=HIPL firewall
++  URL:=http://hipl.hiit.fi/
++endef
++
++define Package/hipl-hipfw/description
++ The firewall for HIPL.
++endef
++
++define Package/hipl-hipconf
++  SECTION:=net
++  CATEGORY:=Network
++  DEPENDS:=+hipl-hipd
++  TITLE:=HIPL configuration application
++  URL:=http://hipl.hiit.fi/
++endef
++
++define Package/hipl-hipconf/description
++ The configuration application for the hipd of the HIPL implementation.
++endef
++
++define Package/hipl-hipproxy
++  SECTION:=net
++  CATEGORY:=Network
++  DEPENDS:=+hipl-hipd +hipl-hipfw
++  TITLE:=HIPL proxy
++  URL:=http://hipl.hiit.fi/
++endef
++
++define Package/hipl-hipproxy/description
++ The scripts for running the hipproxy.
++endef
++
++define Package/hipl-test
++  SECTION:=net
++  CATEGORY:=Network
++  DEPENDS:=+hipl-hipd
++  TITLE:=HIPL testing application
++  URL:=http://hipl.hiit.fi/
++endef
++
++define Package/hipl-test/description
++ Some applications and configs needed for testing HIPL.
++endef
++
++define Package/hipl-common
++  SECTION:=net
++  CATEGORY:=Network
++#this list includes ALL modules necessary for running hipl on openwrt
++#note: modules will be automatically selected for compilation and
++#will be required by ipkg on the openwrt box
++#TODO remove unnecessary modules
++  DEPENDS:=+kmod-crypto-aes +kmod-crypto-hmac +kmod-crypto-null +kmod-crypto-sha1 +kmod-ipv6 +libgcc +libgmp +libopenssl +libxml2 +uclibc
++  TITLE:=HIPL common files
++  URL:=http://hipl.hiit.fi/
++endef
++
++define Package/hipl-common/description
++ The libraries and configs needed for HIPL.
++endef
++
++# seen when compiling hipl: -lxml2 -lcap -lsqlite3 -lipq -luuid -lm -lcrypto
++CONFIGURE_VARS += \
++	LIBS="-lxml2 -lcrypto -lm -lz" \
++	CPPFLAGS="$$$$CPPFLAGS -I$(STAGING_DIR)/usr/include/libxml2 -I$(STAGING_DIR)/usr/include -I$(STAGING_DIR)/include -I$(TOOLCHAIN_DIR)/include" \
++	LDFLAGS="$$$$LDFLAGS -L$(STAGING_DIR)/usr/lib -L$(STAGING_DIR)/lib -L$(TOOLCHAIN_DIR)/lib" \
++	OPENWRT="-L$(STAGING_DIR)/usr/lib -L$(STAGING_DIR)/lib -L$(TOOLCHAIN_DIR)/lib" \
++	OPENWRT_LIB_STATIC="$(TOOLCHAIN_DIR)/lib/libc.a" \
++
++define Build/Configure
++	(cd $(PKG_BUILD_DIR); rm -rf config.{cache,status}; \
++		./autogen.sh --host=$(GNU_TARGET_NAME) --target=$(GNU_TARGET_NAME) \
++	);
++
++	(cd  $(PKG_BUILD_DIR)/libinet6; test -L include || ln -v -s include_glibc23 include; \
++	);
++
++	(cp $(PKG_BUILD_DIR)/libinet6/include/ifaddrs.h $(STAGING_DIR)/include/ \
++	);
++
++	(cd ..; \
++	);
++
++	$(CONFIGURE_VARS);
++
++	$(call Build/Configure/Default, \
++		--enable-shared \
++		--enable-force-shlib \
++		--disable-nls \
++		--disable-agent \
++		--enable-midauth \
++		--enable-opendht \
++		--enable-openwrt \
++		--disable-privsep \
++		--disable-i3 \
++		--enable-optimizations \
++	);
++endef
++
++define Build/Compile
++	($(CONFIGURE_VARS) \
++	$(MAKE) -C $(PKG_BUILD_DIR));
++	$(MAKE) -C $(PKG_BUILD_DIR) \
++		DESTDIR="$(PKG_INSTALL_DIR)" \
++		INSTALL="install -c" \
++		install
++endef
++
++define Package/hipl-hipd/install
++	$(INSTALL_DIR) $(1)/etc/init.d/
++	$(INSTALL_DIR) $(1)/usr/sbin/
++
++	$(INSTALL_BIN) ./files/hipd.init $(1)/etc/init.d/hipd
++	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/hipd $(1)/usr/sbin/
++endef
++
++define Package/hipl-hipfw/install
++	$(INSTALL_DIR) $(1)/etc/init.d/
++	$(INSTALL_DIR) $(1)/usr/sbin/
++
++	$(INSTALL_BIN) ./files/hipfw.init $(1)/etc/init.d/hipfw
++	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/hipfw $(1)/usr/sbin/
++endef
++
++define Package/hipl-hipconf/install
++	$(INSTALL_DIR) $(1)/usr/sbin/
++
++	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/hipconf $(1)/usr/sbin/
++endef
++
++define Package/hipl-hipproxy/install
++	$(INSTALL_DIR) $(1)/usr/sbin/
++
++	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/sbin/hipdnsproxy $(1)/usr/sbin/
++endef
++
++define Package/hipl-test/install
++	$(INSTALL_DIR) $(1)/etc/hip/test/
++	$(INSTALL_DIR) $(1)/usr/bin/
++
++	$(INSTALL_BIN) ./files/test/* $(1)/etc/hip/test/
++	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/conntest* $(1)/usr/bin/
++	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/libinet6test $(1)/usr/bin/
++endef
++
++define Package/hipl-common/install
++	$(INSTALL_DIR) $(1)/etc/hip/
++	$(INSTALL_DIR) $(1)/etc/modules.d/
++	$(INSTALL_DIR) $(1)/usr/lib/
++	$(INSTALL_DIR) $(1)/usr/bin/
++	$(INSTALL_DIR) $(1)/usr/include/
++	$(INSTALL_DIR) $(1)/usr/include/libipsec
++
++	$(INSTALL_DATA) ./files/hipl.modules $(1)/etc/modules.d/35-hipl
++	$(INSTALL_DATA) $(PKG_INSTALL_DIR)/usr/lib/libhipopendht.* $(1)/usr/lib/
++	$(INSTALL_DATA) $(PKG_INSTALL_DIR)/usr/lib/libhiptool.* $(1)/usr/lib/
++	$(INSTALL_DATA) $(PKG_INSTALL_DIR)/usr/lib/libinet6.* $(1)/usr/lib/
++	$(INSTALL_DATA) $(PKG_INSTALL_DIR)/usr/lib/libopphip.* $(1)/usr/lib/
++	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/hipsetup $(1)/usr/bin/
++	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/bin/listifaces $(1)/usr/bin/
++endef
++
++$(eval $(call BuildPackage,hipl-common))
++$(eval $(call BuildPackage,hipl-hipd))
++$(eval $(call BuildPackage,hipl-hipfw))
++$(eval $(call BuildPackage,hipl-hipconf))
++$(eval $(call BuildPackage,hipl-hipproxy))
++$(eval $(call BuildPackage,hipl-test))
+diff -Nur kamikaze_8.09_rc1.orig/package/libxml2/Makefile kamikaze_8.09_rc1/package/libxml2/Makefile
+--- kamikaze_8.09_rc1.orig/package/libxml2/Makefile	1970-01-01 02:00:00.000000000 +0200
++++ kamikaze_8.09_rc1/package/libxml2/Makefile	2008-09-19 14:37:51.000000000 +0300
+@@ -0,0 +1,101 @@
++#
++# Copyright (C) 2006 OpenWrt.org
++#
++# This is free software, licensed under the GNU General Public License v2.
++# See /LICENSE for more information.
++#
++# $Id: Makefile 7271 2007-05-18 09:43:14Z florian $
++
++include $(TOPDIR)/rules.mk
++
++PKG_NAME:=libxml2
++PKG_VERSION:=2.6.32
++PKG_RELEASE:=1
++
++PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
++PKG_SOURCE_URL:=http://xmlsoft.org/sources/ \
++	ftp://fr.rpmfind.net/pub/libxml/
++PKG_CAT:=zcat
++
++PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
++PKG_INSTALL_DIR:=$(PKG_BUILD_DIR)/ipkg-install
++
++include $(INCLUDE_DIR)/package.mk
++
++define Package/libxml2
++  SECTION:=libs
++  CATEGORY:=Libraries
++  DEPENDS:=+libpthread +zlib
++  TITLE:=Gnome XML library
++  DESCRIPTION:=\
++  	A library for manipulating XML and HTML resources.
++  URL:=http://xmlsoft.org/
++endef
++
++define Build/Configure
++	$(call Build/Configure/Default, \
++		--enable-shared \
++		--enable-static \
++		--with-c14n \
++		--with-html \
++		--without-ftp \
++		--without-http \
++		--without-iconv \
++		--without-iso8859x \
++		--with-legacy \
++		--with-output \
++		--with-reader \
++		--with-sax1 \
++		--with-schemas \
++		--with-threads \
++		--with-tree \
++		--with-valid \
++		--with-writer \
++		--with-xinclude \
++		--with-xpath \
++		--with-xptr \
++		--with-zlib \
++		--with-regexp \
++	)
++endef
++
++define Build/Compile
++	$(MAKE) -C $(PKG_BUILD_DIR) \
++		DESTDIR="$(PKG_INSTALL_DIR)" \
++		all install
++endef
++
++define Build/InstallDev
++	mkdir -p $(STAGING_DIR)/usr/bin
++	$(CP) $(PKG_INSTALL_DIR)/usr/bin/xml2-config $(STAGING_DIR)/usr/bin/
++	mkdir -p $(STAGING_DIR)/usr/include
++	$(CP) $(PKG_INSTALL_DIR)/usr/include/libxml2 $(STAGING_DIR)/usr/include/
++	mkdir -p $(STAGING_DIR)/usr/lib
++	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libxml2.{a,so*} $(STAGING_DIR)/usr/lib/
++	mkdir -p $(STAGING_DIR)/usr/lib/pkgconfig
++	$(CP) $(PKG_INSTALL_DIR)/usr/lib/pkgconfig/libxml-2.0.pc $(STAGING_DIR)/usr/lib/pkgconfig/
++	$(SED) 's,-I$$$${includedir}/libxml2,,g' $(STAGING_DIR)/usr/bin/xml2-config
++	$(SED) 's,-I$$$${includedir},,g' $(STAGING_DIR)/usr/bin/xml2-config
++	$(SED) 's,-I$(STAGING_DIR)/usr/include,,g' $(STAGING_DIR)/usr/bin/xml2-config
++	$(SED) 's,-L$$$${libdir},,g' $(STAGING_DIR)/usr/bin/xml2-config
++	$(SED) 's,-L$(STAGING_DIR)/usr/lib,,g' $(STAGING_DIR)/usr/bin/xml2-config
++	$(SED) 's,-I$$$${includedir}/libxml2,,g' $(STAGING_DIR)/usr/lib/pkgconfig/libxml-2.0.pc
++	$(SED) 's,-L$$$${libdir},,g' $(STAGING_DIR)/usr/lib/pkgconfig/libxml-2.0.pc
++	$(SED)  "s,"prefix\=/usr",prefix=$(STAGING_DIR)/usr," $(STAGING_DIR)/usr/lib/pkgconfig/libxml-2.0.pc
++	$(SED)  "s,"exec_prefix\=/usr",exec_prefix=$(STAGING_DIR)/usr," $(STAGING_DIR)/usr/lib/pkgconfig/libxml-2.0.pc
++endef
++
++define Build/UninstallDev
++	rm -rf \
++		$(STAGING_DIR)/usr/bin/xml2-config \
++		$(STAGING_DIR)/usr/include/libxml2 \
++		$(STAGING_DIR)/usr/lib/libxml2.{a,so*} \
++		$(STAGING_DIR)/usr/lib/pkgconfig/libxml-2.0.pc
++endef
++
++define Package/libxml2/install
++	$(INSTALL_DIR) $(1)/usr/lib
++	$(CP) $(PKG_INSTALL_DIR)/usr/lib/libxml2.so.* $(1)/usr/lib/
++endef
++
++$(eval $(call BuildPackage,libxml2))

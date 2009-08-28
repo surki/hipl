@@ -1,0 +1,1347 @@
+
+
+
+
+
+
+INTERNET-DRAFT                                                  P.Jokela
+Expires December 2002                                             J.Wall
+draft-jokela-hip-packets-00.txt                                J.Ylitalo
+                                                              P.Nikander
+                                           NomadicLab, Ericsson Research
+                                                               June 2002
+
+
+
+                   Optimized Packet Structure for HIP
+
+Status of this Memo
+
+   This document is an Internet-Draft and is subject to all provisions
+   of Section 10 of RFC2026.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF), its areas, and its working groups.  Note that
+   other groups may also distribute working documents as Internet-
+   Drafts.
+
+   Internet-Drafts are draft documents valid for a maximum of six
+   months and may be updated, replaced, or obsoleted by other documents
+   at any time.  It is inappropriate to use Internet-Drafts as
+   reference material or to cite them other than as "work in progress."
+
+   The list of current Internet-Drafts can be accessed at
+   http://www.ietf.org/1id-abstracts.txt
+
+   The list of Internet-Draft Shadow Directories can be accessed at
+   http://www.ietf.org/shadow.html.
+
+
+Table of Contents
+
+1. Abstract......................................................... 2
+2. Conventions used in this document................................ 2
+3. Optimized Packet Structure....................................... 3
+3.1 HIP header...................................................... 3
+3.2 HIP controls.................................................... 4
+3.3 HIP Parameter................................................... 5
+3.4 TLV format...................................................... 6
+3.4.1 SPI_LSI....................................................... 7
+3.4.2 BIRTHDAY_COOKIE............................................... 7
+3.4.3 DIFFIE_HELLMAN_FULL........................................... 8
+3.4.4 DIFFIE_HELLMAN................................................ 8
+3.4.5 HIP_TRANSFORM................................................. 9
+3.4.6 ESP_ENC_TRANSFORM.............................................10
+
+
+
+draft-jokela-hip-packets-00.txt                                 [Page 1]
+
+INTERNET-DRAFT     Optimized Packet Structure for HIP       June 6, 2002
+
+
+3.4.7 ESP_AUTH_TRANSFORM........................................... 11
+3.4.8 HOST_ID...................................................... 11
+3.4.9 HOST_ID_FQDN................................................. 12
+3.4.10 CERT........................................................ 12
+3.4.11 HIP_SIGNATURE............................................... 13
+3.4.12 HIP_SIGNATURE_2............................................. 14
+3.4.13 REA_INFO.................................................... 15
+3.4.14 NEW_SPI..................................................... 16
+3.4.15 ENCRYPTED................................................... 16
+4. HIP Packets..................................................... 17
+4.1 I1............................................................. 17
+4.2 R1............................................................. 17
+4.3 I2............................................................. 18
+4.4 R2............................................................. 19
+4.5 NES............................................................ 20
+4.6 REA............................................................ 20
+4.7 BOS............................................................ 21
+4.8 CER............................................................ 21
+5. Security considerations......................................... 22
+6. References...................................................... 22
+7. Acknowledgments................................................. 23
+8. Author's Address................................................ 23
+9. Copyright Statement............................................. 24
+
+
+1. Abstract
+
+   This memo describes alternative, optimized packet structures for the
+   Host Identity Payload and Host Layer Protocol (HIP). The packet
+   structures presented in this memo are intended replace original
+   packets in HIP. In addition, this memo describes a new packet, CER,
+   to transmit certificates.
+
+   The main objective in redefining HIP packet structures is to make the
+   packet structures simpler and more distinct, which makes the
+   implementation work easier, hopefully leading to more secure protocol
+   implementation. The new structures reduce the average packet size and
+   take advantage of other existing IPv6 protocols formats, including
+   alignments concerns, like the newly suggested Mobility header format
+   for Mobile IPv6.
+
+
+2. Conventions used in this document
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED",  "MAY", and "OPTIONAL" in
+   this document are to be interpreted as described in [RFC-2119].
+
+
+
+
+draft-jokela-hip-packets-00.txt                                 [Page 2]
+
+INTERNET-DRAFT     Optimized Packet Structure for HIP       June 6, 2002
+
+
+3. Optimized Packet Format
+
+   This proposed packet format is based on a fixed header followed by
+   strictly ordered TLV encoded parameters. The chosen format maintains
+   the extensibility of the original HIP proposal, while giving a more
+   compact packet structure that is easy and efficient to generate and
+   parse.
+
+   The proposed format allows new OPTIONAL extensions to be developed
+   and deployed. All HIP packets have the common header part. The header
+   is similar to the new MIPv6 [MIPv6] Mobility Header. The MIPv6 header
+   structure allows hosts to OPTIONALLY send piggypacked payloads,
+   following the HIP header.  This capability is indicated in the
+   control field in the HIP header.
+
+   The HIP header is 8 bytes aligned, as IPv6 extension headers.
+   Additionally, the parameters are designed so that all fields within
+   the options are properly 8 byte aligned.  Any extensions to this
+   format SHOULD preserve this property.
+
+3.1. HIP header
+
+   The HIP header contains fixed fields, including both sender's and
+   receiver's HITs.  In the first packet, I1, the receiver's HIT may
+   also be zero, if it is unknown (opportunistic HIP).
+
+   Both sender's and receiver's HITs are included in the HIP header to
+   make the HIP based NAT implementations easier.  The same applies also
+   to the SPI that will follow the header part; we place the SPI always
+   as the first field in the HIP Key Parameter so that the NAT boxes and
+   firewalls find it easily.
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Payload Proto | Header Length |  Packet Type  |  VER. |  RES. |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |          Control              |           Checksum            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                Sender's Host Identity Tag (HIT)               |
+   |                                                               |
+   |                                                               |
+   |                                                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |               Receiver's Host Identity Tag (HIT)              |
+   |                                                               |
+   |                                                               |
+   |                                                               |
+
+
+
+draft-jokela-hip-packets-00.txt                                 [Page 3]
+
+INTERNET-DRAFT     Optimized Packet Structure for HIP       June 6, 2002
+
+
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   /                        HIP Parameters                         /
+   /                                                               /
+   |                                                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+   Unless the receiving host has indicated its willingness to receive
+   piggybacked packets, the Payload Proto [PRN] MUST be NONE and there
+   MUST NOT be any payload following the HIP header.
+
+   The Header Length is the length, in 8 bytes units, of the HIP header,
+   excluding the first 8 bytes.  Since all HIP headers MUST contain the
+   sender's and receiver's HITs, the minimum value for this field is 4,
+   and conversely, the maximum length of the HIP Parameters field is
+   (255*8)-32 = 2008 bytes.
+
+   The Packet Type indicates the HIP packet type, see Section 4.
+
+   The HIP Version is four bits. The current version is 1.
+
+   The following four bits are reserved for future use.  They MUST be
+   zero when send, and they SHOULD be ignored when handling a received
+   packet.
+
+   The Control field is described in the Section 3.2.
+
+   The checksum field is the checksum over a pseudo-header and the HIP
+   packet.  The checksum field is located at the same location within
+   the header as the checksum field in UDP packets, enabling hardware
+   assisted checksum generation and verification.  Note that since the
+   checksum covers the source and destination addresses in the IP
+   header, it must be recomputed on HIP based NAT boxes.
+
+   The pseudo-header [RFC2460] contains the source and destination IPv6
+   addresses, HIP packet length in the pseudo-header length field, zero
+   field and HIP protocol number in the Next Header field. The length
+   field is in bytes and can be calculated from the HIP header length
+   field: (header length + 1) * 8.
+
+   The HIT fields are always 128 bits (16 bytes) long.
+
+3.2 HIP controls
+
+   The HIP control section transfers information about the structure of
+   the packet and capabilities of the host.
+
+   The following fields have been defined:
+
+
+
+draft-jokela-hip-packets-00.txt                                 [Page 4]
+
+INTERNET-DRAFT     Optimized Packet Structure for HIP       June 6, 2002
+
+
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | |P|C| | | | | | | | | | | |E|A|
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+   P - Piggybacking -- The sending host is capable of sending and
+       receiving additional data (e.g. ESP) in HIP packets.
+   C - One or more cerfificate packets (CER) follows this HIP packet
+       (see 3.4.10).
+   E - ESP sequence bit, the ESP transfrom requires 64-bit sequence
+       number.
+   A - Anonymous bit: if this is set, the senders HI in this packet
+       is anonymous, i.e. one not listed in a directory.
+
+   The rest of the fields are reserved for future use and MUST be set to
+   zero on sent packets and ignored on received packets.
+
+3.3 HIP Parameters
+
+   The HIP Parameters are used to carry the public key associated with
+   the sender's HIT, together with other related security information.
+   The HIP Parameters consists of ordered parameters, encoded in TLV
+   format.
+
+   The following parameter types are currently defined.
+
+   TLV Type             Length          Data
+
+   SPI_LSI              16              Remote's SPI, Remote's LSI.
+
+   BIRTHDAY_COOKIE      40              System Boot Counter plus
+                                        3 64 bit fields:
+                                        Random #I, K or random # J,
+                                        Hash target
+
+   DIFFIE_HELLMAN_FULL  variable        prime p, generator g,
+                                        public key
+
+   DIFFIE_HELLMAN       variable        public key
+
+   HIP_TRANSFORM        variable        HIP Encryption Transform
+
+   ESP_ENC_TRANSFORM    variable        ESP Encryption Transform
+
+   ESP_AUTH_TRANSFORM   variable        ESP Authentication Transform
+
+   HOST_ID              variable        Host Identity
+
+   HOST_ID_FQDN         variable        Host Identity with Fully
+
+
+
+draft-jokela-hip-packets-00.txt                                 [Page 5]
+
+INTERNET-DRAFT     Optimized Packet Structure for HIP       June 6, 2002
+
+
+                                        Qualified Domain Name
+
+   CERT                 variable        HI certificate
+
+   NEW_SPI              16              ESP sequence number,
+                                        Old SPI, New SPI
+
+   REA_INFO             variable        ESP sequence number,
+                                        Current SPI,
+                                        followed by 1-N triplets of
+                                        Interface ID, Address lifetime,
+                                        Address (16 bytes)
+
+   ENCRYPTED            variable        Encrypted part of I2 or CER
+                                        packets
+
+   HIP_SIGNATURE        variable        Signature of the packet
+
+   HIP_SIGNATURE_2      variable        Signature of the packet R1
+
+
+
+3.4 TLV format
+
+   The TLV encoded parameters are described in the following
+   subsections. The type-field value also describes the order of these
+   fields in the packet.  The parameters MUST be included into the
+   packet so that the types form an increasing order.  If the order does
+   not follow this rule, the packet is considered to be malformed and it
+   MUST be discarded.
+
+   All the TLV parameters have a length which is a multiple of 8 bytes.
+   When needed, padding will be added to the end of the parameter so
+   that the total lengt becomes a multiple of 8 bytes.  This rule
+   ensures proper alignment of data.  If padding is added, the Length
+   field DOES NOT include the padding.
+
+   Consequently, Length indicates the length of the Contents, in bytes,
+   and the total length of the parameter is calculated according to the
+   following formula:
+
+       Total Length = 7 + Length - (Length - 1) % 8;
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |             Type              |             Length            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+
+draft-jokela-hip-packets-00.txt                                 [Page 6]
+
+INTERNET-DRAFT     Optimized Packet Structure for HIP       June 6, 2002
+
+
+   |                                                               |
+   /                          Contents                             /
+   |                                                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+3.4.1 SPI_LSI
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |             Type              |             Length            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                           Reserved                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                              SPI                              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                              LSI                              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+   Type         1
+   Length       12
+   Reserved     Zero when sent, ignored when received
+   SPI          Security Parameter Index
+   LSI          Local Scope Identifier
+
+
+3.4.2 BIRTHDAY_COOKIE
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |             Type              |             Length            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                           Reserved                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Birthday, 8 bytes                                             |
+   |                                                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Random # I, 8 bytes                                           |
+   |                                                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Random # J or K, 8 bytes                                      |
+   |                                                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Hash Target, 8 bytes                                          |
+   |                                                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+
+
+draft-jokela-hip-packets-00.txt                                 [Page 7]
+
+INTERNET-DRAFT     Optimized Packet Structure for HIP       June 6, 2002
+
+
+   Type         2 (in R1) or 3 (in I2)
+   Length       36
+   Reserved     Zero when sent, ignored when received
+   Birthday     System boot counter
+   Random # I   random number
+   K or         K is the number of verified bits (in R1 packet)
+   Random # J   random number (in I2 packet)
+   Hash Target  calculated hash value
+
+3.4.3 DIFFIE_HELLMAN_FULL
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |             Type              |             Length            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   Group ID    | Prime length                  |               /
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   /                           Prime p                             |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Generator len                 |                               /
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   /                          Generator g                          |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |public val len.                |        public value           /
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   /                               |            padding            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+   Type         5
+   Length       length in octets, excluding T and L fields and padding
+   Group ID     group id for later keys in the same group
+   Prime length length of the prime p
+   Prime p      value of the prime p
+   Gen. length  length of the generator g
+   Gen. value   value of the generator g
+   pub val len  length of the public value
+   public value
+
+   Group ID is used to define the p and g values. Value 128-255 are used
+   to let the host define the values for p and q values.  In this case,
+   these values MUST be transmitted at least once in the D-H packets.
+
+3.4.4 DIFFIE_HELLMAN
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+
+draft-jokela-hip-packets-00.txt                                 [Page 8]
+
+INTERNET-DRAFT     Optimized Packet Structure for HIP       June 6, 2002
+
+
+   |             Type              |             Length            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |   Group ID    |               public value                    /
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   /                               |            padding            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+   Type         6
+   Length       length in octets, excluding T and L fields and padding
+   Group ID     defines values for p and g
+   public value
+
+   The following Group IDs have been defined:
+
+   Group                            Value
+   OAKLEY well known group 1        1
+   OAKLEY well known group 2        2
+   OAKLEY well known group 5        3
+   for future use                   4 - 127
+
+   OAKLEY groups are defined in [RFC2412].
+
+3.4.5 HIP_TRANSFORM
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |             Type              |             Length            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Transform ID  |        Transform length       |               /
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   /                    Transform attributes                       |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   .                                                               .
+   .                                                               .
+   .                                                               .
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Transform ID  |        Transform length       |               /
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   /                    Transform attributes                       |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+   Type         16
+   Length       length in octets, excluding T and L fields
+   Transform ID Defines the encryption protocol to be used
+   Transform    Length of the transform attributes
+   length
+   Transform    Defines attributes to be used with the protocol
+
+
+
+draft-jokela-hip-packets-00.txt                                 [Page 9]
+
+INTERNET-DRAFT     Optimized Packet Structure for HIP       June 6, 2002
+
+
+   attributes
+
+   There MUST NOT be more than five (5) HIP transforms in one HIP
+   transform TLV. The limited number of transforms sets the limit to the
+   required time that is used to handle transforms and thus reduces the
+   consequences of DoS attacks. The HIP transform MUST contain at least
+   one of the mandatory transform IDs.
+
+   The following encryption algorithms are defined in [IKEv2].
+
+      Transform ID             Values
+
+      RESERVED                    0
+      ENCR_DES_IV64               1
+      ENCR_DES                    2
+      ENCR_3DES                   3
+      ENCR_RC5                    4
+      ENCR_IDEA                   5
+      ENCR_CAST                   6
+      ENCR_BLOWFISH               7
+      ENCR_3IDEA                  8
+      ENCR_DES_IV32               9
+      ENCR_RC4                   10
+      ENCR_NULL                  11
+      ENCR_AES_128               12
+
+   Mandatory implementations: ENCR_3DES, ENCR_NULL.
+
+3.4.6 ESP_ENC_TRANSFORM
+
+   The TLV structure is the same as in 3.4.5. The fields are:
+
+   Type         17
+   Length       length in octets, excluding T and L fields
+   Transform ID Defines the encryption protocol to be used
+   Transform    Length of the transform attributes
+   length
+   Transform    Defines attributes to be used with the protocol
+   attributes
+
+   There MUST NOT be more than five (5) ESP_ENC transforms in one
+   ESP_ENC transform TLV. The ESP_ENC transform MUST contain at least
+   one of the mandatory transform IDs.
+
+   The ESP encryption algorithms are the same as defined in 3.4.5.
+
+   Mandatory implementations: ENCR_3DES
+
+
+
+
+draft-jokela-hip-packets-00.txt                                [Page 10]
+
+INTERNET-DRAFT     Optimized Packet Structure for HIP       June 6, 2002
+
+
+3.4.7 ESP_AUTH_TRANSFORM
+
+   The TLV structure is the same as in 3.4.5. The fields are:
+
+   Type         18
+   Length       length in octets, excluding T and L fields
+   Transform ID Defines the authentication protocol to be used
+   Transform    Length of the transform attributes
+   length
+   Transform    Defines attributes to be used with the protocol
+   attributes
+
+   There MUST NOT be more than five (5) ESP_AUTH transforms in one
+   ESP_AUTH transform TLV. The ESP_AUTH transform MUST contain at least
+   one of the mandatory transform IDs.
+
+   The following authentication algorithms are defined in [RFC2407].
+
+      Transform ID            Value
+
+      RESERVED                0-1
+      AH_MD5                  2
+      AH_SHA                  3
+      AH_DES                  4
+
+   Mandatory implementations: AH_SHA
+
+3.4.8 HOST_ID
+
+   When the host sends a Host Identity to a peer, it MAY send the
+   identity without any verification information or use certificates to
+   proof the HI. If cerificates are sent, they are sent in a separate
+   HIP packet (CER).
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |             Type              |             Length            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |  Algorithm    |               Host Identity                   /
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   /                                               |   padding     |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+   Type           32
+   Length         length in octets, excluding T and L fields and padding
+   Algorithm      Host Identity algorithm
+   Host Identity
+
+
+
+draft-jokela-hip-packets-00.txt                                [Page 11]
+
+INTERNET-DRAFT     Optimized Packet Structure for HIP       June 6, 2002
+
+
+   The following algorithms are defined:
+
+   Algorithm      value
+   DSA            1
+
+   The encoding format for DSA keys is defined in FIPS 186 and ANSI
+   X9.30 standard.
+
+3.4.9 HOST_ID_FQDN
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |             Type              |             Length            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |  Algorithm    |          HI Length            |               /
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   /              Host Identity                                    /
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   /               |         FQDN Length           |               /
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   /                   FQDN                        |    Padding    |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+   Type           33
+   Length         length in octets, excluding T and L fields and padding
+   Algorithm      Host Identity algorithm, defined in HOST_ID TLV
+   Host Identity
+   length         length of the HI
+   Host Identity
+   FQDN length    length of the FQDN
+   FQDN           Fully Qualified Domain Name
+
+   If there is no FQDN, the HOST_ID TLV is sent instead.
+
+3.4.10 CERT
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |             Type              |             Length            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |  Cert count   |   Cert ID     |   Cert type   |               /
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   /                          Certificate                          /
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   /                               |            Padding            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+
+draft-jokela-hip-packets-00.txt                                [Page 12]
+
+INTERNET-DRAFT     Optimized Packet Structure for HIP       June 6, 2002
+
+
+   Type        64
+   Length      length in octets, excluding T and L fields and padding
+   Cert count  total count of certificates that are sent, possibly
+               in different CER packets
+   Cert ID     the order number for this certificate
+   Cert Type   describes the type of the certificate
+
+   The receiver must know the total number (Cert count) of certificates
+   that it will receive from the sender, related to the R1 or I2. The
+   Cert ID identifies the particular certificate and its order in the
+   certificate chain. The numbering in Cert ID MUST go from 1 to Cert
+   count.
+
+   The following certificate types have been identified:
+
+   Cert format    Type number
+   X.509 v3       1
+
+   The encoding format for X.509v3 certificate is defined in [RFC2459].
+
+3.4.11 HIP_SIGNATURE
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |             Type              |             Length            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |    SIG alg    |                  Signature                    /
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   /                               |             padding           |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+   Type         65534 (2^16-2)
+   Length       length in octets, excluding T and L fields and padding
+   SIG alg      Signature algorithm
+   Signature    the signature is calculated over the HIP packet,
+                excluding the HIP_SIGNATURE TLV field. The checksum
+                field MUST be set to zero and the HIP header length in
+                the HIP common header MUST be calculated to the
+                beginning of the HIP_SIGNATURE TLV when the signature is
+                calculated.
+
+   Signature calculation and verification process:
+
+   Packet sender:
+
+        1. Create the HIP packet without the HIP_SIGNATURE TLV
+        2. Calculate the length field in the HIP header
+
+
+
+draft-jokela-hip-packets-00.txt                                [Page 13]
+
+INTERNET-DRAFT     Optimized Packet Structure for HIP       June 6, 2002
+
+
+        3. Compute the signature
+        4. Add the HIP_SIGNATURE TLV to the packet
+        5. Recalculate the length field in the HIP header
+
+   Packet receiver:
+
+        1. Verify the HIP header length field
+        2. Save the HIP_SIGNATURE TLV and remove it from the packet
+        3. Recalculate the HIP packet length in the HIP header
+        4. Compute the signature and verify it against the received
+           signature
+
+   The following signature algorithms are defined:
+
+   Sig algorithm  value
+   DSA            1
+
+   The encoding format for DSA signatures is defined in FIPS 186 and
+   X9.30 standards.
+
+   The verification can use either the HI received from a HIP packet or
+   the HI from a DNS query, if the FQDN has been received either in the
+   HOST_ID_FQDN or in the CER packet.
+
+3.4.12 HIP_SIGNATURE_2
+
+   The TLV structure is the same as in 3.4.11. The fields are:
+
+   Type         65533 (2^16-3)
+   Length       length in octets, excluding T and L fields and padding
+   SIG alg      Signature algorithm
+   Signature    the signature is calculated over the R1 packet,
+                excluding the HIP_SIGNATURE_2 TLV field. Initiator's HIT
+                and Checksum field MUST be set to zero and the HIP
+                packet length in the HIP header MUST be calculated to
+                the beginning of the HIP_SIGNATURE_2 TLV when the
+                signature is calculated.
+
+   Zeroing the Initiator's HIT makes it possible to create R1 packets
+   beforehand to minimize the effects of possible DoS attacks.
+
+   Signature calculation and verification process: see the process in
+   3.4.11 HIP_SIGNATURE. Just replace the HIP_SIGNATURE with
+   HIP_SIGNATURE_2.
+
+   The signature algorithms are defined in 3.4.11. HIP_SIGNATURE.
+
+   The verification can use either the HI received from a HIP packet or
+
+
+
+draft-jokela-hip-packets-00.txt                                [Page 14]
+
+INTERNET-DRAFT     Optimized Packet Structure for HIP       June 6, 2002
+
+
+   the HI from a DNS query, if the FQDN has been received either in the
+   HOST_ID_FQDN or in the CER packet.
+
+3.4.13 REA_INFO
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |             Type              |             Length            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                      ESP sequence number                      |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          current SPI                          |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                            Reserved                           |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                              ID                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                           Lifetime                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                            Address                            |
+   |                                                               |
+   |                                                               |
+   |                                                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   .                                                               .
+   .                                                               .
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                              ID                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                           Lifetime                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                            Address                            |
+   |                                                               |
+   |                                                               |
+   |                                                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+   Type         128
+   Length       length in octets, excluding T and L fields
+   ESP sequence the ESP sequence number from the last sent ESP packet
+   number
+   Current SPI  the SPI used for ESP
+   Reserved     zero
+
+   ID           Interface ID, local to the host
+   Lifetime     Address lifetime
+
+
+
+draft-jokela-hip-packets-00.txt                                [Page 15]
+
+INTERNET-DRAFT     Optimized Packet Structure for HIP       June 6, 2002
+
+
+   Address      IPv6 or IPv4-in-IPv6 format [RFC2373]
+
+   The <ID, Lifetime, Address> triplet may be repeated several times.
+   The maximum header size gives the limit how many triplets may be
+   included in a single packet.
+
+3.4.14 NEW_SPI
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |             Type              |             Length            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                      ESP sequence number                      |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                            Old SPI                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                            New SPI                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+   Type         4
+   Length       length in octets, excluding T and L fields
+   ESP sequence
+   number
+   Old SPI
+   New SPI
+
+
+3.4.15 ENCRYPTED
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |             Type              |             Length            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                              IV                               |
+   |                                                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                        Encrypted data                         /
+   /                                                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+   Type         20
+   Length       length in octets, excluding T and L fields
+   IV           Initialization vector, if needed, zero otherwise
+   Encrypted    the data is encrypted using an encryption algorithm as
+   data         defined in a preceeding or otherwise known HIP transform
+
+
+
+draft-jokela-hip-packets-00.txt                                [Page 16]
+
+INTERNET-DRAFT     Optimized Packet Structure for HIP       June 6, 2002
+
+
+
+   The encrypted data is in TLV format itself.  Consequently, the
+   first fields in the contents are Type and Length.
+
+4. HIP Packets
+
+   The HIP protocol consists of nine packets. Each packet is described
+   in following subsections.
+
+   Packets contain the fixed HIP header, followed by the parameters.
+   The parameters part consists of zero or more TLV coded parameters.
+
+   Packet representation uses the following operations:
+
+   ()   parameter
+   x{y} operation x on content y
+   <x>i x exists i times
+   []   optional parameter
+   x|y  x or y
+
+   An OPTIONAL upper layer payload MAY follow the HIP header. The
+   payload proto field in the header indicates if there is additional
+   data following the HIP header. The P-bit in the control field of
+   the HIP packet header indicates whether the sender is capable of
+   sending and receiving this additional data. The HIP packet,
+   however, MUST NOT be fragmented. This limits the size of the
+   possible additional data in the packet.
+
+4.1. I1 - the HIP Initiator packet
+
+   The content of the Initiator's first HIP packet, I1, is the
+   following:
+
+   +----------------------+
+   | Fixed Header         |
+   +----------------------+
+
+   Header:
+     Packet Type = 1
+
+   IP ( HIP () )
+
+   The I1 packet contains only the fixed HIP header.
+
+   Valid control bits: P
+
+
+4.2. R1 - the HIP Responder packet
+
+
+
+draft-jokela-hip-packets-00.txt                                [Page 17]
+
+INTERNET-DRAFT     Optimized Packet Structure for HIP       June 6, 2002
+
+
+   +----------------------+
+   | Fixed Header         |
+   +----------------------+
+   | BIRTHDAY_COOKIE      |
+   +----------------------+
+   | DIFFIE_HELLMAN       |
+   +----------------------+
+   | HIP_TRANSFORM        |
+   +----------------------+
+   | ESP_ENC_TRANSFORM    |
+   +----------------------+
+   | ESP_AUTH_TRANSFORM   |
+   +----------------------+
+   | HOST_ID/HOST_ID_FQDN |
+   +----------------------+
+   | HIP_SIGNATURE_2      |
+   +----------------------+
+
+   Header:
+     Packet Type = 2
+
+
+   IP (HIP ( BIRTHDAY_COOKIE,
+             ( DIFFIE_HELLMAN_FULL | DIFFIE_HELLMAN ),
+             HIP_TRANSFORM,
+             ESP_ENC_TRANSFORM,
+             ESP_AUTH_TRANSFORM,
+             ( HOST_ID | HOST_ID_FQDN ),
+             HIP_SIGNATURE_2 ) )
+
+   Depending on the desired security level, the IPSec uses either
+   authentication, encryption or both. Respectively, the R1 packet
+   contains the needed ESP TLVs.
+
+   The R1 packet may be followed by one or more CER packets. In this
+   case, the C-bit in the header control field MUST be set.
+
+   Valid control bits: P, C, A
+
+
+4.3. I2 - the HIP Second Initiator packet
+
+   The content of the Initiator's second HIP packet, I2, is the
+   following:
+
+   +----------------------+
+   | Fixed Header         |
+   +----------------------+
+
+
+
+draft-jokela-hip-packets-00.txt                                [Page 18]
+
+INTERNET-DRAFT     Optimized Packet Structure for HIP       June 6, 2002
+
+
+   | SPI_LSI              |
+   +----------------------+
+   | BIRTHDAY_COOKIE      |
+   +----------------------+
+   | DIFFIE_HELLMAN       |
+   +----------------------+
+   | HIP_TRANSFORM        |
+   +----------------------+
+   | ESP_ENC_TRANSFORM    |
+   +----------------------+
+   | ESP_AUTH_TRANSFORM   |
+   +----------------------+
+   | ENCRYPTED            |
+   +----------------------+
+   | HIP_SIGNATURE        |
+   +----------------------+
+
+   Header:
+     Packet Type = 3
+
+   IP(HIP(SPI_LSI,
+          BIRTHDAY_COOKIE,
+          DIFFIE_HELLMAN,
+          HIP_TRANSFORM,
+          ESP_ENC_TRANSFORM,
+          ESP_AUTH_TRANSFORM,
+          ENCRYPTED{HOST_ID | HOST_ID_FQDN},
+          HIP_SIGNATURE))
+
+   Depending on the desired security level, the IPSec uses either
+   authentication, encryption or both. Respectively, the R1 packet
+   contains the needed ESP TLVs.
+
+   The HOST_ID or the HOST_ID_FQDN field is encrypted and it is as a
+   payload in the ENCRYPTED field.
+
+   The I2 packet may be followed by one or more CER packets. In this
+   case, the C-bit in the header control field MUST be set.
+
+   Valid control bits: P, C, E, A
+
+
+4.4. R2 - the HIP Second Responder packet
+
+   +----------------------+
+   | Fixed Header         |
+   +----------------------+
+   | SPI_LSI              |
+
+
+
+draft-jokela-hip-packets-00.txt                                [Page 19]
+
+INTERNET-DRAFT     Optimized Packet Structure for HIP       June 6, 2002
+
+
+   +----------------------+
+   | HIP_SIGNATURE        |
+   +----------------------+
+
+   Header:
+     Packet Type = 4
+
+   IP(HIP(SPI_LSI,
+          HIP_SIGNATURE))
+
+   Valid control bits: P, E
+
+
+4.5. NES - the HIP New SPI Packet
+
+
+   The content of the New SPI packet, NES, is the following:
+
+   +----------------------+
+   | Fixed Header         |
+   +----------------------+
+   | NEW_SPI              |
+   +----------------------+
+   | DIFFIE_HELLMAN (opt) |
+   +----------------------+
+   | HIP_SIGNATURE        |
+   +----------------------+
+
+   Header:
+     Packet Type = 5
+
+
+   IP(HIP(NEW_SPI
+          [,DIFFIE_HELLMAN],
+          HIP_SIGNATURE))
+
+   Valid control bits: P
+
+
+4.6. REA - the HIP Readdress Packet
+
+
+   The content of the Readdress Packet, REA, is the following:
+
+   +----------------------+
+   | Fixed Header         |
+   +----------------------+
+   | REA_INFO             |
+
+
+
+draft-jokela-hip-packets-00.txt                                [Page 20]
+
+INTERNET-DRAFT     Optimized Packet Structure for HIP       June 6, 2002
+
+
+   +----------------------+
+   | HIP_SIGNATURE        |
+   +----------------------+
+
+   Header:
+     Packet Type = 6
+
+
+   IP(HIP(REA_INFO,
+          HIP_SIGNATURE))
+
+   Valid control bits: P
+
+
+4.7. BOS - the HIP Bootstrap Packet
+
+   The content of the Boostrap packet, BOS, is the following:
+
+   +----------------------+
+   | Fixed Header         |
+   +----------------------+
+   | HOST_ID/HOST_ID_FQDN |
+   +----------------------+
+   | HIP_SIGNATURE        |
+   +----------------------+
+
+   Header:
+     Packet Type = 7
+
+   IP(HIP( ( HOST_ID | HOST_ID_FQDN ),
+          HIP_SIGNATURE))
+
+   The BOS packet may be followed by a CER packet if the HI is signed.
+   In this case, the C-bit in the header control field MUST be set.
+
+   Valid control bits: P, C, A
+
+
+4.8. CER - the HIP Certificate Packet
+
+   +----------------------+
+   | Fixed Header         |
+   +----------------------+
+   | ENCRYPTED            |
+   +----------------------+
+   | HIP_SIGNATURE        |
+   +----------------------+
+
+
+
+
+draft-jokela-hip-packets-00.txt                                [Page 21]
+
+INTERNET-DRAFT     Optimized Packet Structure for HIP       June 6, 2002
+
+
+   Header:
+     Packet Type = 8
+
+   IP(HIP(ENCRYPTED{<CERT>i},
+          HIP_SIGNATURE))
+
+   Certificates in the CER packet MAY be encrypted.
+
+   The encryption algorithm is provided in the HIP transform of the
+   previous (R1 or I2) packet.
+
+   Valid control bits: P
+
+
+5. Security considerations
+
+   This draft does not change the security framework presented in [HIP]
+   but defines an alternative packet structure. The new structure brings
+   some enhancements to the security.
+
+   The checksum calculation provides means to detect transmission errors
+   in packets without calculating the signature, thus making error
+   detection more efficient.
+
+   The strict order of TLVs and the semantic differentiation between
+   them makes the interpretation of these fields definite.
+
+   A separate signature, HIP_SIGNATURE_2 TLV, allows the generation of
+   the R1 packet beforehand. This provides a better protection against
+   DoS attacks which has been main principle in HIP design.
+
+   The new CER packet provides support for different kinds of PKI
+   solutions.
+
+
+6. References
+
+   [HIP], Moskowitz, R., "Host Identity Payload and Protocol",
+   draft-ietf-moskowitz-hip-05.txt, November 2001.
+
+   [HIPARCH], Moskowitz, R., "Host Identity Payload Architecture",
+   draft-ietf-moskowitz-hip-arch-03.txt, January 2001.
+
+   [HIPIMPL], Moskowitz, R., "Host Identity Payload Implementation",
+   draft-ietf-moskowitz-hip-impl-02.txt, January 2001.
+
+   [IKEv2], Harkins, D., Kaufman, C., Kent, S. et al, "Proposal for the
+   IKEv2 Protocol", draft-ietf-ipsec-ikev2-02.txt, April 2002
+
+
+
+draft-jokela-hip-packets-00.txt                                [Page 22]
+
+INTERNET-DRAFT     Optimized Packet Structure for HIP       June 6, 2002
+
+
+   [MIPv6], Johnson, D., Perkins, C., "Mobility Support in IPv6"
+   draft-ietf-mobileip-ipv6-16.txt, March 2002.
+
+   [PRN], "Protocol Numbers", IANA,
+   http://www.iana.org/assignments/protocol-numbers, December 2001
+
+   [RFC2373], R. Hinden, S. Deering, "IP Version 6 Addressing
+   Architecture", RFC 2373, July 1998.
+
+   [RFC2407], Piper, D., "The Internet IP Security Domain of
+   Interpretation for ISAKMP", RFC2407, November 1998
+
+   [RFC2412], Orman, H., "The OAKLEY Key Determination Protocol",
+   RFC2412, November 1998
+
+   [RFC2459], Housley, R., Ford, W., Polk, W., Solo, D., "Internet X.509
+   Public Key Infrastructure Certificate and CRL Profile", RFC2459,
+   January 1999
+
+   [RFC2460], Deering ,S., Hinden, R., "Internet Protocol, version 6
+   Specification", RFC2460, December 1998
+
+7. Acknowledgments
+
+   Thanks to R. Moskowitz, A. McGregor, The Boeing HIP implementation
+   team and to the HIPL team C. Candolin, J. Lundberg, M. Kousa,
+   M. Komu.
+
+8. Author's Addresses
+
+    Petri Jokela
+    Oy L M Ericsson Ab
+    FIN-02420 JORVAS
+    Finland
+
+    Phone:  +358 9 299 2413
+    Fax:    +358 9 299 5055
+    E-mail: petri.jokela@ericsson.fi
+
+
+    Jorma Wall
+    Oy L M Ericsson Ab
+    FIN-02420 JORVAS
+    Finland
+
+    Phone:  +358 9 299 3343
+    Fax:    +358 9 299 5055
+    E-mail: jorma.wall@ericsson.fi
+
+
+
+draft-jokela-hip-packets-00.txt                                [Page 23]
+
+INTERNET-DRAFT     Optimized Packet Structure for HIP       June 6, 2002
+
+
+    Jukka Ylitalo
+    Oy L M Ericsson Ab
+    FIN-02420 JORVAS
+    Finland
+
+    Phone:  +358 9 299 2622
+    Fax:    +358 9 299 5055
+    E-mail: jukka.ylitalo@ericsson.fi
+
+
+    Pekka Nikander
+    Oy L M Ericsson Ab
+    FIN-02420 JORVAS
+    Finland
+
+    Phone:  +358 9 299 3143
+    Fax:    +358 9 299 5055
+    E-mail: pekka.nikander@ericsson.fi
+
+
+
+9. Copyright Statement
+
+   Copyright (c) The Internet Society (2002). All Rights Reserved.  This
+   document and translations of it may be copied and furnished to
+   others, and derivative works that comment on or otherwise explain it
+   or assist in its implementation may be prepared, copied, published
+   and distributed, in whole or in part, without restriction of any
+   kind, provided that the above copyright notice and this paragraph are
+   included on all such copies and derivative works.  However, this
+   document itself may not be modified in any way, such as by removing
+   the copyright notice or references to the Internet Society or other
+   Internet organizations, except as needed for the purpose of
+   developing Internet standards in which case the procedures for
+   copyrights defined in the Internet Standards process must be
+   followed, or as required to translate it into languages other than
+   English.
+
+   The limited permissions granted above are perpetual and will not be
+   revoked by the Internet Society or its successors or assigns.
+
+   This document and the information contained herein is provided on an
+   "AS IS" basis and THE INTERNET SOCIETY AND THE INTERNET ENGINEERING
+   TASK FORCE DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING
+   BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION
+   HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF
+   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+
+
+
+
+draft-jokela-hip-packets-00.txt                                [Page 24]
+

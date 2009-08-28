@@ -1,0 +1,5208 @@
+
+
+Network Working Group                                       R. Moskowitz
+Internet-Draft                         ICSAlabs, a Division of TruSecure
+Expires: July 30, 2004                                       Corporation
+                                                             P. Nikander
+                                                      P. Jokela (editor)
+                                            Ericsson Research Nomadiclab
+                                                            T. Henderson
+                                                      The Boeing Company
+                                                        January 30, 2004
+
+
+                         Host Identity Protocol
+                      draft-moskowitz-hip-09-pre2
+
+Status of this Memo
+
+   This document is an Internet-Draft and is in full conformance with
+   all provisions of Section 10 of RFC2026.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF), its areas, and its working groups. Note that other
+   groups may also distribute working documents as Internet-Drafts.
+
+   Internet-Drafts are draft documents valid for a maximum of six months
+   and may be updated, replaced, or obsoleted by other documents at any
+   time. It is inappropriate to use Internet-Drafts as reference
+   material or to cite them other than as "work in progress."
+
+   The list of current Internet-Drafts can be accessed at http://
+   www.ietf.org/ietf/1id-abstracts.txt.
+
+   The list of Internet-Draft Shadow Directories can be accessed at
+   http://www.ietf.org/shadow.html.
+
+   This Internet-Draft will expire on July 30, 2004.
+
+Copyright Notice
+
+   Copyright (C) The Internet Society (2004). All Rights Reserved.
+
+Abstract
+
+   This memo specifies the details of the Host Identity Protocol (HIP).
+   The overall description of protocol and the underlying architectural
+   thinking is available in the separate HIP architecture specification.
+   The Host Identity Protocol is used to establish a rapid
+   authentication between two hosts and to provide continuity of
+   communications between those hosts independent of the networking
+   layer.
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                  [Page 1]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   The various forms of the Host Identity, Host Identity Tag (HIT) and
+   Local Scope Identifier (LSI), are covered in detail.  It is described
+   how they are used to support authentication and the establishment of
+   keying material, which is then used by IPsec Encapsulated Security
+   payload (ESP) to establish a two-way secured communication channel
+   between the hosts.  The basic state machine for HIP provides a HIP
+   compliant host with the resiliency to avoid many denial-of-service
+   (DoS)attacks.  The basic HIP exchange for two public hosts shows the
+   actual packet flow.  Other HIP exchanges, including those that work
+   across NATs are covered elsewhere.
+
+Table of Contents
+
+   1.     Introduction . . . . . . . . . . . . . . . . . . . . . . .   5
+   1.1    A new name space and identifiers . . . . . . . . . . . . .   5
+   1.2    The HIP protocol . . . . . . . . . . . . . . . . . . . . .   5
+   2.     Conventions used in this document  . . . . . . . . . . . .   7
+   3.     Host Identifier (HI) and its representations . . . . . . .   8
+   3.1    Host Identity Tag (HIT)  . . . . . . . . . . . . . . . . .   8
+   3.1.1  Generating a HIT from a HI . . . . . . . . . . . . . . . .   9
+   3.2    Local Scope Identifier (LSI) . . . . . . . . . . . . . . .   9
+   3.3    Security Parameter Index (SPI) . . . . . . . . . . . . . .  10
+   3.4    Difference between an LSI and the SPI  . . . . . . . . . .  11
+   3.5    TCP and UDP pseudo-header computation  . . . . . . . . . .  11
+   4.     Host Identity Protocol . . . . . . . . . . . . . . . . . .  13
+   4.1    HIP base exchange  . . . . . . . . . . . . . . . . . . . .  13
+   4.1.1  HIP Cookie Mechanism . . . . . . . . . . . . . . . . . . .  14
+   4.1.2  Authenticated Diffie-Hellman protocol  . . . . . . . . . .  16
+   4.1.3  HIP Birthday . . . . . . . . . . . . . . . . . . . . . . .  17
+   4.2    Sending data on HIP packets  . . . . . . . . . . . . . . .  17
+   4.3    Rekey  . . . . . . . . . . . . . . . . . . . . . . . . . .  17
+   4.4    Bootstrap support  . . . . . . . . . . . . . . . . . . . .  18
+   4.5    Certificate distribution . . . . . . . . . . . . . . . . .  18
+   5.     HIP packet flow and state machine  . . . . . . . . . . . .  19
+   5.1    HIP Scenarios  . . . . . . . . . . . . . . . . . . . . . .  19
+   5.2    Refusing a HIP exchange  . . . . . . . . . . . . . . . . .  20
+   5.3    Reboot and SA timeout restart of HIP . . . . . . . . . . .  20
+   5.4    HIP State Machine  . . . . . . . . . . . . . . . . . . . .  20
+   5.4.1  HIP States . . . . . . . . . . . . . . . . . . . . . . . .  21
+   5.4.2  HIP State Processes  . . . . . . . . . . . . . . . . . . .  21
+   5.4.3  Simplified HIP State Diagram . . . . . . . . . . . . . . .  24
+   6.     Packet formats . . . . . . . . . . . . . . . . . . . . . .  26
+   6.1    Payload format . . . . . . . . . . . . . . . . . . . . . .  26
+   6.1.1  HIP Controls . . . . . . . . . . . . . . . . . . . . . . .  27
+   6.1.2  Checksum . . . . . . . . . . . . . . . . . . . . . . . . .  27
+   6.2    HIP parameters . . . . . . . . . . . . . . . . . . . . . .  28
+   6.2.1  TLV format . . . . . . . . . . . . . . . . . . . . . . . .  29
+   6.2.2  Defining new parameters  . . . . . . . . . . . . . . . . .  30
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                  [Page 2]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   6.2.3  SPI_LSI  . . . . . . . . . . . . . . . . . . . . . . . . .  31
+   6.2.4  BIRTHDAY_COOKIE  . . . . . . . . . . . . . . . . . . . . .  33
+   6.2.5  DIFFIE_HELLMAN . . . . . . . . . . . . . . . . . . . . . .  33
+   6.2.6  HIP_TRANSFORM  . . . . . . . . . . . . . . . . . . . . . .  34
+   6.2.7  ESP_TRANSFORM  . . . . . . . . . . . . . . . . . . . . . .  35
+   6.2.8  HOST_ID  . . . . . . . . . . . . . . . . . . . . . . . . .  35
+   6.2.9  HOST_ID_FQDN . . . . . . . . . . . . . . . . . . . . . . .  37
+   6.2.10 CERT . . . . . . . . . . . . . . . . . . . . . . . . . . .  38
+   6.2.11 HMAC . . . . . . . . . . . . . . . . . . . . . . . . . . .  39
+   6.2.12 HIP_SIGNATURE  . . . . . . . . . . . . . . . . . . . . . .  40
+   6.2.13 HIP_SIGNATURE_2  . . . . . . . . . . . . . . . . . . . . .  41
+   6.2.14 NES  . . . . . . . . . . . . . . . . . . . . . . . . . . .  41
+   6.2.15 ENCRYPTED  . . . . . . . . . . . . . . . . . . . . . . . .  43
+   7.     HIP Packets  . . . . . . . . . . . . . . . . . . . . . . .  45
+   7.1    I1 - the HIP initiator packet  . . . . . . . . . . . . . .  45
+   7.2    R1 - the HIP responder packet  . . . . . . . . . . . . . .  46
+   7.3    I2 - the second HIP initiator packet . . . . . . . . . . .  47
+   7.4    R2 - the second HIP responder packet . . . . . . . . . . .  48
+   7.5    UPD - the HIP New SPI Packet . . . . . . . . . . . . . . .  48
+   7.6    BOS - the HIP Bootstrap Packet . . . . . . . . . . . . . .  49
+   7.7    CER - the HIP Certificate Packet . . . . . . . . . . . . .  50
+   7.8    PAYLOAD - the HIP Payload Packet . . . . . . . . . . . . .  50
+   8.     Packet processing  . . . . . . . . . . . . . . . . . . . .  52
+   8.1    Processing outgoing application data . . . . . . . . . . .  52
+   8.2    Processing incoming application data . . . . . . . . . . .  53
+   8.3    Initiation of a HIP exchange . . . . . . . . . . . . . . .  54
+   8.3.1  Sending multiple I1s in parallel . . . . . . . . . . . . .  55
+   8.3.2  Processing incoming ICMP Protocol Unreachable messages . .  55
+   8.4    Processing incoming I1 packets . . . . . . . . . . . . . .  55
+   8.4.1  R1 Management  . . . . . . . . . . . . . . . . . . . . . .  56
+   8.5    Processing incoming R1 packets . . . . . . . . . . . . . .  57
+   8.6    Processing incoming I2 packets . . . . . . . . . . . . . .  59
+   8.7    Processing incoming R2 packets . . . . . . . . . . . . . .  61
+   8.8    Initiating rekeying  . . . . . . . . . . . . . . . . . . .  61
+   8.9    Processing UPD packets . . . . . . . . . . . . . . . . . .  62
+   8.9.1  Processing an initial UPD packet . . . . . . . . . . . . .  63
+   8.9.2  Processing a reply UPD packet  . . . . . . . . . . . . . .  64
+   8.10   Processing BOS packets . . . . . . . . . . . . . . . . . .  65
+   8.11   Processing CER packets . . . . . . . . . . . . . . . . . .  65
+   8.12   Processing PAYLOAD packets . . . . . . . . . . . . . . . .  65
+   9.     HIP KEYMAT . . . . . . . . . . . . . . . . . . . . . . . .  66
+   10.    HIP Fragmentation Support  . . . . . . . . . . . . . . . .  68
+   11.    ESP with HIP . . . . . . . . . . . . . . . . . . . . . . .  69
+   11.1   ESP Security Associations  . . . . . . . . . . . . . . . .  69
+   11.2   Updating ESP SAs during rekeying . . . . . . . . . . . . .  69
+   11.3   Security Association Management  . . . . . . . . . . . . .  70
+   11.4   Security Parameter Index (SPI) . . . . . . . . . . . . . .  70
+   11.5   Supported Transforms . . . . . . . . . . . . . . . . . . .  70
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                  [Page 3]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   11.6   Sequence Number  . . . . . . . . . . . . . . . . . . . . .  70
+   12.    HIP Policies . . . . . . . . . . . . . . . . . . . . . . .  72
+   13.    Security Considerations  . . . . . . . . . . . . . . . . .  73
+   14.    IANA Considerations  . . . . . . . . . . . . . . . . . . .  75
+   15.    Acknowledgments  . . . . . . . . . . . . . . . . . . . . .  76
+          Normative references . . . . . . . . . . . . . . . . . . .  77
+          Informative references . . . . . . . . . . . . . . . . . .  79
+          Authors' Addresses . . . . . . . . . . . . . . . . . . . .  79
+   A.     Backwards compatibility API issues . . . . . . . . . . . .  81
+   B.     Probabilities of HIT collisions  . . . . . . . . . . . . .  84
+   C.     Probabilities in the cookie calculation  . . . . . . . . .  85
+   D.     Using responder cookies  . . . . . . . . . . . . . . . . .  86
+   E.     Running HIP over IPv4 UDP  . . . . . . . . . . . . . . . .  89
+   F.     Example checksums for HIP packets  . . . . . . . . . . . .  90
+   F.1    IPv6 HIP example (I1)  . . . . . . . . . . . . . . . . . .  90
+   F.2    IPv4 HIP packet (I1) . . . . . . . . . . . . . . . . . . .  90
+   F.3    TCP segment  . . . . . . . . . . . . . . . . . . . . . . .  90
+          Intellectual Property and Copyright Statements . . . . . .  92
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                  [Page 4]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+1. Introduction
+
+   The Host Identity Protocol (HIP) provides a rapid exchange of Host
+   Identities between two hosts.  The exchange also establishes a pair
+   IPsec Security Associations (SA), to be used with IPsec Encapsulated
+   Security Payload (ESP) [15].  The HIP protocol is designed to be
+   resistant to Denial-of-Service (DoS) and Man-in-the-middle (MitM)
+   attacks, and when used to enable ESP, provides DoS and MitM
+   protection for upper layer protocols, such as TCP and UDP.
+
+1.1 A new name space and identifiers
+
+   The Host Identity Protocol introduces a new namespace, the Host
+   Identity.  The effects of this change are explained in the companion
+   document, the HIP architecture [17] specification.
+
+   There are three representations of the Host Identity, the full Host
+   Identifier (HI), the Host Identity Tag (HIT), and the Local Scope
+   Identifier (LSI).  Three representations are used, as each meets a
+   different design goal of HIP, and none of them can be removed and
+   meet these goals.  The HI represents directly the Identity.  It is a
+   public key.  Since there are different public key algorithms that can
+   be used with different key lengths, the HI is not good for using as a
+   packet identifier, or as a index into the various operational tables
+   needed to support HIP.
+
+   A hash of the HI, the Host Identity Tag (HIT), thus becomes the
+   operational representation.  It is 128 bits long.  It is used in the
+   HIP payloads, and it is intended be used to index the corresponding
+   state in the end hosts.
+
+   In many environments, 128 bits is still considered large. For
+   example, currently used IPv4 based applications are constrained with
+   32 bit API fields.  Thus, the third representation, the 32 bit LSI,
+   is needed.  The LSI provides a compression of the HIT with only a
+   local scope so that it can be carried efficiently in any application
+   level packet and used in API calls.
+
+1.2 The HIP protocol
+
+   The base HIP exchange consists of four packets.  The four-packet
+   design helps to make HIP DoS resilient. The protocol exchanges
+   Diffie-Hellman keys in the 2nd and 3rd packets, and authenticates the
+   parties in the 3rd and 4th packets.  Additionally, it starts the
+   cookie exchange in the 2nd packet, completing it in the 3rd packet.
+
+   The exchange uses the Diffie-Hellman exchange to hide the Host
+   Identity of the Initiator in packet 3.  The Responder's Host Identity
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                  [Page 5]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   is not protected.  It should be noted, however, that both the
+   Initiator's and the Responder's HITs are transported as such (in
+   cleartext) in the packets, allowing an eavesdropper with a priori
+   knowledge about the parties to verify their identies.
+
+   Data packets start after the 4th packet.  The 3rd and 4th HIP packets
+   may carry a data payload in the future.  However, the details of this
+   are to be defined later as more implementation experience is gained.
+
+   Finally, HIP is designed as an end-to-end authentication and key
+   establishment protocol.  It lacks much of the fine-grain policy
+   control found in IKE that allows IKE to support complex gateway
+   policies.  Thus, HIP is not a complete replacement for IKE.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                  [Page 6]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+2. Conventions used in this document
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+   document are to be interpreted as described in RFC2119 [3].
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                  [Page 7]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+3. Host Identifier (HI) and its representations
+
+   The structure of the Host Identifier (HI) is the public key of an
+   asymmetric key pair.  Correspondingly, the host itself is entity that
+   holds the private key from the key pair.  See the HIP architecture
+   specification [17] for more details about the difference between an
+   identity and the corresponding identifier.
+
+   DSA is the MUST implement public key algorithm for all HIP
+   implementations, other algorithms MAY be supported.  DSA was chosen
+   as the default algorithm due to its small signature size.
+
+   A Host Identity Tag (HIT) is used in protocols to represent the Host
+   Identity.  Another representation of the Host Identity, the Local
+   Scope Identifier (LSI), can also be used in protocols and APIs.
+   LSI's advantage over HIT is its size; its disadvantage is its local
+   scope.
+
+3.1 Host Identity Tag (HIT)
+
+   The Host Identity Tag is a 128 bit value -- a hash of the Host
+   Identifier.  There are two advantages of using a hash over the actual
+   Identity in protocols.  Firstly, its fixed length makes for easier
+   protocol coding and also better manages the packet size cost of this
+   technology.  Secondly, it presents a consistent format to the
+   protocol whatever underlying identity technology is used.
+
+   There are two types of HITs.  HITs of the first type, called *type 1
+   HIT*, consist of an initial 2 bit prefix of 01, followed by 126 bits
+   of the SHA-1 hash of the public key.  HITs of the second type consist
+   of an initial 2 bit prefix of 10, a Host Assigning Authority (HAA)
+   field, and only the last 64 bits come from a SHA-1 hash of the Host
+   Identity.  This latter format for HIT is recommended for 'well known'
+   systems.  It is possible to support a resolution mechanism for these
+   names in hierarchical directories, like the DNS.  Another use of HAA
+   is in policy controls, see Section 12.
+
+   This document fully specifies only type 1 HITs.  HITs that consists
+   of the HAA field and the hash are specified in [20].
+
+   Any conforming implementation MUST be able to deal with both types of
+   HITs.  When handling other than type 1 HITs, the implementation is
+   RECOMMENDED to explicitly learn and record the binding between the
+   Host Identifier and the HIT, as it may not be able generate such HITs
+   from Host Identifiers.
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                  [Page 8]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+3.1.1 Generating a HIT from a HI
+
+   The 126 or 64 hash bits in a HIT MUST be generated by taking the
+   least significant 126 or 64 bits of the SHA-1 [18] hash of the Host
+   Identifier as it is represented in the Host Identity field in a HIP
+   payload packet.
+
+   For Identities that are DSA public keys, the HIT is formed as
+   follows:
+
+   1.  The DSA public key is encoded as defined in RFC2536 [10] Section
+       2, taking the fields T, Q, P, G, and Y, concatenated.  Thus, the
+       data to be hashed is 1 + 20 + 3 * 64 + 3 * 8 * T octets long,
+       where T is the size parameter as defined in RFC2536 [10].  The
+       size parameter T, affecting the field lengths, MUST be selected
+       as the minimum value that is long enough to accomodate P, G, and
+       Y.  The fields MUST be encoded in network byte order, as defined
+       in RFC2536 [10].
+
+   2.  A SHA-1 hash [18] is calculated over the encoded key.
+
+   3.  The least significant 126 or 64 bits of the hash result are used
+       to create the HIT, as defined above.
+
+   The following pseudo-code illustrates the process.  The symbol :=
+   denotes assignment; the symbol += denotes appending.  The
+   pseudo-function encode_in_network_byte_order takes two parameters, an
+   integer (bignum) and a length in bytes, and returns the integer
+   encoded into a byte string of the given length.
+
+    buffer := encode_in_network_byte_order ( DSA.T , 1 )
+    buffer += encode_in_network_byte_order ( DSA.Q , 20 )
+    buffer += encode_in_network_byte_order ( DSA.P , 64 + 8 * T )
+    buffer += encode_in_network_byte_order ( DSA.G , 64 + 8 * T )
+    buffer += encode_in_network_byte_order ( DSA.Y , 64 + 8 * T )
+
+    digest := SHA-1 ( buffer )
+
+    hit_126 := concatenate ( 01 ,      low_order_bits ( digest, 126 ) )
+    hit_haa := concatenate ( 10 , HAA, low_order_bits ( digest,  64 ) )
+
+
+3.2 Local Scope Identifier (LSI)
+
+   LSIs are 32-bit localized representations of a Host Identity.  The
+   purpose of an LSI is to facilitate using Host Identities in existing
+   IPv4 based protocols and APIs.  The owner of the Host Identity does
+   not set the LSI that other hosts use for it; each host selects the
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                  [Page 9]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   LSIs that it uses for representing its partners.
+
+   A *local LSI* is an LSI that a remote host has assigned to a host.
+   In some implementations, local LSIs may be assigned to some interface
+   as an IP address.  A *remote LSI* is an LSI that the host has
+   assigned to represent a remote host (and that the remote host has
+   accepted).
+
+   The LSIs MUST be allocated from the 1.0.0.0/8 subnet.  That makes it
+   easier to differentiate between LSIs and IPv4 addresses at the API
+   level.  By default, the low order 24 bits of an LSI SHOULD be equal
+   with the low order 24 bits of the corresponding HIT.  That allows
+   easier mapping between LSIs and HITs, and makes the LSI assigned to a
+   host to be a fixed one.
+
+   If a host is forming a remote LSI for a HIT whose low order 24 bits
+   are equal with another already existing remote LSI, the host MAY
+   select another LSI to represent that host.  If the low order 24 bits
+   of a remote HIT are equal to the low order 24 bits of a local LSI,
+   the host MAY select a different LSI to represent the remote host.  In
+   either case, the host SHOULD assign the low order 24 bits of the LSI
+   randomly.  All hosts SHOULD be prepared to handle local LSIs whose
+   low order 24 bits do not match with any of their own HITs.  Note that
+   any such mechanisms may be subject to implementation complications,
+   see Appendix A.
+
+   If the LSI assigned by a peer to represent a host is unacceptable,
+   the host MAY terminate the HIP four-way handshake and start anew.
+
+   It is possible that the HITs of two remote hosts have equal low order
+   24 bits.  Since HITs are basically random, if a host is communicating
+   with 1000 other hosts, the risk of such collision is roughly 0.006%,
+   and for a host communicating with 10000 other hosts, the risk is
+   about 0.06%.  However, given a population of 100000 hosts, each
+   communicating with 1000 other hosts, the probability that there were
+   no collisions at all is only about 2%.  In other words, even though
+   collisions are fairly rare events for any given host, they will
+   happen, and there must be a way to handle them.  However, this
+   specification does not currently specify any such way.  A future
+   version of this specification is expected to include a definition;
+   see also the discussion in Appendix A.
+
+3.3 Security Parameter Index (SPI)
+
+   SPIs are used in ESP to find the right security association for
+   received packets.  The ESP SPIs have added significance when used
+   with HIP; they are a compressed representation of the HITs in every
+   packet.  Thus, SPIs MAY be used by intermediary systems in providing
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 10]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   services like address mapping.  Note that since the SPI has
+   significance at the receiver, only the < DST, SPI >, where DST is a
+   destination IP address, uniquely identifies the receiver HIT at every
+   given point of time.  The same SPI value may be used by several
+   hosts.  A single < DST, SPI > value may denote different hosts at
+   different points of time, depending on which host is currently
+   reachable at the DST.
+
+   Each host selects for itself the SPI it wants to see in packets
+   received from its peer.  This allows it to select different SPIs for
+   different peers.  The SPI selection SHOULD be random; the rules of
+   Section 2.1 of the ESP specification [15] must be followed.  A
+   different SPI SHOULD be used for each HIP exchange with a particular
+   host; this is to avoid a replay attack.  Additionally, when a host
+   rekeys, the SPI MUST be changed.  Furthermore, if a host changes over
+   to use a different IP address, it MAY change the SPI.
+
+   One method for SPI creation that meets these criteria would be to
+   concatenate the HIT with a 32 bit random or sequential number, hash
+   this (using SHA1), and then use the high order 32 bits as the SPI.
+
+   The selected SPI is communicated to the peer in the third (I2) and
+   fourth (R2) packets of the base HIP exchange. Changes in SPI are
+   signalled with NES packets.
+
+3.4 Difference between an LSI and the SPI
+
+   There is a subtle difference between an LSI and a SPI.
+
+   The LSI is designed to be relatively long-lived.  A system selects
+   the LSI it locally uses to represent its peer, and it SHOULD reuse a
+   previous LSI for a HIT during a subsequent HIP exchange.  This could
+   be important in a timeout recovery situation.  The LSI only appears
+   in the 3rd and 4th HIP packets.  The LSI is used anywhere in system
+   processes where IP addresses have traditionally have been used, like
+   in TCBs, IPv4 API calls, and FTP PORT commands.
+
+   The SPI is short-lived.  It changes with each HIP exchange and with a
+   HIP rekey.  A system notifies its peer of the SPI to use in ESP
+   packets sent to it.  Since the SPI is in all but the first two HIP
+   packets, it can be used in intermediary systems to assist in address
+   remapping.
+
+3.5 TCP and UDP pseudo-header computation
+
+   When computing TCP and UDP checksums on sockets bound to HITs or
+   LSIs, the IPv6 pseudo-header format [8] is used.  Additionally, the
+   HITs MUST be used in the place of the IPv6 addresses in the IPv6
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 11]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   pseudo-header.  Note that the pseudo-header for actual HIP payloads
+   is computed differently; see Section 6.1.2.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 12]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+4. Host Identity Protocol
+
+   The Host Identity Protocol is IP protocol TBD.  The HIP payload could
+   be carried in every datagram.  However, since HIP datagrams are
+   relatively large (at least 40 bytes), and ESP already has all of the
+   functionality to maintain and protect state, the HIP payload is
+   'compressed' into an ESP payload after the HIP exchange.  Thus in
+   practice, HIP packets only occur in datagrams to establish or change
+   HIP state.
+
+   For testing purposes, the protocol number 99 is currently used.
+
+4.1 HIP base exchange
+
+   The base HIP exchange serves to manage the establishment of state
+   between an Initiator and a Responder.  The Initiator first sends a
+   trigger packet, I1, to the Responder.  The second packet, R1, starts
+   the actual exchange.  It contains a puzzle, that is, a cryptographic
+   challenge that the Initiator must solve before continuing the
+   exchange.  In its reply, I2, the Initiator must display the solution.
+   Without a solution the I2 message is simply discarded.
+
+   The last three packets of the exchange, R1, I2, and R2, constitute a
+   standard authenticated Diffie-Hellman key exchange.  The base
+   exchange is illustrated below.
+
+       Initiator                              Responder
+
+                    I1: trigger exchange
+                  -------------------------->
+                                              select pre-computed R1
+                    R1: puzzle, D-H, key, sig
+                  <-------------------------
+    check sig                                 remain stateless
+    solve puzzle
+                  I2: solution, D-H, {key}, sig
+                  -------------------------->
+    compute D-H                               check cookie
+                                              check puzzle
+                                              check sig
+                            R2: sig
+                  <--------------------------
+    check sig                                 compute D-H
+
+
+   In this section we cover the overall design of the base exchange.
+   The details are the subject of the rest of this memo.
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 13]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+4.1.1 HIP Cookie Mechanism
+
+   The purpose of the HIP cookie mechanism is to protect the Responder
+   from a number of denial-of-service threats.  It allows the Responder
+   to delay state creation until receiving I2.  Furthermore, the puzzle
+   included in the cookie allows the Responder to use a fairly cheap
+   calculation to check that the Initiator is "sincere" in the sense
+   that it has churned CPU cycles in solving the puzzle.
+
+   The Cookie mechanism has been explicitly designed to give space for
+   various implementation options.  It allows a responder implementation
+   to completely delay session specific state creation until a valid I2
+   is received.  In such a case a validly formatted I2 can be rejected
+   earliest only once the Responder has checked its validity by
+   computing one hash function.  On the other hand, the design also
+   allows a responder implementation to keep state about received I1s,
+   and match the received I2s against the state, thereby allowing the
+   implementation to avoid the computational cost of the hash function.
+   The drawback of this latter approach is the requirement of creating
+   state. Finally, it also allows an implementation to use any
+   combination of the space-saving and computation-saving mechanisms.
+
+   One possible way for a Responder to remain stateless but drop most
+   spoofed I2s is to base the selection of the cookie on some function
+   over the Initiator's Host Identity.  The idea is that the Responder
+   has a (perhaps varying) number of pre-calculated R1 packets, and it
+   selects one of these based on the information carried in I1.  When
+   the Responder then later receives I2, it checks that the cookie in
+   the I2 matches with the cookie sent in the R1, thereby making it
+   impractical for the attacker to first exchange one I1/R1, and then
+   generate a large number of spoofed I2s that seemingly come from
+   different IP addresses or use different HITs.  The method does not
+   protect from an attacker that uses fixed IP addresses and HITs,
+   though.  Against such an attacker it is probably best to create a
+   piece of local state, and remember that the puzzle check has
+   previously failed.  See Appendix D for one possible implementation.
+   Note, however, that the implementations MUST NOT use the exact
+   implementation given in the appendix, and SHOULD include sufficient
+   randomness to the algorithm so that algorithm complexity attacks
+   become impossible [22].
+
+   The Responder can set the difficulty for Initiator, based on its
+   concern of trust of the Initiator.  The Responder SHOULD use
+   heuristics to determine when it is under a denial-of-service attack,
+   and set the difficulty value K appropriately.
+
+   The Responder starts the cookie exchange when it receives an I1.  The
+   Responder supplies a random number I, and requires the Initiator to
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 14]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   find a number J.  To select a proper J, the Initiator must create the
+   concatenation of I, the HITs of the parties, and J, and take a SHA-1
+   hash over this concatenation.  The lowest order K bits of the result
+   MUST be zeros.
+
+   To generate a proper number J, the Initiator will have to generate a
+   number of Js until one produces the hash target of zero.  The
+   Initiator SHOULD give up after trying 2^(K+2) times, and start over
+   the exchange.  (See Appendix C.)  The Responder needs to re-create
+   the concatenation of I, the HITs, and the provided J, and compute the
+   hash once to prove that the Initiator did its assigned task.
+
+   To prevent pre-computation attacks, the Responder MUST select the
+   number I in such a way that the Initiator cannot guess it.
+   Furthermore, the construction MUST allow the Responder to verify that
+   the value was indeed selected by it and not by the Initiator.  See
+   Appendix D for an example on how to implement this.
+
+   It is RECOMMENDED that the Responder generates a new cookie and a new
+   R1 once every few minutes.  Furthermore, it is RECOMMENDED that the
+   Responder remembers an old cookie at least 60 seconds after it has
+   been deprecated.  These time values allow a slower Initiator to solve
+   the cookie puzzle while limiting the usability that an old, solved
+   cookie has to an attacker.
+
+   NOTE: The protocol developers explicitly considered whether R1 should
+   include a timestamp in order to protect the Initiator from replay
+   attacks.  The decision was NOT to include a timestamp.
+
+   In R1, the values I and K are sent in network byte order. Similarily,
+   in I2 the values I and J are sent in network byte order.  The SHA-1
+   hash is created by concatenating, in network byte order, the
+   following data, in the following order:
+
+      64-bit random value I, in network byte order, as appearing in R1
+      and I2.
+
+      128-bit initiator HIT, in network byte order, as appearing in the
+      HIP Payload in R1 and I2.
+
+      128-bit responder HIT, in network byte order, as appearing in the
+      HIP Payload in R1 and I2.
+
+      64-bit random value J, in network byte order, as appearing in I2.
+
+   In order to be a valid response cookie, the K low-order bits of the
+   resulting SHA-1 digest must be zero.
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 15]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   Notes:
+
+      The length of the data to be hashed is 48 bytes.
+
+      All the data in the hash input MUST be in network byte order.
+
+      The order of the initiator and responder HITs are different in the
+      R1 and I2 packets, see Section 6.1.  Care must be taken to copy
+      the values in right order to the hash input.
+
+   Precomputation by the Responder Sets up the challenge difficulty K.
+
+      Generates a random number I.
+      Creates a signed R1 and caches it.
+
+   Responder Selects a suitable cached R1.
+
+      Sends I and K in a HIP Cookie in the R1.
+      Saves I and K for a Delta time.
+
+   Initiator Generates repeated attempts to solve the challenge until a
+      matching J is found:
+
+      Ltrunc( SHA-1( I | HIT-I | HIT-R | J ), K ) == 0
+      Sends I and J in HIP Cookie in a I2.
+
+   Responder Verifies that the received I is a saved one.
+
+      Finds the right K based on I.
+      Computes V := Ltrunc( SHA-1( I | HIT-I | HIT-R | J ), K )
+      Rejects if V != 0
+      Accept if V == 0
+
+   The Ltrunc (SHA-1(), K) denotes the lowest order K bits of the SHA-1
+   result.
+
+4.1.2 Authenticated Diffie-Hellman protocol
+
+   The packets R1, I2, and R2 implement a standard authenticated
+   Diffie-Hellman exchange.  The Responder sents its public
+   Diffie-Hellman key and its public authentication key, i.e., its host
+   identity, in R1.  The signature in R1 allows the Initiator to verify
+   that the R1 has been once generated by the Responder.  However, since
+   it is precomputed and therefore does not cover all of the packet, it
+   does not protect from replay attacks.
+
+   When the Initiator receives an R1, it computes the Diffie-Hellman
+   session key.  It creates a HIP security association using keying
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 16]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   material from the session key (see Section 9), and uses the security
+   association to encrypt its public authentication key, i.e., host
+   identity.  The resulting I2 contains the Initiator's Diffie-Hellman
+   key and its the encrypted public authentication key.  The signature
+   in I2 covers all of the packet.
+
+   The Responder extracts the Initiator Diffie-Hellman public key from
+   the I2, computes the Diffie-Hellman session key, creates a
+   corresponding HIP security association, and decrypts the Initiator's
+   public authentication key.  It can then verify the signature using
+   the authentication key.
+
+   The final message, R2, is needed to protect the Initiator from replay
+   attacks.
+
+4.1.3 HIP Birthday
+
+   The HIP Birthday is a reboot count used to manage state
+   re-establishment when one peer rebooted or timed out its SA. The
+   Birthday is increased every time the system boots.  The Birthday also
+   has to be increased in accordance with the system's SA timeout
+   parameter.  If the system has open SAs, it MUST increase its
+   Birthday.  This impacts a system's approach to precomputing R1
+   packets.
+
+   Birthday SHOULD be a counter.  It MUST NOT be reset by the user and a
+   system is unlikely to need a birthday larger than 2^64.  Date-time in
+   GMT MAY be used if a cross-boot counter is not possible, but it has a
+   potential problem if the system time is set back by the user.
+
+4.2 Sending data on HIP packets
+
+   A future version of this document may define how to include ESP
+   protected data on various HIP packets.  However, currently the HIP
+   header is a terminal header, and not followed by any other headers.
+
+   The OPTIONAL PAYLOAD packet (see Section 7.8) MAY be used to transfer
+   data.
+
+4.3 Rekey
+
+   HIP includes a simple rekey mechanism, allowing the hosts to
+   introduce new keying material at any time by introducing a new
+   Diffie-Hellman public key; see Section 7.5.  All conforming HIP
+   implementations MUST support rekeying.
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 17]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+4.4 Bootstrap support
+
+   This memo defines an OPTIONAL HIP based bootstrap mechanism, intended
+   for ad hoc like environments; see Section 7.6.  There is little
+   operational experience of the usability of this mechanism, and it may
+   be dropped or completely revised in some future protocol version.
+
+4.5 Certificate distribution
+
+   HIP does not define how to use certificates.  However, it does define
+   a simple certificate transport mechanisms that MAY be used to
+   implement certificate based security policies. The certificate
+   payload is defined in Section 6.2.10, and the certificate packet in
+   Section 7.7.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 18]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+5. HIP packet flow and state machine
+
+   A typical HIP packet flow is shown below.
+
+    I --> Directory: lookup of R
+    I <-- Directory: return R's addresses, and HI and/or HIT
+    I1      I --> R (Hi. Here is my I1, let's talk HIP)
+    R1      I <-- R (OK. Here is my R1, handle this HIP cookie)
+    I2      I --> R (Compute, compute, here is my counter I2)
+    R2      I <-- R (OK.  Let's finish HIP with my R2)
+    I --> R (ESP protected data)
+    I <-- R (ESP protected data)
+
+
+5.1 HIP Scenarios
+
+   The HIP protocol and state machine is designed to recover from one of
+   the parties crashing and losing its state.  The following scenarios
+   describe the main use cases covered by the design.
+
+      No prior state between the two systems.
+
+         The system with data to send is the Initiator.  The process
+         follows standard 4 packet base exchange, establishing the SAs.
+
+      The system with data to send has no state with the receiver, but
+      the receiver has a residual SA.
+
+         Initiator acts as in no prior state, sending I1 and getting R1.
+         When the Receiver gets an I2, the old SAs are 'discovered' and
+         deleted; the new SAs are established.
+
+      The system with data to send has an SA, but the receiver does not.
+
+         The receiver 'detects' the situation when it receives an ESP
+         packet that contains an unknown SPI. The receiver sends an R1
+         with a NULL initiator HIT. The sender gets the R1 with a later
+         birthdate, discards old SA, and continues the base exchange to
+         establish new SAs for sending data.
+
+      A peer determines that it needs to reset Sequence number or rekey.
+
+         It sends UPD. Receiver sends UPD response, establishes new SAs
+         for peers.
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 19]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+5.2 Refusing a HIP exchange
+
+   A HIP aware host may choose not to accept a HIP exchange. If the
+   host's policy is to only be an initiator, it should begin its own HIP
+   exchange.  A host MAY choose to have such a policy since only the
+   initiator HI is protected in the exchange.  There is a risk of a race
+   condition if each host's policy is to only be an Initiator, at which
+   point the HIP exchange will fail.
+
+   If the host's policy does not permit it to enter into a HIP exchange
+   with the Initiator, it should send an ICMP 'Destination Unreachable,
+   Administratively Prohibited' message.  A more complex HIP packet is
+   not used here as it actually opens up more potential DoS attacks than
+   a simple ICMP message.
+
+5.3 Reboot and SA timeout restart of HIP
+
+   Simulating a loss of state is a potential DoS attack.  The following
+   process has been crafted to manage state recovery without presenting
+   a DoS opportunity.
+
+   If a host reboots or times out, it has lost its HIP state. If the
+   system that lost state has a datagram to deliver to its peer, it
+   simply restarts the HIP exchange.  The peer sends an R1 HIP packet,
+   but does not reset its state until it receives the I2 HIP packet.
+   The I2 packet MUST have a Birthday greater than the current SA's
+   Birthday.  This is to handle DoS attacks that simulate a reboot of a
+   peer.  Note that either the original Initiator or the Responder could
+   end up restarting the exchange, becoming the new Initiator.
+
+   If a system receives an ESP packet for an unknown SPI, it is possible
+   that it has lost the state and its peer has not. In this case, the
+   system MAY initiate a new HIP exchange for re-establishing the SA.
+   The RESYNC bit in the I1 packet is set to indicate the peer about the
+   possible state loss.
+
+   The initiating host cannot know, if the SA indicated by the received
+   ESP packet is either a HIP SA or and IKE SA. If the old SA was not a
+   HIP SA, the peer may not respond to the I1 packet.
+
+   After sending the I1, the HIP negotiaton proceeds as normally and,
+   when successful, the SA is created at the initiating end. The peer
+   end removes the OLD SA and replaces it with the new one.
+
+5.4 HIP State Machine
+
+   The HIP protocol itself has very little state.  In the HIP base
+   exchange, there is an Initiator and a Responder.  Once the SAs are
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 20]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   established, this distinction is lost.  If the HIP state needs to be
+   re-established, the controlling parameters are which peer still has
+   state and which has a datagram to send to its peer.  The following
+   state machine attempts to capture these processes.
+
+   The state machine is presented in a single system view, representing
+   either an Initiator or a Responder.  There is not a complete overlap
+   of processing logic here and in the packet definitions.  Both are
+   needed to completely implement HIP.
+
+   Implementors must understand that the state machine, as described
+   here, is informational.  Specific implementations are free to
+   implement the actual functions differently.
+
+5.4.1 HIP States
+
+   UNASSOCIATED State machine start
+
+   I1-SENT Initiating HIP
+
+   I2-SENT Waiting to finish HIP
+
+   ESTABLISHED HIP SA established
+
+   REKEYING HIP SA established, rekeying
+
+   RESYNC Peer lost state, resyncing
+
+   E-FAILED HIP SA establishment failed
+
+
+5.4.2 HIP State Processes
+
+   +------------+
+   |UNASSOCIATED|  Start state
+   +------------+
+
+   Datagram to send, send I1 and go to I1-SENT
+   Receive I1, send R1 and stay at UNASSOCIATED
+   Receive I2, process
+        if successful, send R2 and go to ESTABLISHED
+        if fail, stay at UNASSOCIATED
+   Receive ESP for unknown SA, send I1 and go to I1-SENT
+   Receive ANYOTHER, drop and stay at UNASSOCIATED
+
+   +---------+
+   | I1-SENT |  Initiating HIP
+   +---------+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 21]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   Receive I1, send R1 and stay at I1-SENT
+   Receive I2, process
+        if successful, send R2 and go to ESTABLISHED
+        if fail, stay at I1-SENT
+   Receive R1, process
+        if successful, send I2 and go to I2-SENT
+        if fail, go to E-FAILED
+   Receive ANYOTHER, drop and stay at I1-SENT
+   Timeout, increment timeout counter
+        If counter is less than I1_RETRIES_MAX, send I1 and stay at I1-SENT
+        If counter is greater than I1_RETRIES_MAX, go to E-FAILED
+
+   +---------+
+   | I2-SENT | Waiting to finish HIP
+   +---------+
+
+   Receive I1, send R1 and stay at I2-SENT
+   Receive I2, process
+        if successful, send R2 and go to ESTABLISHED
+        if fail, stay at I2-SENT
+   Receive R2, process
+        if successful, go to ESTABLISHED
+        if fail, go to E-FAILED
+   Receive ANYOTHER, drop and stay at I2-SENT
+   Timeout, increment timeout counter
+        If counter is less than I2_RETRIES_MAX, send I2 and stay at I2-SENT
+        If counter is greater than I2_RETRIES_MAX, go to E-FAILED
+
+   +------------+
+   |ESTABLISHED | HIP SA established
+   +------------+
+
+   Receive I1, send R1 and go to RESYNC
+   Receive I2, process with Birthday check
+        if successful, send R2, drop old SAs, establish new SA, reenter
+        ESTABLISHED
+        if fail, stay at ESTABLISHED
+   Receive R1, drop and stay at ESTABLISHED
+
+
+   Receive R2, drop and stay at ESTABLISHED
+
+   Receive ESP for SA, process and stay at ESTABLISHED
+   Receive UPD, process
+        if successful, send UPD and stay at ESTABLISHED
+        if failed, stay at ESTABLISHED
+   Need rekey,
+        send UPD and go to REKEYING
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 22]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   +----------+
+   | REKEYING | HIP SA established, rekey pending
+   +----------+
+
+   Receive I1, send R1 and stay at REKEYING
+   Receive I2, process with Birthday check
+        if successful, send R2, drop old SA and go to ESTABLISHED
+        if fail, stay at REKEYING
+   Receive R1, drop and stay at REKEYING
+
+
+   Receive R2, drop and stay at REKEYING
+
+   Receive ESP for SA, process and stay at REKEYING
+   Receive UPD, process
+        if successful, replace SAs and go to ESTABLISHED
+        if failed, stay at REKEYING
+   Timeout, increment timeout counter
+        If counter is less than UPD_RETRIES_MAX, send UPD and stay at REKEYING
+        If counter is greater than UPD_RETRIES_MAX, go to E-FAILED
+
+   +--------+
+   | RESYNC | HIP SA established, resync pending
+   +--------+
+
+   Receive I1, send R1 and cycle at RESYNC
+   Receive I2, process with Birthday check
+        if successful, send R2, drop old SA and go to ESTABLISHED
+        if fail, stay at RESYNC
+   Receive R1, drop and stay at RESYNC
+   Receive R2, drop and stay at RESYNC
+
+
+   Receive ESP for SA, process and go to ESTABLISHED
+   Receive UPD, process
+        if successful, send UPD and go to ESTABLISHED
+        if failed, stay at RESYNC
+   Timeout, increment timeout counter
+        if counter is less than UPD_RETRIES_MAX, send I2 and stay at RESYNC
+        if counter is greater than UPD_RETRIES_MAX, go to ESTABLISHED
+
+   +----------+
+   | E-FAILED | HIP failed to establish association with peer
+   +----------+
+
+   Move to UNASSOCIATED after an implementation specific time. Re-negotiation
+   is possible after moving to UNASSOCIATED state.
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 23]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+5.4.3 Simplified HIP State Diagram
+
+   Receive packets cause a move to a new state.
+
+   +------------+
+   |UNASSOCIATED|>---+
+   +------------+    |
+    | ^ |            |
+    | | | Dgm to     |
+    +-+ | send       |
+    I1  | ESP-       |  (note: ESP- means ESP with unknown SPI)
+        |            |
+        v            |
+   +---------+       |
+   | I1-SENT |>---|----------+
+   +---------+    |          |
+        |         |          |
+        | R1      |          |
+        |         |I2        |I2
+        v         |          |
+   +---------+    |          |
+   | I2-SENT |>---|----------|-----+
+   |         |    |          |     |
+   +---------+    |          |     |
+        |         |          |     |
+        | R2      |          |     |I2
+        |         |          |     |
+        v         |          |     |
+   +-----------+<-+          |     |
+   |           |             |     |
+   |ESTABLISHED|<------------+     |
+   |           |<------------------+
+   |           |<------------------+
+   |           |>------------+     |
+   |           |<-----+      |     |
+   |           |--+   |      |     |
+   +-----------+  |   |      |     |
+    |  ^  ^       |   |      |     |
+    |  |  |       |   |      |     |
+    +--+  |       |   |      |     |
+    ESP,  |  rekey|   |I2    |     |
+    UPD,  |       |   |      |     |
+    I2    |UPD    |   |      |     |
+          |       |   |      |     |
+          |       |   |      |     |
+          |       |   |      |     |
+   +---------+    |   |      |     |
+   |         |<---+   |      |     |
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 24]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   |REKEYING |>-------+      |     |
+   +---------+               |     |
+    |  ^  v                  |     | I2, ESP
+    |  |  |               I1 |     | UPD, Timeout
+    +--+  |                  |     |
+    ESP   |                  |     |
+          |                  |     |
+          |                  v     ^
+          |    I1          +--------+
+          +--------------->| RESYNC |
+                           +--------+
+                              |  ^
+                              |  |
+                              +--+
+                               I1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 25]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+6. Packet formats
+
+6.1 Payload format
+
+   All HIP packets start with a fixed header.
+
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Next Header   |  Payload Len  |     Type      |  VER. |  RES. |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |          Controls             |           Checksum            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                Sender's Host Identity Tag (HIT)               |
+   |                                                               |
+   |                                                               |
+   |                                                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |               Receiver's Host Identity Tag (HIT)              |
+   |                                                               |
+   |                                                               |
+   |                                                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   /                        HIP Parameters                         /
+   /                                                               /
+   |                                                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+   The HIP header is logically an IPv6 extension header. However, this
+   document does not describe processing for Next Header values other
+   than decimal 59, IPPROTO_NONE, the IPV6 no next header value.  Future
+   documents MAY do so.  However, implementations MUST ignore trailing
+   data if a Next Header value is received that is not implemented.
+
+   The Header Length field contains the length of the HIP Header and the
+   length of HIP parameters in 8 bytes units, excluding the first 8
+   bytes.  Since all HIP headers MUST contain the sender's and
+   receiver's HIT fields, the minimum value for this field is 4, and
+   conversely, the maximum length of the HIP Parameters field is
+   (255*8)-32 = 2008 bytes.
+
+   The Packet Type indicates the HIP packet type.  The individual packet
+   types are defined in the relevant sections.  If a HIP host receives a
+   HIP packet that contains an unknown packet type, it MUST drop the
+   packet.
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 26]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   The HIP Version is four bits. The current version is 1.  The version
+   number is expected to be incremented only if there are incompatible
+   changes to the protocol.  Most extensions can be handled by defining
+   new packet types, new parameter types, or new controls.
+
+   The following four bits are reserved for future use.  They MUST be
+   zero when sent, and they SHOULD be ignored when handling a received
+   packet.
+
+   The HIT fields are always 128 bits (16 bytes) long.
+
+6.1.1 HIP Controls
+
+   The HIP control section transfers information about the structure of
+   the packet and capabilities of the host.
+
+   The following fields have been defined:
+
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      | | | | | | | | | | | | | |C|R|A|
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+   C - Certificate One or more certificate packets (CER) follows this
+      HIP packet (see Section 7.7).
+
+   R - Resync Indicating that the sender has lost state and is trying to
+      resynchronize. See Section 5.3.
+
+   A - Anonymous If this is set, the sender's HI in this packet is
+      anonymous, i.e., one not listed in a directory.  Anonymous HIs
+      SHOULD NOT be stored.  This control is set in packets R1 and/or
+      I2.  The peer receiving an anonymous HI may choose to refuse it by
+      silently dropping the exchange.
+
+   The rest of the fields are reserved for future use and MUST be set to
+   zero on sent packets and ignored on received packets.
+
+6.1.2 Checksum
+
+   The checksum field is located at the same location within the header
+   as the checksum field in UDP packets, enabling hardware assisted
+   checksum generation and verification. Note that since the checksum
+   covers the source and destination addresses in the IP header, it must
+   be recomputed on HIP based NAT boxes.
+
+   If IPv6 is used to carry the HIP packet, the pseudo-header [8]
+   contains the source and destination IPv6 addresses, HIP packet length
+   in the pseudo-header length field, a zero field, and the HIP protocol
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 27]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   number (TBD) in the Next Header field.  The length field is in bytes
+   and can be calculated from the HIP header length field: (HIP Header
+   Length + 1) * 8.
+
+   In case of using IPv4, the IPv4 UDP pseudo header format [1] is used.
+   In the pseudo header, the source and destination addresses are those
+   used in the IP header, the zero field is obviously zero, the protocol
+   is the HIP protocol number (TBD), and the length is calculated as in
+   the IPv6 case.
+
+6.2 HIP parameters
+
+   The HIP Parameters are used to carry the public key associated with
+   the sender's HIT, together with other related security information.
+   The HIP Parameters consists of ordered parameters, encoded in TLV
+   format.
+
+   The following parameter types are currently defined.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 28]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+      TLV               Type  Length     Data
+
+      SPI_LSI           1     16         Remote's SPI, Remote's LSI.
+
+      BIRTHDAY_COOKIE   3/5   32         System Boot Counter plus
+                                         two 64-bit fields:
+                                         - Random #I
+                                         - K or random #J
+
+
+      DIFFIE_HELLMAN    7     variable   public key
+
+      NES               11               Old SPI, New SPI and other
+                                         info needed for UPD
+
+      HIP_TRANSFORM     17    variable   HIP Encryption and Integrity
+                                         Transform
+
+      ESP_TRANSFORM     19    variable   ESP Encryption and
+                                         Authentication Transform
+
+      ENCRYPTED         21    variable   Encrypted part of I2 or CER
+                                         packets
+      HOST_ID           33    variable   Host Identity
+
+      HOST_ID_FQDN      35    variable   Host Identity with Fully
+                                         Qualified Domain Name
+
+      CERT              64    variable   HI certificate
+
+      HMAC              65245 24         HMAC based message
+                                         authentication code, with
+                                         key material from HIP_TRANSFORM
+
+      HIP_SIGNATURE2    65277 variable   Signature of the R1 packet
+
+      HIP_SIGNATURE     65279 variable   Signature of the packet
+
+
+
+6.2.1 TLV format
+
+   The TLV encoded parameters are described in the following
+   subsections.  The type-field value also describes the order of these
+   fields in the packet.  The parameters MUST be included into the
+   packet so that the types form an increasing order.  If the order does
+   not follow this rule, the packet is considered to be malformed and it
+   MUST be discarded.
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 29]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   All the TLV parameters have a length which is a multiple of 8 bytes.
+   When needed, padding MUST be added to the end of the parameter so
+   that the total length becomes a multiple of 8 bytes.  This rule
+   ensures proper alignment of data.  If padding is added, the Length
+   field MUST NOT include the padding.  Any added padding bytes MUST be
+   set zero by the sender, but their content SHOULD NOT be checked on
+   the receiving end.
+
+   Consequently, the Length field indicates the length of the Contents
+   field (in bytes).  The total length of the TLV parameter (including
+   Type, Length, Contents, and Padding) is related to the Length field
+   according to the following formula:
+
+   Total Length = 11 + Length - (Length + 3) % 8;
+
+       0                   1                   2                   3
+       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |             Type            |C|             Length            |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |                                                               |
+      /                          Contents                             /
+      /                                               +-+-+-+-+-+-+-+-+
+      |                                               |    Padding    |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+      Type         Type code for the parameter
+        C          Critical.  One if this parameter is critical, and
+                   MUST be recognized by the recipient, zero otherwise.
+                   The C bit is considered to be a part of the Type field.
+                   Consequently, critical parameters are always odd
+                   and non-critical ones have an even value.
+      Length       Length of the parameter, in bytes.
+      Contents     Parameter specific, defined by Type
+      Padding      Padding, 0-7 bytes, added if needed
+
+   Critical parameters MUST be recognized by the recipient. If a
+   recipient encounters a critical parameter that it does not recognize,
+   it MUST NOT process the packet any further.
+
+   Non-critical parameters MAY be safely ignored.  If a recipient
+   encounters a non-critical parameter that it does not recognize, it
+   SHOULD proceed as if the parameter was not present in the received
+   packet.
+
+6.2.2 Defining new parameters
+
+   Future specifications may define new parameters as needed.  When
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 30]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   defining new parameters, care must be taken to ensure that the
+   parameter type values are appropriate and leave suitable space for
+   other future extensions.  One must remember that the parameters MUST
+   always be arranged in the increasing order by the type code, thereby
+   limiting the order of parameters.
+
+   The following rules must be followed when defining new parameters.
+
+   1.  The low order bit C of the Type code is used to distinguish
+       between critical and non-critical parameters.
+
+   2.  A new parameter may be critical only if an old recipient ignoring
+       it would cause security problems.  In general, new parameters
+       SHOULD be defined as non-critical, and expect a reply from the
+       recipient.
+
+   3.  If a system implements a new critical parameter, it MUST provide
+       the ability to configure the associated feature off, such that
+       the critical parameter is not sent at all.  The configuration
+       option must be well documented.  By default, sending of such a
+       new critical parameter SHOULD be off.  In other words, the
+       management interface MUST allow vanilla standards only mode as a
+       default configuration setting, and MAY allow new critical
+       payloads to be configured on (and off).
+
+   4.  The following type codes are reserved for future base protocol
+       extensions, and may be assigned only through an appropriate WG or
+       RFC action.
+
+          0 - 511
+
+          65024 - 65535
+
+   5.  The following type codes are reserved for experimentation and
+       private use.  Types SHOULD be selected in a random fashion from
+       this range, thereby reducing the probability of collisions.  A
+       method employing genuine randomness (such as flipping a coin)
+       SHOULD be used.
+
+          32768 - 49141
+
+   6.  All other parameter type codes MUST be registed by the IANA.  See
+       Section 14.
+
+
+6.2.3 SPI_LSI
+
+   The SPI_LSI parameter contains the SPI that the receiving host must
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 31]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   use when sending data to the sending host, and the LSI that the
+   receiving host must to represent itself when talkin to the sending
+   host.
+
+       0                   1                   2                   3
+       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |             Type              |             Length            |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |                           Reserved                            |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |                              SPI                              |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |                              LSI                              |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+      Type         1
+      Length       12
+      Reserved     Zero when sent, ignored when received
+      SPI          Security Parameter Index
+      LSI          Local Scope Identifier
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 32]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+6.2.4 BIRTHDAY_COOKIE
+
+       0                   1                   2                   3
+       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |             Type              |             Length            |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |                           Reserved                            |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      | Birthday, 8 bytes                                             |
+      |                                                               |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      | Random # I, 8 bytes                                           |
+      |                                                               |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      | K or Random # J, 8 bytes                                      |
+      |                                                               |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+      Type           3 (in R1) or 5 (in I2)
+      Length         28
+      Reserved       Zero when sent, ignored when received
+      Birthday       System boot counter
+      Random # I     random number
+      K              K is the number of verified bits (in R1 packet)
+      Random # J     random number (in I2 packet)
+
+   Birthday, Random #I, K, and Random #J are represented as 64-bit
+   integers, in network byte order.
+
+6.2.5 DIFFIE_HELLMAN
+
+       0                   1                   2                   3
+       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |             Type              |             Length            |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |   Group ID    |               Public Value                    /
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      /                               |            padding            |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+      Type           7
+      Length         length in octets, excluding Type, Length, and padding
+      Group ID       defines values for p and g
+      Public Value   the sender's public Diffie-Hellman key
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 33]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   The following Group IDs have been defined:
+
+      Group                            Value
+      Reserved                         0
+      384-bit group                    1
+      OAKLEY well known group 1        2
+      1536-bit MODP group              3
+      3072-bit MODP group              4
+      6144-bit MODP group              5
+      8192-bit MODP group              6
+
+   The MODP Diffie-Hellman groups are defined in [14].  The OAKLEY group
+   is defined in [6]. The OAKLEY well known group 5 is the same as the
+   1536-bit MODP group.
+
+   A HIP implementation MUST support Group IDs 1 and 3. The 384-bit
+   group can be used when lower security is enough (e.g.  web surfing)
+   or when the equipment is not powerful enough (e.g. some PDAs).
+   Equipment powerful enough SHOULD implement also group ID 5.
+
+   To avoid unnecessary failures during the 4-way handshake, the rest of
+   the groups SHOULD be implemented in hosts where resources are
+   adequate.
+
+6.2.6 HIP_TRANSFORM
+
+       0                   1                   2                   3
+       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |             Type              |             Length            |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |          Transform-ID #1      |       Transform-ID #2         |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |          Transform-ID #n      |             Padding           |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+      Type           17
+      Length         length in octets, excluding Type, Length, and padding
+      Transform-ID   Defines the HIP Suite to be used
+
+   The Suite-IDs are identical to those defined in Section 6.2.7.
+
+   There MUST NOT be more than six (6) HIP Suite-IDs in one HIP
+   transform TLV. The limited number of transforms sets the maximum size
+   of HIP_TRANSFORM TLV. The HIP_TRANSFORM TLV MUST contain at least one
+   of the mandatory Suide-IDs.
+
+   Mandatory implementations: ENCR-3DES-CBC with HMAC-SHA1 and ENCR-NULL
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 34]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   with HMAC-SHA1.
+
+6.2.7 ESP_TRANSFORM
+
+       0                   1                   2                   3
+       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |             Type              |             Length            |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |          Reserved           |E|           Suite-ID #1         |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |          Suite-ID #2          |           Suite-ID #3         |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |          Suite-ID #n          |             Padding           |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+      Type           19
+      Length         length in octets, excluding Type, Length, and padding
+      E              One if the ESP transform requires 64-bit sequence
+                     numbers (see
+   Section 11.6
+   )
+      Reserved       zero when sent, ignored when received
+      Suite-ID       defines the ESP Suite to be used
+
+   The following Suite-IDs are defined ([16],[19]):
+
+         Suite-ID                          Value
+
+         RESERVED                          0
+         ESP-AES-CBC with HMAC-SHA1        1
+         ESP-3DES-CBC with HMAC-SHA1       2
+         ESP-3DES-CBC with HMAC-MD5        3
+         ESP-BLOWFISH-CBC with HMAC-SHA1   4
+         ESP-NULL with HMAC-SHA1           5
+         ESP-NULL with HMAC-MD5            6
+
+   There MUST NOT be more than six (6) ESP Suite-IDs in one
+   ESP_TRANSFORM TLV. The limited number of Suite-IDs sets the maximum
+   size of ESP_TRANSFORM TLV. The ESP_TRANSFORM MUST contain at least
+   one of the mandatory Suite-IDs.
+
+   Mandatory implementations: ESP-3DES-CBC with HMAC-SHA1 and ESP-NULL
+   with HMAC-SHA1.
+
+6.2.8 HOST_ID
+
+   When the host sends a Host Identity to a peer, it MAY send the
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 35]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   identity without any verification information or use certificates to
+   proof the HI.  If certificates are sent, they are sent in a separate
+   HIP packet (CER).
+
+       0                   1                   2                   3
+       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |             Type              |             Length            |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |                        Host Identity                          /
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      /                                               |   padding     |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+      Type           33
+      Length         length in octets, excluding Type, Length, and padding
+      Host Identity  actual host identity
+
+   The Host Identity is represented in RFC2535 [9] format.  The
+   algorithms used in RDATA format are the following:
+
+         Algorithms       Values
+
+         RESERVED         0
+         DSA              3 [RFC2536] (REQUIRED)
+         RSA              5 [RFC3110] (OPTIONAL)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 36]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+6.2.9 HOST_ID_FQDN
+
+       0                   1                   2                   3
+       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |             Type              |             Length            |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |          HI Length            |          FQDN Length          |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |                         Host Identity                         /
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      /                               |             FDQN              /
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      /                                               |    Padding    |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+      Type           35
+      Length         length in octets, excluding Type, Length, and padding
+      HI length      length of the Host Identity
+      FQDN length    length of the FQDN
+      Host Identity  actual host identity
+      FQDN           Fully Qualified Domain Name, in the binary format.
+
+
+   The Host Identity is represented in RFC2535 [9] format; see above.
+   The format for the FQDN is defined in RFC1035 [2] Section 3.1.
+
+   If there is no FQDN, the HOST_ID TLV is sent instead.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 37]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+6.2.10 CERT
+
+       0                   1                   2                   3
+       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |             Type              |             Length            |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |  Cert count   |   Cert ID     |   Cert type   |               /
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      /                          Certificate                          /
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      /                               |            Padding            |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+      Type           64
+      Length         length in octets, excluding Type, Length, and padding
+      Cert count     total count of certificates that are sent, possibly
+                     in several consequtive CER packets
+      Cert ID        the order number for this certificate
+      Cert Type      describes the type of the certificate
+
+   The receiver must know the total number (Cert count) of certificates
+   that it will receive from the sender, related to the R1 or I2.  The
+   Cert ID identifies the particular certificate and its order in the
+   certificate chain. The numbering in Cert ID MUST go from 1 to Cert
+   count.
+
+   The following certificate types are defined:
+
+      Cert format    Type number
+      X.509 v3       1
+
+   The encoding format for X.509v3 certificate is defined in [11].
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 38]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+6.2.11 HMAC
+
+       0                   1                   2                   3
+       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |             Type              |             Length            |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |                                                               |
+      |                             HMAC                              |
+      |                                                               |
+      |                                                               |
+      |                                                               |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+      Type           65245
+      Length         20
+      HMAC
+
+                     160 low order bits of the HMAC computed over the HIP
+                     packet, excluding the HMAC parameter and any
+                     following HIP_SIGNATURE or HIP_SIGNATURE2
+                     parameters.  The checksum field MUST be set to zero
+                     and the HIP header length in the HIP common header
+                     MUST be calculated not to cover any excluded
+                     parameters when the HMAC is calculated.
+
+
+   HMAC calculation and verification process:
+
+   Packet sender:
+
+   1.  Create the HIP packet, without the HMAC and possibly following
+       the HIP_SIGNATURE or HIP_SIGNATURE2 TLVs.
+
+   2.  Calculate the length field in the HIP header.
+
+   3.  Compute the HMAC.
+
+   4.  Add the HMAC TLV to the packet following possible HIP_SIGNATURE
+       or HIP_SIGNATURE2 TLVs.
+
+   5.  Recalculate the length field in the HIP header.
+
+   Packet receiver:
+
+   1.  Verify the HIP header length field.
+
+   2.  Remove the HMAC TLV, and if the packet contains any HIP_SIGNATURE
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 39]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+       or HIP_SIGNATURE2 fields, remove them too, saving the contents if
+       they will be needed later.
+
+   3.  Recalculate the HIP packet length in the HIP header and clear the
+       checksum field (set it to all zeros).
+
+   4.  Compute the HMAC and verify it against the received HMAC.
+
+
+6.2.12 HIP_SIGNATURE
+
+       0                   1                   2                   3
+       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |             Type              |             Length            |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |    SIG alg    |                  Signature                    /
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      /                               |             padding           |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+      Type           65279 (2^16-2^8-1)
+      Length         length in octets, excluding Type, Length, and padding
+      SIG alg        Signature algorithm
+      Signature      the signature is calculated over the HIP packet,
+                     excluding the HIP_SIGNATURE TLV field, but including
+                     the HMAC field, if present. The checksum field MUST
+                     be set to zero and the HIP header length in the HIP
+                     common header MUST be calculated to the beginning of
+                     the HIP_SIGNATURE TLV when the signature is
+                     calculated.
+
+   Signature calculation and verification process:
+
+   Packet sender:
+
+   1.  Create the HIP packet without the HIP_SIGNATURE TLV.
+
+   2.  Calculate the length field in the HIP header.
+
+   3.  Compute the signature.
+
+   4.  Add the HIP_SIGNATURE TLV to the packet.
+
+   5.  Recalculate the length field in the HIP header.
+
+   Packet receiver:
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 40]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   1.  Verify the HIP header length field.
+
+   2.  Save the contents of the HIP_SIGNATURE TLV and remove it from the
+       packet.
+
+   3.  Recalculate the HIP packet length in the HIP header and clear the
+       checksum field (set it to all zeros).
+
+   4.  Compute the signature and verify it against the received
+       signature.
+
+   The signature algorithms are defined in Section 6.2.8.  The signature
+   in the Signature field is encoded using the proper method depending
+   on the signature algorithm (e.g. in case of DSA, according to [10]).
+
+   The verification can use either the HI received from a HIP packet,
+   the HI from a DNS query, if the FQDN has been received either in the
+   HOST_ID_FQDN or in the CER packet, or one received by some other
+   means.
+
+6.2.13 HIP_SIGNATURE_2
+
+   The TLV structure is the same as in Section 6.2.12. The fields are:
+
+      Type           65277 (2^16-2^8-3)
+      Length         length in octets, excluding Type, Length, and padding
+      SIG alg        Signature algorithm
+      Signature      the signature is calculated over the R1 packet,
+                     excluding the HIP_SIGNATURE_2 TLV field, but
+                     including the HMAC field, if present. Initiator's
+                     HIT and Checksum field MUST be set to zero and the
+                     HIP packet length in the HIP header MUST be
+                     calculated to the beginning of the HIP_SIGNATURE_2
+                     TLV when the signature is calculated.
+
+   Zeroing the Initiator's HIT makes it possible to create R1 packets
+   beforehand to minimize the effects of possible DoS attacks.
+
+   Signature calculation and verification process follows the process in
+   Section 6.2.12.  The only difference is that instead of the the
+   HIP_SIGNATURE TLV the HIP_SIGNATURE_2 TLV is used, and the
+   Initiator's HIT is cleared (set to all zeros) before computing the
+   signature.
+
+6.2.14 NES
+
+   The UPD payload is used to reset Security Associations. It introduces
+   a new SPI to be used when sending data to the sender of the UPD
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 41]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   packet.  The keys for the new Security Association will be drawn from
+   KEYMAT.  If the packet contains a Diffie-Hellman parameter, the
+   KEYMAT is first recomputed before drawing the new keys.
+
+
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |             Type              |             Length            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |R|       Keymat Index          |             UPD ID            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                            Old SPI                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                            New SPI                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+      Type           11
+      Length         12
+      R              One if the NES is a reply to another UPD,
+                     otherwise zero.
+      Keymat Index   Index, in bytes, where to continue to draw ESP keys
+                     from KEYMAT. If the packet includes a new
+                     Diffie-Hellman key, the field MUST be zero.  Note
+                     that the length of this field limits the amount of
+                     keying material that can be drawn from KEYMAT.  If
+                     that amount is exceeded, the NES packet MUST contain
+                     a new Diffie-Hellman key.
+      UPD ID         Packet identifier.  Used to tie UPD packets
+                     into pairs.  Initialized to zero and incremented
+                     for each UPD.
+      Old SPI        Old SPI for data sent to the source address of
+                     this packet
+      New SPI        New SPI for data sent to the source address of
+                     this packet
+
+   Note that the NES used to include the SPI used in reverse direction,
+   too.  However, since UPD packets are now always sent in pairs, that
+   is not needed any more.  Any middleboxes between the communicating
+   hosts will learn the reverse mappings from the UPD reply.
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 42]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+6.2.15 ENCRYPTED
+
+       0                   1                   2                   3
+       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |             Type              |             Length            |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |                           Reserved                            |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |                              IV                               /
+      /                                                               /
+      /                               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               /
+      /                        Encrypted data                         /
+      /                                                               /
+      /                               +-------------------------------+
+      /                               |            Padding            |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+      Type           21
+      Length         length in octets, excluding Type, Length, and padding
+      Reserved       zero when sent, ignored when received
+      IV             Initialization vector, if needed, otherwise nonexisting.
+                     The length of the IV is inferred from the HIP transform.
+      Encrypted      The data is encrypted using an encryption algorithm as
+      data           defined in HIP transform.
+      Padding        Any Padding, if necessary, to make the TLV a multiple
+                     of 8 bytes.
+
+   The encrypted data is in TLV format itself. Consequently, the first
+   fields in the contents are Type and Length, allowing the contents to
+   be easily parsed after decryption. Each of the TLVs to be encrypted,
+   must be padded according to rules in Section 6.2.1 before encryption.
+
+   If the encryption algorithm requires the length of the data to be
+   encrypted to be a multiple of the cipher algorithm block size,
+   thereby necessitating padding, and if the encryption algorithm does
+   not specify the padding contents, then an implementation MUST append
+   the TLV parameter that is to be encrypted with an additional padding,
+   so that the length of the resulting cleartext is a multiple of the
+   cipher block size length.  Such a padding MUST be constructed as
+   specified in [15] Section 2.4.  On the other hand, if the data to be
+   encrypted is already a multiple of the block size, or if the
+   encryption algorithm does specify padding as per [15] Section 2.4,
+   then such additional padding SHOULD NOT be added.
+
+   The Length field in the inside, to be encrypted TLV does not include
+   the padding.  The Length field in the outside ENCRYPTED TLV is the
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 43]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   length of the data after encryption (including the Reserved field,
+   the IV field, and the output from the encryption process specified
+   for that suite, but not any additional external padding).  Note that
+   the length of the cipher suite output may be smaller or larger than
+   the length of the data to be encrypted, since the encryption process
+   may compress the data or add additional padding to the data.
+
+   The ENCRYPTED payload may contain additional external padding, if the
+   result of encryption, the TLV header and the IV is not a multiple of
+   8 bytes.  The contents of this external padding MUST follow the rules
+   given in Section 6.2.1.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 44]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+7. HIP Packets
+
+   There are eight basic HIP packets.  Four are for the base HIP
+   exchange, one is for rekeying, one is a broadcast for use when there
+   is no IP addressing (e.g., before DHCP exchange), one is used to send
+   certificates, and one is for sending unencrypted data.
+
+   Packets consist of the fixed header as described in Section 6.1,
+   followed by the parameters.  The parameter part, in turn, consists of
+   zero or more TLV coded parameters.
+
+   In addition to the base packets, other packets types will be defined
+   later in separate specifications.  For example, support for mobility
+   and multi-homing is not included in this specification.
+
+   Packet representation uses the following operations:
+
+      ()      parameter
+      x{y}    operation x on content y
+      <x>i    x exists i times
+      []      optional parameter
+      x | y   x or y
+
+   In the future, an OPTIONAL upper layer payload MAY follow the HIP
+   header.  The payload proto field in the header indicates if there is
+   additional data following the HIP header.  The HIP packet, however,
+   MUST NOT be fragmented.  This limits the size of the possible
+   additional data in the packet.
+
+7.1 I1 - the HIP initiator packet
+
+   The HIP header values for the I1 packet:
+
+      Header:
+        Packet Type = 1
+        SRC HIT = Initiator's HIT
+        DST HIT = Responder's HIT, or NULL
+
+      IP ( HIP () )
+
+   The I1 packet contains only the fixed HIP header.
+
+   Valid control bits: R
+
+   The Initiator gets the Responder's HIT either from a DNS lookup of
+   the Responder's FQDN, from some other repository, or from a local
+   table.  If the Initiator does not know the Responder's HIT, it may
+   attempt opportunistic mode by using NULL (all zeros) as the
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 45]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   Responder's HIT.
+
+   Since this packet is so easy to spoof even if it were signed, no
+   attempt is made to add to its generation or processing cost.
+
+   Implementation MUST be able to handle a storm of received I1 packets,
+   discarding those with common content that arrive within a small time
+   delta.
+
+   If a host has rebooted and it is trying to re-establish a Security
+   Association based on incoming and unidentified ESP traffic, it sends
+   an I1 packet with R bit set.
+
+7.2 R1 - the HIP responder packet
+
+   The HIP header values for the R1 packet:
+
+      Header:
+        Packet Type = 2
+        SRC HIT = Responder's HIT
+        DST HIT = Initiator's HIT
+
+      IP ( HIP ( BIRTHDAY_COOKIE,
+                 DIFFIE_HELLMAN,
+                 HIP_TRANSFORM,
+                 ESP_TRANSFORM,
+                 ( HOST_ID | HOST_ID_FQDN ),
+                 HIP_SIGNATURE_2 ) )
+
+   Valid control bits: C, A
+
+   The R1 packet may be followed by one or more CER packets. In this
+   case, the C-bit in the control field MUST be set.
+
+   If the responder HI is an anonymous one, the A control MUST be set.
+
+   The initiator HIT MUST match the one received in I1. If the R1 is a
+   response to an ESP packet with an unknown SPI, the Initiator HIT
+   SHOULD be zero.  If the Responder has multiple HIs, the responder HIT
+   used MUST match Initiator's request. If the Initiator used
+   opportunistic mode, the Responder may select freely among its HIs.
+
+   The Birthday is a reboot count used to manage state re-establishment
+   when one peer rebooted or timed out its SA.
+
+   The Cookie contains a random # I and the difficulty K.  The
+   difficulty K is the number of bits that the Initiator must get zero
+   in the puzzle.
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 46]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   The Diffie-Hellman value is ephemeral, but can be reused over a
+   number of connections.  In fact, as a defense against I1 storms, an
+   implementation MAY use the same Diffie-Hellman value for a period of
+   time, for example, 15 minutes.  By using a small number of different
+   Cookies for a given Diffie-Hellman value, the R1 packets can be
+   pre-computed and delivered as quickly as I1 packets arrive.  A
+   scavenger process should clean up unused DHs and Cookies.
+
+   The HIP_TRANSFORM contains the encryption and integrity algorithms
+   supported by the Responder to protect the HI exchange, in the order
+   of preference. All implementations MUST support the 3DES [7] with
+   HMAC-SHA-1-96 [4].
+
+   The ESP_TRANSFORM contains the ESP modes supported by the Responder,
+   in the order of preference.  All implementations MUST support 3DES
+   [7] with HMAC-SHA-1-96 [4].
+
+   The signature is calculated over the whole HIP envelope, after
+   setting the initiator HIT and header checksum temporarily to zero.
+   This allows the Responder to use precomputed R1s.  The Initiator
+   SHOULD validate this signature.  It SHOULD check that the responder
+   HI received matches with the one expected, if any.
+
+7.3 I2 - the second HIP initiator packet
+
+   The HIP header values for the I2 packet:
+
+      Header:
+        Type = 3
+        SRC HIT = Initiator's HIT
+        DST HIT = Responder's HIT
+
+      IP ( HIP ( SPI_LSI,
+                 BIRTHDAY_COOKIE,
+                 DIFFIE_HELLMAN,
+                 HIP_TRANSFORM,
+                 ESP_TRANSFORM,
+                 ENCRYPTED { HOST_ID | HOST_ID_FQDN },
+                 HIP_SIGNATURE ) )
+
+   Valid control bits: C, A
+
+   The HITs used MUST match the ones used previously.
+
+   If the initiator HI is an anonymous one, the A control MUST be set.
+
+   The Birthday is a reboot count used to manage state re-establishment
+   when one peer rebooted or timed out its SA.
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 47]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   The Cookie contains the random # I from R1 and the computed # J. The
+   low order K bits of the SHA-1(I | ... | J) MUST be zero.
+
+   The Diffie-Hellman value is ephemeral.  If precomputed, a scavenger
+   process should clean up unused DHs.
+
+   The HIP_TRANSFORM contains the encryption and integrity used to
+   protect the HI exchange selected by the Initiator. All
+   implementations MUST support the 3DES transform [7].
+
+   The Initiator's HI is encrypted using the HIP_TRANSFORM encryption
+   algorithm.  The keying material is derived from the Diffie-Hellman
+   exchanged as defined in Section 9.
+
+   The ESP_TRANSFORM contains the ESP mode selected by the Initiator.
+   All implementations MUST support 3DES [7] with HMAC-SHA-1-96 [4].
+
+   The signature is calculated over whole HIP envelope.  The Responder
+   MUST validate this signature.  It MAY use either the HI in the packet
+   or the HI acquired by some other means.
+
+7.4 R2 - the second HIP responder packet
+
+   The HIP header values for the R2 packet:
+
+      Header:
+        Packet Type = 4
+        SRC HIT = Responder's HIT
+        DST HIT = Initiator's HIT
+
+      IP ( HIP ( SPI_LSI, HMAC, HIP_SIGNATURE ) )
+
+
+   Valid control bits: none
+
+   The HMAC and signature are calculated over whole HIP envelope.  The
+   Initiator MUST validate both the HMAC and the signature.
+
+7.5 UPD - the HIP New SPI Packet
+
+   The UPD packet is MANDATORY.
+
+   The UPD serves three functions.  Firstly, it provides the peer system
+   with a new SPI to use when sending packets. Secondly, it optionally
+   provides a new Diffie-Hellman key to produce new keying material.
+   Thirdly, it provides any intermediate system with the mapping of the
+   old SPI to the new one.  This is important to systems like NATs [21]
+   that use SPIs to maintain address translation state.
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 48]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   The UPD packet is a HIP packet with NES and optional DIFFIE_HELLMAN
+   in the HIP payload.  The NES parameter contains the old and new SPI
+   values.  It also contains a UPD ID and HMAC to provide DoS and replay
+   protection.  Each system must have a UPD ID counter, initialized to
+   zero and incremented on each UPD.
+
+   The HIP header values for the UPD packet:
+
+      Header:
+        Packet Type = 5
+        SRC HIT = Sender's HIT
+        DST HIT = Recipients's HIT
+
+      IP ( HIP ( [ DIFFIE_HELLMAN, ] NES , HMAC, HIP_SIGNATURE ) )
+
+   Valid control bits: None
+
+   During the life of an SA established by HIP, one of the hosts may
+   need to reset the Sequence Number to one (to prevent wrapping) and
+   rekey.  The reason for rekeying might be an approaching sequence
+   number wrap in ESP, or a local policy on use of a key.  Rekeying ends
+   the current SAs and starts new ones on both peers.
+
+   UPD packets are always used in pairs, one in both directions, with
+   identical UPD IDs.  In the case both parties decide to rekey at the
+   same time, the result is four UPD packets, two in both directions.
+
+   Intermediate systems that use the SPI will have to inspect HIP
+   packets for a UPD packet.  The packet is signed for the benefit of
+   the intermediate systems.  Since intermediate systems may need the
+   new SPI values, the contents of this packet cannot be encrypted.
+
+   Processing UPD signatures is a potential DoS attack against
+   intermediate systems.
+
+7.6 BOS - the HIP Bootstrap Packet
+
+   The BOS packet is OPTIONAL.
+
+   In some situations, an Initiator may not be able to learn of a
+   Responder's information from DNS or another repository. Some examples
+   of this are DHCP and NetBios servers.  Thus, a packet is needed to
+   provide information that would otherwise be gleaned from a
+   repository.  This HIP packet is either self-signed in applications
+   like SoHo, or from a trust anchor in large private or public
+   deployments.  This packet MAY be broadcasted in IPv4 or multicasted
+   to the all hosts multicast group in IPv6.  The packet MUST NOT be
+   sent more often than once in every second.  Implementations MAY
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 49]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   ignore received BOS packets.
+
+   The HIP header values for the BOS packet:
+
+      Header:
+        Packet Type = 7
+        SRC HIT = Announcer's HIT
+        DST HIT = NULL
+
+      IP ( HIP ( ( HOST_ID | HOST_ID_FQDN ), HIP_SIGNATURE ) )
+
+   The BOS packet may be followed by a CER packet if the HI is signed.
+   In this case, the C-bit in the control field MUST be set.  If the BOS
+   packet is broadcasted or multicasted, the following CER packet(s)
+   MUST be broadcasted or multicasted to the same multicast group and
+   scope, respectively.
+
+   Valid control bits: C, A
+
+7.7 CER - the HIP Certificate Packet
+
+   The CER packet is OPTIONAL.
+
+   The Optional CER packets over the Announcer's HI by a higher level
+   authority known to the Recipient is an alternative method for the
+   Recipient to trust the Announcer's HI (over DNSSEC or PKI).
+
+   The HIP header values for CER packet:
+
+      Header:
+        Packet Type = 8
+        SRC HIT = Announcer's HIT
+        DST HIT = Recipients's HIT
+
+      IP ( HIP ( <CERT>i , HIP_SIGNATURE ) )  or
+
+      IP ( HIP ( ENCRYPTED { <CERT>i }, HIP_SIGNATURE ) )
+
+   Valid control bits: None
+
+   Certificates in the CER packet MAY be encrypted.  The encryption
+   algorithm is provided in the HIP transform of the previous (R1 or I2)
+   packet.
+
+7.8 PAYLOAD - the HIP Payload Packet
+
+   The PAYLOAD packet is OPTIONAL.
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 50]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   The HIP header values for the PAYLOAD packet:
+
+      Header:
+        Packet Type = 64
+        SRC HIT = Senders's HIT
+        DST HIT = Recipients's HIT
+
+      IP ( HIP ( ), payload )
+
+   Valid control bits: None
+
+   Payload Proto field in the Header MUST be set to correspond the
+   correct protocol number of the payload.
+
+   The PAYLOAD packet is used to carry a non-ESP protected data.  By
+   using the HIP header we ensure interoperability with NAT and other
+   middle boxes.
+
+   Processing rules of the PAYLOAD packet are the following:
+
+   Receiving:  If there is an existing HIP security association with the
+      given HITs, and the IP addresses match the IP addresses associated
+      with the HITs, pass the packet to the upper layer, tagged with
+      metadata indicating that the packet was NOT integrity or
+      confidentiality protected.
+
+   Sending:  If the IPsec SPD defines BYPASS for a given destination
+      HIT, send it with the PAYLOAD packet.  Otherwise use ESP as
+      specified in the SPD.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 51]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+8. Packet processing
+
+   Each host is assumed to have a separate HIP protocol implementation
+   that manages the host's HIP associations and handles requests for new
+   ones.  Each HIP association is governed by a state machine, with
+   states defined above in Section 5.4.  The HIP implementation can
+   simultaneously maintain HIP associations with more than one host.
+   Furthermore, the HIP implementation may have more than one active HIP
+   association with another host; in this case, HIP associations are
+   distinguished by their respective HITs and IPsec SPIs.  It is not
+   possible to have more than one HIP associations between any given
+   pair of HITs.  Consequently, the only way for two hosts to have more
+   than one parallel associations is to use different HITs, at least in
+   one end.
+
+   The processing of packets depends on the state of the HIP
+   association(s) with respect to the authenticated or apparent
+   originator of the packet.  A HIP implementation determines whether it
+   has an active association with the originator of the packet based on
+   the HITs or the SPI of the packet.
+
+8.1 Processing outgoing application data
+
+   In a HIP host, an application can send application level data using
+   HITs or LSIs as source and destination identifiers. The HITs and LSIs
+   may be specified via a backwards compatible API (see Appendix A) or a
+   completely new API. However, whenever there is such outgoing data,
+   the stack has to protect the data with ESP, and send the resulting
+   datagram using appropriate source and destination IP addresses.
+   Here, we specify the processing rules only for the base case where
+   both hosts have only single usable IP addresses; the multi-address
+   multi-homing case will be specified separately.
+
+   If the IPv4 backward compatible APIs and therefore LSIs are
+   supported, it is assumed that the LSIs will be converted into proper
+   HITs somewhere in the stack.  The exact location of the conversion is
+   an implementation specific issue and not discussed here.  The
+   following conceptual algorithm discusses only HITs, with the
+   assumption that the LSI-to-HIT conversion takes place somewhere.
+
+   The following steps define the conceptual processing rules for
+   outgoing datagrams destinated to a HIT.
+
+   1.  If the datagram has a specified source address, it MUST be a HIT.
+       If it is not, the implementation MAY replace the source address
+       with a HIT.  Otherwise it MUST drop the packet.
+
+   2.  If the datagram has an unspecified source address, the
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 52]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+       implementation must choose a suitable source HIT for the
+       datagram.  In selecting a proper local HIT, the implementation
+       SHOULD consult the table of currently active HIP sessions, and
+       preferably select a HIT that already has an active session with
+       the target HIT.
+
+   3.  If there no active HIP session with the given < source,
+       destination > HIT pair, one must be created by running the base
+       exchange.  The implementation SHOULD queue at least one packet
+       per a HIP session to be formed, and it MAY queue more than one.
+
+   4.  Once there is an active HIP session for the given < source,
+       destination > HIT pair, the outgoing datagram is protected using
+       the associated ESP security association.  In a typical
+       implementation, this will result in an transport mode ESP
+       datagram that still has HITs in the place of IP addresses.
+
+   5.  The HITs in the datagram are replaced with suitable IP addresses.
+       For IPv6, the rules defined in [12] SHOULD be followed.  Note
+       that this HIT-to-IP-address conversion step MAY also be performed
+       at some other point in the stack, e.g., before ESP processing.
+       However, care must be taken to make sure that the right ESP SA is
+       employed.
+
+
+8.2 Processing incoming application data
+
+   Incoming HIP datagrams arrive as ESP protected packets.  In the usual
+   case the receiving host has a corresponding ESP security association,
+   identified by the SPI and destination IP address in the packet.
+   However, if the host has crashed or otherwise lost its HIP state, it
+   may not have such an SA.
+
+   The following steps define the conceptual processing rules for
+   incoming ESP protected datagrams targeted to an ESP security
+   association created with HIP.
+
+   1.  Detect the proper IPsec SA, using the destination IP address and
+       the SPI.  If the resulting SA is a non-HIP ESP SA, process the
+       packet according to standard IPsec rules. If there are no SAs
+       identified with the SPI, the host MAY send an I1 with a NULL
+       Responder HIT and the R-bit set indicating re-establishment of an
+       SA.  Sending such I1s MUST be rate limited.
+
+   2.  If a proper HIP ESP SA is found, the packet is processed normally
+       by ESP, as if the packet were a transport mode packet.  The
+       packet may be dropped by ESP, as usual.  In a typical
+       implementation, the result of succesful ESP decryption and
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 53]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+       verification is a datagram with the original IP addresses as
+       source and destination.
+
+   3.  The IP addresses in the datagram are replaced with the HITs
+       associated with the ESP SA.  Note that this IP-address-to-HIT
+       conversion step MAY also be performed at some other point in the
+       stack, e.g., before ESP processing.
+
+   4.  The datagram is delivered to the upper layer. Demultiplexing the
+       datagram the right upper layer socket is based on the HITs (or
+       LSIs).
+
+
+8.3 Initiation of a HIP exchange
+
+   An implementation may originate a HIP exchange to another host based
+   on a local policy decision, usually triggered by an application
+   datagram, in much the same way that an IPsec IKE key exchange can
+   dynamically create a Security Association. Alternatively, a system
+   may initiate a HIP exchange if it has rebooted or timed out, or
+   otherwise lost its HIP state, as described in Section 5.3.
+
+   The implementation prepares an I1 packet and sends it to the IP
+   address that corresponds to the peer host.  The IP address of the
+   peer host may be obtained via conventional mechanisms, such as DNS
+   lookup.  The I1 contents are specified in Section 7.1.  The selection
+   of which host identity to use, if a host has more than one to choose
+   from, is typically a policy decision.
+
+   The following steps define the conceptual processing rules for
+   initiating a HIP exchange:
+
+   1.  The Initiator gets the Responder's HIT and one or more addresses
+       either from a DNS lookup of the responder's FQDN, from some other
+       repository, or from a local table. If the initiator does not know
+       the responder's HIT, it may attempt opportunistic mode by using
+       NULL (all zeros) as the responder's HIT.
+
+   2.  The Initiator sends an I1 to one of the Responder's addresses.
+       The selection of which address to use is a local policy decision.
+
+   3.  Upon sending an I1, the sender shall transition to state I1-SENT,
+       start a timer whose timeout value should be larger than the
+       worst-case anticipated RTT, and shall increment a timeout counter
+       associated with the I1.
+
+   4.  Upon timeout, the sender SHOULD retransmit the I1 and restart the
+       timer, up to a maximum of I1_RETRIES_MAX tries.
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 54]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+8.3.1 Sending multiple I1s in parallel
+
+   For the sake of minimizing the session establishment latency, an
+   implementation MAY send the same I1 to more than one of the
+   Responder's addresses.  However, it MUST NOT send to more than three
+   (3) addresses in parallel.  Furthermore, upon timeout, the
+   implementation MUST refrain from sending the same I1 packet to
+   multiple addresses.  These limitations are placed order to avoid
+   congestion of the network, and potential DoS attacks that might
+   happen, e.g., because someone claims to have hundreds or thousands of
+   addresses.
+
+   As the Responder is not guaranteed to distinguish the duplicate I1's
+   it receives at several of its addresses (because it avoids to store
+   states when it answers back an R1), the Initiator may receive several
+   duplicate R1's.
+
+   The Initiator SHOULD then select the destination address using the
+   source address of the first received R1 as a source address for the
+   next I2, and discards subsequent R1's.  This strategy seems to be
+   quite good in terms of RTT.
+
+8.3.2 Processing incoming ICMP Protocol Unreachable messages
+
+   A host may receive an ICMP Destination Protocol Unreachable message
+   as a response to sending an HIP I1 packet.  Such a packet may be an
+   indication that the peer does not support HIP, or it may be an
+   attempt to launch an attack by making the Initiator to believe that
+   the Responder does not support HIP.
+
+   When a system receives an ICMP Destination Protocol Unreachable
+   message while it is waiting for an R1, it MUST NOT terminate the
+   wait.  It MAY continue as if it had not received the ICMP message,
+   and send a few more I1s. Alternatively, it MAY take the ICMP message
+   as a hint that the peer most probably does not support HIP, and
+   return to state UNASSOCIATED earlier than otherwise. However, at
+   minimum, it MUST continue waiting for an R1 for a reasonable time
+   before returning to UNASSOCIATED.
+
+8.4 Processing incoming I1 packets
+
+   An implementation SHOULD reply to an I1 with an R1 packet, unless the
+   implementation is unable or unwilling to setup a HIP association.  If
+   the implementation is unable to setup a HIP association, the host
+   SHOULD send an ICMP Destination Protocol Unreachable,
+   Administratively Prohibited, message to the I1 source address.  If
+   the implementation is unwilling to setup a HIP association, the host
+   MAY ignore the I1.  This latter case may occur during a DoS attack
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 55]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   such as an I1 flood.
+
+   The implementation MUST be able to handle a storm of received I1
+   packets, discarding those with common content that arrive within a
+   small time delta.
+
+   A spoofed I1 can result in an R1 attack on a system.  An R1 sender
+   MUST have a mechanism to rate limit R1s to an address.
+
+   Under no circumstances does the HIP state machine transition upon
+   sending an R1.
+
+   The following steps define the conceptual processing rules for
+   responding to an I1 packet:
+
+   1.  The responder MUST check that the responder HIT in the received
+       I1 is either one of its own HITs, or NULL.
+
+   2.  If the responder is in ESTABLISHED state, the incoming I1 packet
+       MUST have the R bit set.  The responder MAY respond to this with
+       an R1 packet, prepare to drop existing SAs and move to RESYNC
+       state.
+
+   3.  If the responder is in UNASSOCIATED state and the incoming I1 has
+       the R bit set, the responder MAY respond with an R1.  It may be
+       that the initiator is now under an attack, or both the initiator
+       and the responder have lost the state.
+
+   4.  If the implementation chooses to respond to the I1 with and R1
+       packet, it creates a new R1 or selects a precomputed R1 according
+       to the format described in Section 7.2.
+
+   5.  The R1 MUST contain the received responder HIT, unless the
+       received HIT is NULL, in which case the Responder may freely
+       select among its HITs.
+
+   6.  The responder sends the R1 to the source IP address of the I1
+       packet.
+
+
+8.4.1 R1 Management
+
+   All compliant implementations MUST produce R1 packets. An R1 packet
+   MAY be precomputed.  An R1 packet MAY be reused for time Delta T,
+   which is implementation dependent.  R1 information MUST not be
+   discarded until Delta S after T. Time S is the delay needed for the
+   last I2 to arrive back to the responder.
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 56]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   An implementation MAY keep state about received I1s and match the
+   received I2s against the state, as discussed in Section 4.1.1.
+
+8.5 Processing incoming R1 packets
+
+   A system receiving an R1 MUST first check to see if it has sent an I1
+   to the originator of the R1 (i.e., it is in state I1-SENT).  If so,
+   it SHOULD process the R1 as described below, send an I2, and go to
+   state I2-SENT, setting a timer to protect the I2. If the system is in
+   any other state with respect to that host, it SHOULD silently drop
+   the R1.
+
+   The following steps define the conceptual processing rules for
+   responding to an R1 packet:
+
+   1.   A system receiving an R1 MUST first check to see if it has sent
+        an I1 to the originator of the R1 (i.e., it has a HIP
+        association that is in state I1-SENT and that is associated with
+        the HITs in the R1).  If so, it should process the R1 as
+        described below.
+
+   2.   Otherwise, if the system is in any other state than I1-SENT with
+        respect to the HITs included in the R1, it SHOULD silently drop
+        the R1 and remain in the current state.
+
+   3.   If the HIP association state is I1-SENT, the received
+        Initiator's HIT MUST correspond to the HIT used in the original,
+        I1 and the Responder's HIT MUST correspond to the one used,
+        unless the I1 contained a NULL HIT.
+
+   4.   The system SHOULD validate the R1 signature before applying
+        further packet processing, according to Section 6.2.13.
+
+   5.   The R1 packet may have the C bit set -- in this case, the system
+        should anticipate the receipt of HIP CER packets that contain
+        the host identity corresponding to the responder's HIT.
+
+   6.   The R1 packet may have the A bit set -- in this case, the system
+        MAY choose to refuse it by dropping the R1 and returning to
+        state UNASSOCIATED.  The system SHOULD consider dropping the R1
+        only if it used a NULL HIT in I1.  If the A bit is set, the
+        Responder's HIT is anonymous and should not be stored.
+
+   7.   The system SHOULD attempt to validate the HIT against the
+        received Host Identity.
+
+   8.   The system MUST store the received Birthday count for future
+        reference.
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 57]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   9.   The attempts to solve the cookie puzzle in R1.  The system MUST
+        terminate the search after a number of tries, the minimum of the
+        degree of difficulty specified by the K value or an
+        implementation- or policy-defined maximum retry count.  It is
+        RECOMMENDED that the system does not try more than 2^(K+2)
+        times.  If the cookie puzzle is not successfully solved, the
+        implementation may either resend I1 within the retry bounds or
+        abandon the HIP exchange.
+
+   10.  The system computes standard Diffie-Hellman keying material
+        according to the public value and Group ID provided in the
+        DIFFIE_HELLMAN parameter.  The Diffie-Hellman keying material
+        Kij is used for key extraction as specified in Section 9.  If
+        the received Diffie-Hellman Group ID is not supported, the
+        implementation may either resend I1 within the retry bounds or
+        abandon the HIP exchange.
+
+   11.  The system selects the HIP transform and ESP transform from the
+        choices presented in the R1 packet and uses the selected values
+        subsequently when generating and using encryption keys, and when
+        sending the I2.  If the proposed alternatives are not acceptable
+        to the system, it may either resend I1 within the retry bounds
+        or abandon the HIP exchange.
+
+   12.  The system prepares and creates an incoming IPsec ESP security
+        association.  It may also prepare a security association for
+        outgoing traffic, but since it does not have the correct SPI
+        value yet, it cannot activate it.
+
+   13.  The system initialized the remaining variables in the associated
+        state, including UPD ID counters.
+
+   14.  The system prepares and sends an I2, as described in Section
+        7.3.
+
+   15.  The system SHOULD start a timer whose timeout value should be
+        larger than the worst-case anticipated RTT, and MUST increment a
+        timeout counter associated with the I2. The sender SHOULD
+        retransmit the I2 upon a timeout and restart the timer, up to a
+        maximum of I2_RETRIES_MAX tries.
+
+   16.  If the system is in state I1-SENT, it shall transition to state
+        I2-SENT.  If the system is in any other state, it remains in the
+        current state.
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 58]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+8.6 Processing incoming I2 packets
+
+   Upon receipt of an I2, the system MAY perform initial checks to
+   determine whether the I2 corresponds to a recent R1 that has been
+   sent out, if the Responder keeps such state. For example, the sender
+   could check whether the I2 is from an address or HIT that has
+   recently received an R1 from it.  If the I2 is considered to be
+   suspect, it MAY be silently discarded by the system.
+
+   Otherwise, the HIP implementation SHOULD process the I2. This
+   includes validation of the cookie puzzle solution, generating the
+   Diffie-Hellman key, decrypting the Initiator's Host Identity,
+   verifying the signature, creating state, and finally sending an R2.
+
+   The following steps define the conceptual processing rules for
+   responding to an I2 packet:
+
+   1.   The system MAY perform checks to verify that the I2 corresponds
+        to a recently sent R1.  Such checks are implementation
+        dependent.  See Appendix D for a description of an example
+        implementation.
+
+   2.   The system MUST check that the Responder's HIT corresponds to
+        one of its own HITs.
+
+   3.   The system MUST validate the solution to the cookie puzzle by
+        computing the SHA-1 hash described in Section 7.3.
+
+   4.   The I2 MUST have a single value in each of the HIP_TRANSFORM and
+        ESP_TRANSFORM parameters, which MUST each match one of the
+        values offered to the Initiator in the R1 packet.
+
+   5.   The system must derive Diffie-Hellman keying material Kij based
+        on the public value and Group ID in the DIFFIE_HELLMAN
+        parameter.  This key is used to derive the HIP and ESP
+        association keys, as described in Section 9.  If the
+        Diffie-Hellman Group ID is unsupported, the I2 packet is
+        silently dropped.
+
+   6.   The encrypted HOST_ID or HOST_ID_FQDN is decrypted by the
+        Initiator encryption key defined in Section 9.  If the decrypted
+        data is not an HOST_ID or HOST_ID_FQDN parameter, the I2 packet
+        is silently dropped.
+
+   7.   The implementation SHOULD also verify that the Initiator's HIT
+        in the I2 corresponds to the Host Identity sent in the I2.
+
+   8.   The system MUST verify the HIP_SIGNATURE according to Section
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 59]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+        6.2.12 and Section 7.3.
+
+   9.   If the system is in state ESTABLISHED with respect to Ithe HITs,
+        the system MUST perform the birthday cookie Icheck as defined in
+        Section 5.3.
+
+   10.  If the checks above are valid, then the system proceeds with
+        further I2 processing; otherwise, it discards the I2 and remains
+        in the same state.
+
+   11.  The I2 packet may have the C bit set -- in this case, the system
+        should anticipate the receipt of HIP CER packets that contain
+        the host identity corresponding to the responder's HIT.
+
+   12.  The I2 packet may have the A bit set -- in this case, the system
+        MAY choose to refuse it by dropping the I2 and returning to
+        state UNASSOCIATED.  If the A bit is set, the Initiator's HIT is
+        anonymous and should not be stored.
+
+   13.  The Birthday count is extracted from the BIRTHDAY_COOKIE
+        parameter and stored for future use.
+
+   14.  The SPI_LSI field is parsed to obtain the SPI that will be used
+        for the Security Association outbound from the Responder and
+        inbound to the Initiator.
+
+   15.  If the system supports LSIs, it should check that the received
+        LSI is an acceptable representation of its own identity, and
+        create an appropriate state.  If the LSI is not acceptable, the
+        behaviour is currently undefined; see Appendix A.
+
+   16.  The system prepares and creates both incoming and outgoing ESP
+        security associations.
+
+   17.  The system initialized the remaining variables in the associated
+        state, including UPD ID counters.
+
+   18.  Upon successful processing of an I2 in states UNASSOCIATED,
+        I1-SENT, and I2-SENT, an R2 is sent and the state machine
+        transitions to state ESTABLISHED.
+
+   19.  Upon successful processing of an I2 in state ESTABLISHED/
+        REKEYING/RESYNC (which includes a successful Birthday check),
+        the old Security Association is dropped and a new one is
+        installed, an R2 is sent, and the state machine transitions to
+        ESTABLISHED, dropping any possibly ongoing rekeying attempt.
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 60]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+8.7 Processing incoming R2 packets
+
+   An R2 received in states UNASSOCIATED, I1-SENT, ESTABLISHED, REKEYING
+   or RESYNC results in the R2 being dropped and the state machine
+   staying in the same state.  If an R2 is received in state I2-SENT, it
+   SHOULD be processed.
+
+   The following steps define the conceptual processing rules for
+   incoming R2 packet:
+
+   1.  The system MUST verify that the HITs in use correspond to the
+       HITs that were received in R1.
+
+   2.  The system MUST verify the HMAC according to the procedures in
+       Section 6.2.11.
+
+   3.  The system MUST verify the HIP signature according to the
+       procedures in Section 6.2.12.
+
+   4.  If any of the checks above fail, there is a high probability of
+       an ongoing man-in-the-middle or other security attack.  The
+       system SHOULD act accordingly, based on its local policy.
+
+   5.  If the system is in any other state than I2-SENT, the R2 is
+       silently dropped.
+
+   6.  The SPI_LSI field is parsed to obtain the SPI that will be used
+       for the ESP Security Association inbound to the Responder.  The
+       system uses this SPI to create or activate the outgoing ESP
+       security association used to send packets to the peer.
+
+   7.  If the system supports LSIs, it should check that the received
+       LSI is an acceptable representation of its own identity, and
+       create an appropriate state.  If the LSI is not acceptable, the
+       behaviour is currently undefined; see Appendix A.
+
+   8.  Upon successful processing of the R2, the state machine moves to
+       state ESTABLISHED.
+
+
+8.8 Initiating rekeying
+
+   A system may initiate the rekey procedure at any time.  It MUST
+   initiate a rekey if its incoming ESP sequence counter is about to
+   overflow.
+
+   The following steps define the conceptual processing rules for
+   initiating a rekey:
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 61]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   1.  The system SHOULD generate a new Diffie-Hellman public key.
+
+   2.  The system MUST increment its outgoing UPD ID counter.
+
+   3.  The system creates a UPD pacoket, which SHOULD contain a
+       Diffie-Hellman parameter.  If the UPD packet contains the
+       Diffie-Hellman parameter, the Keymat Index in the NES parameter
+       MUST be zero.
+
+   4.  The system sends the UPD packet and transitions to state
+       REKEYING.
+
+   5.  The system SHOULD start a timer whose timeout value should be
+       larger than the worst-case anticipated RTT, and MUST increment a
+       timeout counter associated with UPD. The sender SHOULD retransmit
+       the UPD upon a timeout and restart the timer, up to a maximum of
+       UPD_RETRIES_MAX tries.
+
+   6.  The system MUST NOT delete its existing SAs, but continue using
+       them if its policy still allows.  The UPD procedure SHOULD be
+       initiated prior enough in order to make sure that the SA replay
+       counters do not overflow.
+
+
+8.9 Processing UPD packets
+
+   When a system receives a UPD packet, its processing depends on
+   whether the packet is a reply to a previously sent UPD packet or the
+   UPD is a new packet.
+
+   The following steps define the conceptual processing rules responding
+   handling a received UPD packet:
+
+   1.   If the system is in state ESTABLISHED and the UPD has the R-bit
+        set, the packet is silently dropped.
+
+   2.   If the UPD ID in the received UPD is smaller than the stored
+        incoming UPD ID, the packet MUST BE dropped.  Note that if the
+        UPD ID is equal to the stored value, the packet can be expected
+        to be a retransmission, and acted accordingly.  However, the
+        HMAC verification (next step) MUST NOT be skipped.  (A
+        byte-by-byte comparison of the received and a store packet would
+        be OK, though.)
+
+   3.   The system MUST verify the HMAC in the UPD packet.  If the
+        verification fails, the packet MUST be dropped.
+
+   4.   If the received UPD contains a Diffie-Hellman parameter, the
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 62]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+        received Keymat Index MUST be zero.  If this test fails, the
+        packet SHOULD be dropped and the system SHOULD log an error
+        message.
+
+   5.   If the received UPD does not contain a Diffie-Hellman parameter,
+        the received Keymat Index MUST be larger or equal to the index
+        of the next byte to be drawn from the current KEYMAT.  If this
+        test fails, the packet SHOULD be dropped and the system SHOULD
+        log an error message.
+
+   6.   The system MAY verify the SIGNATURE in the UPD packet. If the
+        verification fails, the packet SHOULD be dropped and an error
+        message logged.
+
+   7.   The system MUST record the UPD ID in the received packet, for
+        replay protection.
+
+   8.   If the system is in state ESTABLISHED, and the UPD does not have
+        the R-bit set, the packet is processed as specified in Section
+        8.9.1.
+
+   9.   If the system is in state REKEYING, and the UPD has the R-bit
+        set, the packet is processed as specified in Section 8.9.2.
+
+   10.  If the system is in state REKEYING, and the UPD doesn't have the
+        R-bit set, there are apparently two UPD packets crossing each
+        other in the network.  Consequently, the R-bit-less packet is
+        handled as specified in Section 8.9.1.  However, in order not to
+        unnecessarily spend cycles in Diffie-Hellman computations, there
+        are minor differences to the case of receiving such a packet in
+        state ESTABLISHED.
+
+
+8.9.1 Processing an initial UPD packet
+
+   When a system receives an initial UPD packet, i.e. one that does not
+   have the R-bit set, it prepares new incoming and outgoing SAs, but
+   does not change the outgoing SA yet. Once it has the new SAs in
+   place, it sends a reply UPD. The contents of the reply UPD depend on
+   whether the system was in state ESTABLISHED or REKEYING upon
+   receiving the initial UPD packet.
+
+   The following steps define the conceptual processing rules responding
+   handling a received initial UPD packet:
+
+   1.  If the system is in state ESTABLISHED, it consults its policy to
+       see if it needs to generate a new Diffie-Hellman key, and
+       generates a new key if needed. If the system is in state
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 63]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+       REKEYING, it may already have generated a new Diffie-Hellman key,
+       and SHOULD use it.
+
+   2.  If either the received UPD contains a new Diffie-Hellman key, the
+       system has a new Diffie-Hellman key from the previous step, or
+       both, the system generates new KEYMAT.  If there is only one new
+       Diffie-Hellman key, the other old key is used.
+
+   3.  If the system generated new KEYMAT in the previous step, it sets
+       Keymat Index to zero, independent on whether the received UPD
+       included a Diffie-Hellman key or not.
+
+   4.  The system draws keys for new incoming and outgoing ESP SAs,
+       starting from the Keymat Index, and prepares new incoming and
+       outgoing ESP SAs.  The SPI for the outgoing SA is the new SPI
+       value from the received UPD. The SPI for the incoming SA is
+       locally generated, and SHOULD be random.  The system MUST NOT
+       start using the new outgoing SA before it receives traffic on the
+       new incoming SA.
+
+   5.  The system prepares a reply UPD packet, with the R-bit one,
+       Keymat Index being the one used above, UPD ID being equal to the
+       one in the received UPD, old SPI being the current incoming SPI,
+       and new SPI being the newly generated incoming SPI.  If the
+       system generated a new Diffie-Hellman key above, the new key is
+       included in the packet in the Diffie-Hellman payload. Note that
+       if the system is in state REKEYING, the new Diffie-Hellman key
+       was probably generated and sent already earlier, in which case it
+       MUST NOT be included into the reply packet.
+
+
+8.9.2 Processing a reply UPD packet
+
+   When a system receives a reply UPD packet, i.e. one that has the
+   R-bit set, it starts to use the new outgoing SA. It must also
+   complete its new incoming SA.
+
+   The following steps define the conceptual processing rules responding
+   handling a received reply UPD packet:
+
+   1.  If either the received UPD contains a new Diffie-Hellman key, the
+       system has a new Diffie-Hellman key from initiating rekey, or
+       both, the system generates new KEYMAT.  If there is only one new
+       Diffie-Hellman key, the old key is used as the other key.
+
+   2.  If the system generated new KEYMAT in the previous step, it sets
+       Keymat Index to zero, independent on whether the received UPD
+       included a Diffie-Hellman key or not.
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 64]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   3.  The system draws keys for new incoming and outgoing ESP SAs,
+       starting from the Keymat Index, and prepares new incoming and
+       outgoing ESP SAs.  The SPI for the outgoing SA is the new SPI
+       value from the UPD.  The SPI for the incoming SA was generated
+       when rekey was initiated.
+
+   4.  The system starts to send to the new outgoing SA.  It should
+       start receiving data on the new incoming SA as soon as the peer
+       receives data on the new SA.
+
+   5.  If the system has no data to send for 500ms, it SHOULD send an
+       ESP packet anyway.  The purpose of this packet is to acknowledge
+       the other party that the UPD reply came through, and to allow the
+       other party to switch over to the new outgoing SA.  It is
+       RECOMMENDED that the system sends an empty ESP packet, i.e., one
+       where the Next Header field is IPPROTO_NONE (decimal 59).
+
+
+8.10 Processing BOS packets
+
+   Processing BOS packets is OPTIONAL, and currently undefined.
+
+8.11 Processing CER packets
+
+   Processing CER packets is OPTIONAL, and currently undefined.
+
+8.12 Processing PAYLOAD packets
+
+   Processing PAYLOAD packets is OPTIONAL, and currently undefined.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 65]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+9. HIP KEYMAT
+
+   HIP keying material is derived from the Diffie-Hellman Kij produced
+   during the base HIP exchange.  The Initiator has Kij during the
+   creation of the I2 packet, and the Responder has Kij once it receives
+   the I2 packet.  This is why I2 can already contain encrypted
+   information.
+
+   The KEYMAT is derived by feeding Kij and the HITs into the following
+   operation; the | operation denotes concatenation.
+
+    KEYMAT = K1 | K2 | K3 | ...
+          where
+
+    K1   = SHA-1( Kij | sort(HIT-I | HIT-R) | 0x01 )
+    K2   = SHA-1( Kij | K1 | 0x02 )
+    K3   = SHA-1( Kij | K2 | 0x03 )
+    ...
+    K255 = SHA-1( Kij | K254 | 0xff )
+    K256 = SHA-1( Kij | K255 | 0x00 )
+    etc.
+
+   Sort(HIT-I | HIT-R) is defined as the network byte order
+   concatenation of the two HITs, with the smaller HIT preceding the
+   larger HIT, resulting from the numeric comparison of the two HITs
+   interpreted as positive (unsigned) 128-bit integers in network byte
+   order.
+
+   The initial keys are drawn sequentially in the following order:
+
+      HIP-IR encryption key for Initiator's outgoing HIP packets
+
+      HIP-IR integrity (HMAC) key for Initiator's outgoing HIP packets
+
+      HIP-RI encryption key (currently unused) for Responder's outgoing
+      HIP packets
+
+      HIP-RI integrity (HMAC) key for Responder's outgoing HIP packets
+
+      SA-IR ESP encryption key for Initiator's outgoing traffic
+
+      SA-IR ESP authentication key for Initiator's outgoing traffic
+
+      SA-RI ESP encryption key for Responder's outgoing traffic
+
+      SA-RI ESP authentication key for Reponder's outgoing traffic
+
+   The IR and RI denotes the direction of the traffic where the key is
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 66]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   applied.  The IR describes "from the Initiator to the Responder"
+   -direction and the RI the other direction.
+
+   The number of bits drawn for a given algorithm is the "natural" size
+   of the keys.  For the mandatory algorithms, the following sizes
+   apply:
+
+   3DES 192 bits
+
+   SHA-1 160 bits
+
+   NULL 0 bits
+
+   The four HIP keys are only drawn from KEYMAT during a HIP I1->R2
+   exchange.  Subsequent rekeys using UPD will only draw the four ESP
+   keys from KEYMAT.  Section 8.9 describes the rules for reusing or
+   regenerating KEYMAT based on the UPD exchange.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 67]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+10. HIP Fragmentation Support
+
+   A HIP implementation must support IP fragmentation / reassembly.
+   Fragment reassembly MUST be implemented in both IPv4 and IPv6, but
+   fragment generation MUST be implemented only in IPv4 (IPv4 stacks and
+   networks will usually do this by default) and SHOULD be implemented
+   in IPv6.  In the IPv6 world, the minimum MTU is larger, 1280 bytes,
+   than in the IPv4 world. The larger MTU size is usually sufficient for
+   most HIP packets, and therefore fragment generation may not be
+   needed.  If a host expects to send HIP packets that are larger than
+   the minimum IPv6 MTU, it MUST implement fragment generation even for
+   IPv6.
+
+   In the IPv4 world, HIP packets may encounter low MTUs along their
+   routed path.  Since HIP does not provide a mechanism to use multiple
+   IP datagrams for a single HIP packet, support of path MTU discovery
+   does not bring any value to HIP in the IPv4 world.  HIP aware NAT
+   systems MUST perform any IPv4 reassembly/fragmentation.
+
+   All HIP implementations MUST employ a reassembly algorithm that is
+   sufficiently resistant against DoS attacks.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 68]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+11. ESP with HIP
+
+   XXX: Since HIP is designed for host usage, not for gateways, only ESP
+   transport mode is supported with HIP. The SA is not bound to an IP
+   address; all internal control of the SA is by the HIT and LSI.  XXX
+   BEET mode.
+
+   Since HIP does not negotiate any lifetimes, all lifetimes are local
+   policy.  The only lifetimes a HIP implementation MUST support are
+   sequence number rollover (for replay protection), and SA timeout. An
+   SA times out if no packets are received using that SA.  The default
+   timeout value is 15 minutes. Implementations MAY support lifetimes
+   for the various ESP transforms.
+
+11.1 ESP Security Associations
+
+   Each HIP association is linked with two ESP SAs, one incoming and one
+   outgoing.  The Initiator's incoming SA corresponds with the
+   Responder's outgoing one.  The initiator defines the SPI for this
+   association, as defined in Section 3.3.  This SA is called SA-RI, and
+   the corresponding SPI is called SPI-RI. Respectively, the Responder's
+   incoming SA corresponds with the Initiator's outgoing SA and is
+   called SA-IR, with the SPI-IR.
+
+   The Initiator creates SA-RI as a part of R1 processing, before
+   sending out the I2, as explained in Section 8.5. The keys are derived
+   from KEYMAT, as defined in Section 9. The Responder creates SA-RI as
+   a part of I2 processing, see Section 8.6.
+
+   The Responder creates SA-IR as a part of I2 processing, before
+   sending out R2, see Step 17 in Section 8.6. The Initator creates
+   SA-IR when processing R2, see Step 7 in Section 8.7.
+
+11.2 Updating ESP SAs during rekeying
+
+   After the initial 4-way handshake and SA establishment, both hosts
+   are in state ESTABLISHED.  There are no longer Initiator and
+   Responder roles and the association is symmetric.  In this
+   subsection, the initiating party of the rekey procedure is denoted
+   with I' and the peer with R'.
+
+   The I' initiates the rekeying process when needed (see Section 8.8).
+   It creates a UPD packet with required information and sends it to the
+   peer node.  The old SAs are still in use.
+
+   The R', after receiving and processing the UPD (see Section 8.9),
+   generates new SAs: SA-I'R' and SA-R'I'.  It does not take the new
+   outgoing SA into use, but uses still the old one, so there exists two
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 69]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   SA pairs towards the same peer host.  For the new outgoing SA, the
+   SPI-R'I' value is picked from the received UPD packet.  The R'
+   generates the new SPI value for the incoming SA, SPI-I'R', and
+   includes it in the response UPD packet.
+
+   When the I' receives a response UPD from the R', it generates new
+   SAs, as described in Section 8.9: SA-I'R' and SA-R'I'. It starts
+   using the new outgoing SA immediately.
+
+   The R' starts using the new outgoing SA when it receives traffic from
+   the new incoming SA.  After this, the R' can remove old SAs.
+   Similarily, when the I' receives traffic from the new incoming SA, it
+   can safely remove old SAs.
+
+11.3 Security Association Management
+
+   An SA pair is indexed by the 2 SPIs and 2 HITs (both HITs since a
+   system can have more than one HIT).  An inactivity timer is
+   recommended for all SAs.  If the state dictates the deletion of an
+   SA, a timer is set to allow for any late arriving packets.
+
+11.4 Security Parameter Index (SPI)
+
+   The SPIs in ESP provide a simple compression of the HIP data from all
+   packets after the HIP exchange.  This does require a per HIT- pair
+   Security Association (and SPI), and a decrease of policy granularity
+   over other Key Management Protocols like IKE.
+
+   When a host rekeys, it gets a new SPI from its partner.
+
+11.5 Supported Transforms
+
+   All HIP implementations MUST support 3DES [7] and HMAC-SHA-1-96 [4].
+   If the Initiator does not support any of the transforms offered by
+   the Responder in the R1 HIP packet, it MUST use 3DES and
+   HMAC-SHA-1-96 and state so in the I2 HIP packet.
+
+   In addition to 3DES, all implementations MUST implement the ESP NULL
+   encryption and authentication algorithms.  These algoritms are
+   provided mainly for debugging purposes, and SHOULD NOT be used in
+   production environments.  The default configuration in
+   implementations MUST be to reject NULL encryption or authentication.
+
+11.6 Sequence Number
+
+   The Sequence Number field is MANDATORY in ESP.  Anti-replay
+   protection MUST be used in an ESP SA established with HIP.
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 70]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   This means that each host MUST rekey before its sequence number
+   reaches 2^32, or if extended sequence numbers are used, 2^64.  Note
+   that in HIP rekeying, unlike IKE rekeying, only one Diffie-Hellman
+   key can be changed, that of the rekeying host.  However, if one host
+   rekeys, the other host SHOULD rekey as well.
+
+   In some instances, a 32 bit sequence number is inadequate. In the
+   ESP_TRANSFORM parameter, a peer MAY require that a 64 bit sequence
+   number be used.  In this case the higher 32 bits are NOT included in
+   the ESP header, but are simply kept local to both peers.  64 bit
+   sequence numbers must only be used for ciphers that will not be open
+   to cryptoanalysis as a result. AES is one such cipher.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 71]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+12. HIP Policies
+
+   There are a number of variables that will influence the HIP exchanges
+   that each host must support.  All HIP implementations MUST support
+   more than one simultaneous HIs, at least one of which SHOULD be
+   reserved for anonymous usage.  Although anonymous HIs will be rarely
+   used as responder HIs, they will be common for Initiators.  Support
+   for more than two HIs is RECOMMENDED.
+
+   Many Initiators would want to use a different HI for different
+   Responders.  The implementations SHOULD provide for an ACL of
+   initiator HIT to responder HIT.  This ACL SHOULD also include
+   preferred transform and local lifetimes.  For HITs with HAAs,
+   wildcarding SHOULD be supported.  Thus if a Community of Interest,
+   like Banking, gets an RAA, a single ACL could be used. A global
+   wildcard would represent the general policy to be used.  Policy
+   selection would be from most specific to most general.
+
+   The value of K used in the HIP R1 packet can also vary by policy.  K
+   should never be greater than 20, but for trusted partners it could be
+   as low as 0.
+
+   Responders would need a similar ACL, representing which hosts they
+   accept HIP exchanges, and the preferred transform and local
+   lifetimes.  Wildcarding SHOULD be supported for this ACL also.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 72]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+13. Security Considerations
+
+   HIP is designed to provide secure authentication of hosts and to
+   provide a fast key exchange for IPsec ESP.  HIP also attempts to
+   limit the exposure of the host to various denial-of-service and man-
+   in-the-middle attacks.  In so doing, HIP itself is subject to its own
+   DoS and MitM attacks that potentially could be more damaging to a
+   host's ability to conduct business as usual.
+
+   HIP enabled ESP is IP address independent.  This might seem to make
+   it easier for an attacker, but ESP with replay protection is already
+   as well protected as possible, and the removal of the IP address as a
+   check should not increase the exposure of ESP to DoS attacks.
+   Furthermore, this is in line with the forthcoming revision of ESP.
+
+   Denial-of-service attacks take advantage of the cost of start of
+   state for a protocol on the Responder compared to the 'cheapness' on
+   the Initiator.  HIP makes no attempt to increase the cost of the
+   start of state on the Initiator, but makes an effort to reduce the
+   cost to the Responder.  This is done by having the Responder start
+   the 3-way cookie exchange instead of the Initiator, making the HIP
+   protocol 4 packets long.  In doing this, packet 2 becomes a 'stock'
+   packet that the Responder MAY use many times.  The duration of use is
+   a paranoia versus throughput concern.  Using the same Diffie- Hellman
+   values and random puzzle I has some risk.  This risk needs to be
+   balanced against a potential storm of HIP I1 packets.
+
+   This shifting of the start of state cost to the Initiator in creating
+   the I2 HIP packet, presents another DoS attack.  The attacker spoofs
+   the I1 HIP packet and the Responder sends out the R1 HIP packet.
+   This could conceivably tie up the 'initiator' with evaluating the R1
+   HIP packet, and creating the I2 HIP packet.  The defense against this
+   attack is to simply ignore any R1 packet where a corresponding I1 or
+   ESP data was not sent.
+
+   A second form of DoS attack arrives in the I2 HIP packet. Once the
+   attacking Initiator has solved the cookie challenge, it can send
+   packets with spoofed IP source addresses with either invalid
+   encrypted HIP payload component or a bad HIP signature.  This would
+   take resources in the Responder's part to reach the point to discover
+   that the I2 packet cannot be completely processed. The defense
+   against this attack is after N bad I2 packets, the Responder would
+   discard any I2s that contain the given Initiator HIT.  Thus will shut
+   down the attack.  The attacker would have to request another R1 and
+   use that to launch a new attack.  The Responder could up the value of
+   K while under attack.  On the downside, valid I2s might get dropped
+   too.
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 73]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   A third form of DoS attack is emulating the restart of state after a
+   reboot of one of the partners.  To protect from such an attack, a
+   system Birthday is included in the R1 and I2 packets to prove loss of
+   state to a peer.  The inclusion of the Birthday creates a very
+   deterministic process for state restart.  Any other action is a DoS
+   attack.
+
+   A fourth form of DoS attack is emulating the end of state.  HIP has
+   no end of state packet.  It relies on a local policy timer to end
+   state.
+
+   Man-in-the-middle attacks are difficult to defend against, without
+   third-party authentication.  A skillful MitM could easily handle all
+   parts of HIP; but HIP indirectly provides the following protection
+   from a MitM attack.  If the Responder's HI is retrieved from a signed
+   DNS zone, a certificate, or through some other secure means, the
+   Initiator can use this to validate the R1 HIP packet.
+
+   Likewise, if the Initiator's HI is in a secure DNS zone, a trusted
+   certificate, or otherwise securely available, the Responder can
+   retrieve it after it gets the I2 HIP packet and validate that.
+   However, since an Initiator may choose to use an anonymous HI, it
+   knowingly risks a MitM attack.  The Responder may choose not to
+   accept a HIP exchange with an anonymous Initiator.
+
+   Since not all hosts will ever support HIP, ICMP 'Destination Protocol
+   Unreachable' are to be expected and present a DoS attack. Against an
+   Initiator, the attack would look like the Responder does not support
+   HIP, but shortly after receiving the ICMP message, the Initiator
+   would receive a valid R1 HIP packet.  Thus to protect from this
+   attack, an Initiator should not react to an ICMP message until a
+   reasonable delta time to get the real Responder's R1 HIP packet.  A
+   similar attack against the Responder is more involved.  First an ICMP
+   message is expected if the I1 was a DoS attack and the real owner of
+   the spoofed IP address does not support HIP.  The Responder SHOULD
+   NOT act on this ICMP message to remove the minimal state from the R1
+   HIP packet (if it has one), but wait for either a valid I2 HIP packet
+   or the natural timeout of the R1 HIP packet.  This is to allow for a
+   sophisticated attacker that is trying to break up the HIP exchange.
+   Likewise, the Initiator should ignore any ICMP message while waiting
+   for an R2 HIP packet, deleting state only after a natural timeout.
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 74]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+14. IANA Considerations
+
+   IANA has assigned IP Protocol number TBD to HIP.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 75]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+15. Acknowledgments
+
+   The drive to create HIP came to being after attending the MALLOC
+   meeting at IETF 43.  Baiju Patel and Hilarie Orman really gave the
+   original author, Bob Moskowitz, the assist to get HIP beyond 5
+   paragraphs of ideas.  It has matured considerably since the early
+   drafts thanks to extensive input from IETFers.  Most importantly, its
+   design goals are articulated and are different from other efforts in
+   this direction.  Particular mention goes to the members of the
+   NameSpace Research Group of the IRTF. Noel Chiappa provided the
+   framework for LSIs and Keith Moore the impetus to provide
+   resolvability.  Steve Deering provided encouragement to keep working,
+   as a solid proposal can act as a proof of ideas for a research group.
+
+   Many others contributed; extensive security tips were provided by
+   Steve Bellovin.  Rob Austein kept the DNS parts on track.  Paul
+   Kocher taught Bob Moskowitz how to make the cookie exchange expensive
+   for the Initiator to respond, but easy for the Responder to validate.
+   Bill Sommerfeld supplied the Birthday concept to simplify reboot
+   management.  Rodney Thayer and Hugh Daniels provide extensive
+   feedback.  In the early times of this draft, John Gilmore kept Bob
+   Moskowitz challenged to provide something of value.
+
+   During the later stages of this document, when the editing baton was
+   transfered to Pekka Nikander, the input from the early implementors
+   were invaluable.  Without having actual implementations, this
+   document would not be on the level it is now.
+
+   In the usual IETF fashion, a large number of people have contributed
+   to the actual text or ideas.  The list of these people include Jeff
+   Ahrenholz, Francis Dupont, Derek Fawcus, George Gross, Andrew
+   McGregor, Julien Laganier, Miika Komu, Mika Kousa, Jan Melen, Henrik
+   Petander, Michael Richardson, Tim Shepard, and Jukka Ylitalo.  Our
+   apologies to anyone who's name is missing.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 76]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+Normative references
+
+   [1]   Postel, J., "User Datagram Protocol", STD 6, RFC 768, August
+         1980.
+
+   [2]   Mockapetris, P., "Domain names - implementation and
+         specification", STD 13, RFC 1035, November 1987.
+
+   [3]   Bradner, S., "Key words for use in RFCs to Indicate Requirement
+         Levels", BCP 14, RFC 2119, March 1997.
+
+   [4]   Madson, C. and R. Glenn, "The Use of HMAC-SHA-1-96 within ESP
+         and AH", RFC 2404, November 1998.
+
+   [5]   Maughan, D., Schneider, M. and M. Schertler, "Internet Security
+         Association and Key Management Protocol (ISAKMP)", RFC 2408,
+         November 1998.
+
+   [6]   Orman, H., "The OAKLEY Key Determination Protocol", RFC 2412,
+         November 1998.
+
+   [7]   Pereira, R. and R. Adams, "The ESP CBC-Mode Cipher Algorithms",
+         RFC 2451, November 1998.
+
+   [8]   Deering, S. and R. Hinden, "Internet Protocol, Version 6 (IPv6)
+         Specification", RFC 2460, December 1998.
+
+   [9]   Eastlake, D., "Domain Name System Security Extensions", RFC
+         2535, March 1999.
+
+   [10]  Eastlake, D., "DSA KEYs and SIGs in the Domain Name System
+         (DNS)", RFC 2536, March 1999.
+
+   [11]  Housley, R., Polk, W., Ford, W. and D. Solo, "Internet X.509
+         Public Key Infrastructure Certificate and Certificate
+         Revocation List (CRL) Profile", RFC 3280, April 2002.
+
+   [12]  Draves, R., "Default Address Selection for Internet Protocol
+         version 6 (IPv6)", RFC 3484, February 2003.
+
+   [13]  Hinden, R. and S. Deering, "Internet Protocol Version 6 (IPv6)
+         Addressing Architecture", RFC 3513, April 2003.
+
+   [14]  Kivinen, T. and M. Kojo, "More Modular Exponential (MODP)
+         Diffie-Hellman groups for Internet Key Exchange (IKE)", RFC
+         3526, May 2003.
+
+   [15]  Kent, S., "IP Encapsulating Security Payload (ESP)",
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 77]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+         draft-ietf-ipsec-esp-v3-05 (work in progress), April 2003.
+
+   [16]  Kaufman, C., "Internet Key Exchange (IKEv2) Protocol",
+         draft-ietf-ipsec-ikev2-07 (work in progress), April 2003.
+
+   [17]  Moskowitz, R., "Host Identity Protocol Architecture",
+         draft-moskowitz-hip-arch-03 (work in progress), May 2003.
+
+   [18]  NIST, "FIPS PUB 180-1: Secure Hash Standard", April 1995.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 78]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+Informative references
+
+   [19]  Bellovin, S. and W. Aiello, "Just Fast Keying (JFK)",
+         draft-ietf-ipsec-jfk-04 (work in progress), July 2002.
+
+   [20]  Moskowitz, R. and P. Nikander, "Using Domain Name System (DNS)
+         with Host Identity Protocol (HIP)", draft-nikander-hip-dns-00
+         (to be issued) (work in progress), June 2003.
+
+   [21]  Nikander, P., "SPI assisted NAT traversal (SPINAT) with Host
+         Identity Protocol (HIP)", draft-nikander-hip-nat-00 (to be
+         issued) (work in progress), June 2003.
+
+   [22]  Crosby, SA. and DS. Wallach, "Denial of Service via Algorithmic
+         Complexity Attacks", in Proceedings of Usenix Security
+         Symposium 2003,  Washington, DC., August 2003.
+
+
+Authors' Addresses
+
+   Robert Moskowitz
+   ICSAlabs, a Division of TruSecure Corporation
+   1000 Bent Creek Blvd, Suite 200
+   Mechanicsburg, PA
+   USA
+
+   EMail: rgm@icsalabs.com
+
+
+   Pekka Nikander
+   Ericsson Research Nomadiclab
+
+   JORVAS  FIN-02420
+   FINLAND
+
+   Phone: +358 9 299 1
+   EMail: pekka.nikander@nomadiclab.com
+
+
+   Petri Jokela
+   Ericsson Research Nomadiclab
+
+   JORVAS  FIN-02420
+   FINLAND
+
+   Phone: +358 9 299 1
+   EMail: petri.jokela@nomadiclab.com
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 79]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   Thomas R. Henderson
+   The Boeing Company
+   P.O. Box 3707
+   Seattle, WA
+   USA
+
+   EMail: thomas.r.henderson@boeing.com
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 80]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+Appendix A. Backwards compatibility API issues
+
+   Tom Henderson has several times expressed the thought that that the
+   LSI could be completely local and does not need to be exchanged.
+   Applications could continue to use IP addresses in socket calls, and
+   kernel does whatever NATting (including application NATting) is
+   required.  It was pointed out that this approach was going to be
+   prone to some kinds of data flows escaping the HIP protection, unless
+   the local housekeeping in an implementation was especially good.
+   Example: FTP opens control connection to IP address.  One or both
+   parties move.  FTP later opens data connection to the old IP address.
+   Kernel must identify that the application really means to connect to
+   the host that was previously at that IP address -- but obviously if
+   the old address is reused by another host, this becomes difficult.
+
+   Related to this, the discussion also opened up the question of DNS
+   resolution.  Should the HIT/LSI be returned to applications as a
+   (spoofed) address in the resolution process, allowing apps to use the
+   socket API with HIT or LSI values instead of an IP address?  While
+   this seems to be the original intention of LSIs, there are a couple
+   of difficulties especially in the IPv4 case:
+
+      How does kernel know whether value being passed in a socket call
+      is an IP address or an LSI?  The fact that a name resolver library
+      gave an application an LSI is no guarantee that the application
+      will use that information in its socket call.  It may also have
+      cached some IP address from before or received an IP address as
+      side information. This difficulty is now relieved as the LSIs are
+      constrained to the well-known private subnet space.
+
+      Handing an LSI may confuse legacy applications that assume that
+      what is being passed to them is an IP address. Good examples of
+      this are diagnostic tools such as dig and ping.  The conclusion is
+      that HIP should not be used with diagnostic applications.
+
+      What does kernel do with an LSI that it cannot map to an address
+      based on information that it has locally cached?
+
+   It seems that some modification to the resolver library (to
+   explicitly convey HIP information rather than spoofing IP addresses),
+   as well as modifications to socket API to explicitly let the kernel
+   know that the application is HIP aware, are the cleanest long-term
+   solution, but what to do about legacy applications?? -- still
+   partially an open issue.  The HUT team has been considering these
+   problems.
+
+   In summary, there seems to be two schools of thought, and their
+   approaches can be summarized as follows:
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 81]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   1.  Have the resolver return an LSI in place of an actual IP address,
+       and have applications use the LSI instead of the IP address in
+       socket calls.  By making LSI fall into an unassigned IP address
+       space, the kernel can distinguish between calls made with an LSI
+       and calls made with an IP address.  This is the approach
+       currently recommended in this specification.
+
+       Now some complications with this approach are the following:
+
+       1.  One probably does not want to invoke a HIP exchange just
+           because an application did a DNS lookup on a hostname;
+           applications use resolver for other reasons than just prior
+           to initiating a flow.  Since LSIs are a subset of the HIT
+           bits, we could avoid having to do the HIP exchange to find
+           the LSIs, if it weren't for the possibility of collision.
+           So, this approach seems to be pointing us towards doing HIP
+           exchanges prior to the application's initial socket calls.
+           Note that this would also break the opportunity to piggyback
+           data on the I2/R2.
+
+       2.  Some applications might actually want IP addresses
+           explicitly, such as diagnostic applcations.
+
+       3.  Some applications likely will obtain addresses out-of-band,
+           so even in this scenario, the kernel may be faced with a case
+           where it would like to use HIP from a policy standpoint, but
+           the invoking application called connect() with an IP address.
+
+       One way around might be to have a separate resolver call that
+       returns an LSI, or enhance the data structure returned by
+       resolver to include LSI in addition to IP address, but this then
+       throws the burden on applications to be HIP-aware.
+
+   2.  Have the LSI be kept in kernel land, with the kernel doing the
+       right housekeeping.  Unless the application is HIP aware and can
+       explicitly signal that it wants to use HIP (such as with a
+       setsockopt() flag), the use of HIP is coordinated by a policy
+       table that temporarily traps packets going to particular IP
+       addresses until a HIP exchange completes and the security
+       association is set up.  In this case, the kernel does the right
+       checksum munging and handles readdressing, in a manner
+       transparent to the applications, which just think that they have
+       connected to an IP address as before.  This essentially means
+       that the is responsible for managing the association between IP
+       address (as perceived by an application) and actual destination
+       identity.  This is similar to the way that opportunistic IPsec
+       works today.
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 82]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+       This solution has the following drawbacks:
+
+       1.  One is architecturally forced back into the mode of using IP
+           addresses to indirectly identify hosts, at least initially.
+           The IP stack has to maintain tables that say things like "if
+           a socket call comes in for address X, do a HIP exchange to
+           that address." (note that this may require an opportunistic
+           exchange) This constrains the kinds of mobility that the
+           system can handle.
+
+       2.  One can construct scenarios for which the kernel and
+           applications are out of sync with respect to IP addresses,
+           and flows may escape their intended IPsec envelope.  Example:
+           I open FTP control connection to address X.  That host moves
+           to address Y.  Some other host takes up address X.  I next
+           receive a connect() to address X.  Which host does that
+           process want to connect to?
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 83]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+Appendix B. Probabilities of HIT collisions
+
+   The birthday paradox sets a bound for the expectation of collisions.
+   It is based on the square root of the number of values.  A 64-bit
+   hash, then, would put the chances of a collision at 50-50 with 2^32
+   hosts (4 billion).  A 1% chance of collision would occur in a
+   population of 640M and a .001% collision chance in a 20M population.
+   A 128 bit hash will have the same .001% collision chance in a 9x10^16
+   population.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 84]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+Appendix C. Probabilities in the cookie calculation
+
+   A question: Is it guaranteed that the Initiator is able to solve the
+   puzzle in this way when the K value is large?
+
+   Answer: No, it is not guaranteed.  But it is not guaranteed even in
+   the old mechanism, since the Initiator may start far away from J and
+   arrive to J after far too many steps.  If we wanted to make sure that
+   the Initiator finds a value, we would need to give some hint of a
+   suitable J, and I don't think we want to do that.
+
+   In general, if we model the hash function with a random function, the
+   probability that one iteration gives are result with K zero bits is
+   2^-K.  Thus, the probablity that one iteration does *not* give K zero
+   bits is (1 - 2^-K).  Consequently, the probablity that 2^K iterations
+   does not give K zero bits is (1 - 2^-K)^(2^K).
+
+   Since my calculus starts to be rusty, I made a small experiment and
+   found out that
+
+
+     lim     (1 - 2^-k)^(2^k)     = 0.36788
+     k->inf
+
+     lim     (1 - 2^-k)^(2^(k+1)) = 0.13534
+     k->inf
+
+     lim     (1 - 2^-k)^(2^(k+2)) = 0.01832
+     k->inf
+
+     lim     (1 - 2^-k)^(2^(k+3)) = 0.000335
+     k->inf
+
+
+   Thus, if hash functions were random functions, we would need about
+   2^(K+3) iterations to make sure that the probability of a failure is
+   less than 1% (actually less than 0.04%).  Now, since my perhaps
+   flawed understanding of hash functions is that they are "flatter"
+   than random functions, 2^(K+3) is probably an overkill.  OTOH, the
+   currently suggested 2^K is clearly too little.  The draft has been
+   changed to read 2^(K+2).
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 85]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+Appendix D. Using responder cookies
+
+   As mentioned in Section 4.1.1, the Responder may delay state creation
+   and still reject most spoofed I2s by using a number of pre-calculated
+   R1s and a local selection function.  This appendix defines one
+   possible implementation in detail.  The purpose of this appendix is
+   to give the implementators an idea on how to implement the mechanism.
+   The method described in this appendix SHOULD NOT be used in any real
+   implementation.  If the implementation is based on this appendix, it
+   SHOULD contain some local modification that makes an attacker's task
+   harder.
+
+   The basic idea is to create a cheap, varying local mapping function
+   f:
+
+      f( IP-I, IP-R, HIT-I, HIT-R ) -> cookie-index
+
+    That is, given the Initiator's and Responder's IP addresses and
+   HITs, the function returns an index to a cookie.  When processing an
+   I1, the cookie is embedded in an pre-computed R1, and the Responder
+   simply sends that particular R1 to the Initiator.  When processing an
+   I2, the cookie may still be embedded in the R1, or the R1 may be
+   depracated (and replaced with a new one), but the cookie is still
+   there.  If the received cookie does not match with the R1 or saved
+   cookie, the I2 is simply dropped.  That prevents the Initiator from
+   generating spoofed I2s with a probability that depends on the number
+   of pre-computed R1s.
+
+   As a concrete example, let us assume that the Responder has an array
+   of R1s.  Each slot in the array contains a timestamp, an R1, and an
+   old cookie that was sent in the previous R1 that occupied that
+   particular slot.  The Responder replaces one R1 in the array every
+   few minutes, thereby replacing all the R1s gradually.
+
+   To create a varying mapping function, the Responder generates a
+   random number every few minutes.  The octets in the IP addresses and
+   HITs are XORed together, and finally the result is XORed with the
+   random number.  Using pseudo-code, the function looks like the
+   following.
+
+   Pre-computation:
+       r1 := random number
+
+   Index computation:
+       index := r1    XOR hit_r[0] XOR hit_r[1] XOR ... XOR hit_r[15]
+       index := index XOR hit_i[0] XOR hit_i[1] XOR ... XOR hit_i[15]
+       index := index XOR  ip_r[0] XOR  ip_r[1] XOR ... XOR  ip_r[15]
+       index := index XOR  ip_i[0] XOR  ip_i[1] XOR ... XOR  ip_i[15]
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 86]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+    The index gives the slot used in the array.
+
+   It is possible that an Initiator receives an I1, and while it is
+   computing I2, the Responder deprecates an R1 and/or chooses a new
+   random number for the mapping function.  Therefore the Responder must
+   remember the cookies used in deprecated R1s and the previous random
+   number.
+
+   To check an received I2, the Responder can use a simple algorithm,
+   expressed in pseudo-code as follows.
+
+     If I2.hit_r does not match my_hits, drop the packet.
+
+     index := compute_index(current_random_number, I2)
+     If current_cookie[index]  == I2.cookie, go to cookie check.
+     If previous_cookie[index] == I2.cookie, go to cookie check.
+
+     index := compute_index(previous_random_number, I2)
+     If current_cookie[index]  == I2.cookie, go to cookie check.
+     If previous_cookie[index] == I2.cookie, go to cookie check.
+
+     Drop packet.
+
+   cookie_check:
+     V := Ltrunc( SHA-1( I2.I, I2.hit_i, I2.hit_r, I2.J ), K )
+     if V != 0, drop the packet.
+
+   Whenever the Responder receives an I2 that fails on the index check,
+   it can simply drop the packet on the floor and forget about it.  New
+   I2s with the same or other spoofed parameters will get dropped with a
+   reasonable probability and minimal effort.
+
+   If a Responder receives an I2 that passes the index check but fails
+   on the puzzle check, it should create a state indicating this.  After
+   two or three failures the Responder should cease checking the puzzle
+   but drop the packets directly.  This saves the Responder from the
+   SHA-1 calculations.  Such block should not last long, however, or
+   there would be a danger that a legitimite Initiator could be blocked
+   from getting connections.
+
+   A key for the success of the defined scheme is that the mapping
+   function must be considerably cheaper than computing SHA-1.  It also
+   must detect any changes in the IP addresses, and preferably most
+   changes in the HITs.  Checking the HITs is not that essential,
+   though, since HITs are included in the cookie computation, too.
+
+   The effectivity of the method can be varied by varying the size of
+   the array containing pre-computed R1s.  If the array is large, the
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 87]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   probability that an I2 with a spoofed IP address or HIT happens to
+   map to the same slot is fairly slow.  However, a large array means
+   that each R1 has a fairly long life time, thereby allowing an
+   attacker to utilize one solved puzzle for a longer time.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 88]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+Appendix E. Running HIP over IPv4 UDP
+
+   In the IPv4 world, with the deployed NAT devices, it may make sense
+   to run HIP over UDP.  When running HIP over UDP, the following packet
+   structure is used.  The structure is followed by the HITs, as usual.
+   Both the Source and Destionation port MUST be 272.
+
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+\
+   |         Source port           |       Destination port        | \
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+  >UDP
+   |           Length              |           Checksum            | /
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+<
+   |       HIP Controls            | HIP pkt Type  | Ver.  |  Res. | >HIP
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+/
+
+
+   It is currently undefined how the actual data transfer, using ESP, is
+   handled.  Plain ESP may not go through all NAT devices.
+
+   It is currently FORBIDDEN to use this packet format with IPv6.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 89]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+Appendix F. Example checksums for HIP packets
+
+   The HIP checksum for HIP packets is specified in Section 6.1.2.
+   Checksums for TCP and UDP packets running over HIP-enabled security
+   associations are specified in Section 3.5.  The examples below use IP
+   addresses of 192.168.0.1 and 192.168.0.2 (and their respective
+   IPv4-compatible IPv6 formats), and type 1 HITs with the first two
+   bits "01" followed by 124 zeroes followed by a decimal 1 or 2,
+   respectively.
+
+F.1 IPv6 HIP example (I1)
+
+      Source Address:                 ::c0a8:0001
+      Destination Address:            ::c0a8:0002
+      Upper-Layer Packet Length:      40              0x28
+      Next Header:                    99              0x63
+      Payload Protocol:               59              0x3b
+      Header Length:                  4               0x04
+      Packet Type:                    1               0x01
+      Version:                        1               0x1
+      Reserved:                       0               0x0
+      Control:                        0               0x0000
+      Checksum:                       49672           0xc208
+      Sender's HIT:                   4000::0001
+      Receiver's HIT:                 4000::0002
+
+
+F.2 IPv4 HIP packet (I1)
+
+   The IPv4 checksum value for the same example I1 packet is the same as
+   the IPv6 checksum (since the checksums due to the IPv4 and IPv6
+   pseudo-header components are the same).
+
+F.3 TCP segment
+
+   Regardless of whether IPv6 or IPv4 is used, the TCP and UDP sockets
+   use the IPv6 pseudo-header format [8], with the HITs used in place of
+   the IPv6 addresses.
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 90]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+      Sender's HIT:                   4000::0001
+      Receiver's HIT:                 4000::0002
+      Upper-Layer Packet Length:      20              0x14
+      Next Header:                    6               0x06
+      Source port:                    32769           0x8001
+      Destination port:               22              0x0016
+      Sequence number:                1               0x00000001
+      Acknowledgment number:          0               0x00000000
+      Header length:                  20              0x14
+      Flags:                          SYN             0x02
+      Window size:                    5840            0x16d0
+      Checksum:                       54519           0xd4f7
+      Urgent pointer:                 0               0x0000
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 91]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+Intellectual Property Statement
+
+   The IETF takes no position regarding the validity or scope of any
+   intellectual property or other rights that might be claimed to
+   pertain to the implementation or use of the technology described in
+   this document or the extent to which any license under such rights
+   might or might not be available; neither does it represent that it
+   has made any effort to identify any such rights. Information on the
+   IETF's procedures with respect to rights in standards-track and
+   standards-related documentation can be found in BCP-11. Copies of
+   claims of rights made available for publication and any assurances of
+   licenses to be made available, or the result of an attempt made to
+   obtain a general license or permission for the use of such
+   proprietary rights by implementors or users of this specification can
+   be obtained from the IETF Secretariat.
+
+   The IETF invites any interested party to bring to its attention any
+   copyrights, patents or patent applications, or other proprietary
+   rights which may cover technology that may be required to practice
+   this standard. Please address the information to the IETF Executive
+   Director.
+
+
+Full Copyright Statement
+
+   Copyright (C) The Internet Society (2004). All Rights Reserved.
+
+   This document and translations of it may be copied and furnished to
+   others, and derivative works that comment on or otherwise explain it
+   or assist in its implementation may be prepared, copied, published
+   and distributed, in whole or in part, without restriction of any
+   kind, provided that the above copyright notice and this paragraph are
+   included on all such copies and derivative works. However, this
+   document itself may not be modified in any way, such as by removing
+   the copyright notice or references to the Internet Society or other
+   Internet organizations, except as needed for the purpose of
+   developing Internet standards in which case the procedures for
+   copyrights defined in the Internet Standards process must be
+   followed, or as required to translate it into languages other than
+   English.
+
+   The limited permissions granted above are perpetual and will not be
+   revoked by the Internet Society or its successors or assignees.
+
+   This document and the information contained herein is provided on an
+   "AS IS" basis and THE INTERNET SOCIETY AND THE INTERNET ENGINEERING
+   TASK FORCE DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING
+   BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 92]
+
+Internet-Draft           Host Identity Protocol             January 2004
+
+
+   HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF
+   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+
+
+Acknowledgment
+
+   Funding for the RFC Editor function is currently provided by the
+   Internet Society.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz, et al.        Expires July 30, 2004                 [Page 93]
+

@@ -1,0 +1,130 @@
+HIP support for tcpdump 
+-----------------------
+
+Status: supported, but might be broken
+        or show incorrect values
+
+Patches available for versions: 3.7.2, 3.8.3
+
+
+Installation instructions:
+
+Get source code for tcpdump-3.8.3 from http://www.tcpdump.org/ (or
+tcpdump-3.7.2 if you prefer).
+
+Unpack it: tar xfvz tcpdump-3.8.3.tar.gz
+
+Change to the newly created directory: cd tcpdump-3.8.3
+
+Patch tcpdump: patch -p1 < /location/of/tcpdump-3.8.3-hip.patch
+
+Edit Makefile.in: find line "INCLS = .." (somewhere near line 45).
+Add "-I" and the location of hipl/libhiptool within the HIPL
+installation directory, e.g. "-I/hipl/libhiptool". The
+resulting line should be something like this: INCLS =
+-I. -Ihipl/include @V_INCLS@
+
+The rest of the installation proceeds as is written in the tcpdump
+INSTALL file. Remember to give option --enable-ipv6 to configure.
+
+Remember to use long enough snaplen (option -s) to capture the HIP
+packets fully.
+
+
+Example usage:
+
+Show just the minimal information on HIP packets:
+tcpdump -s10000 -i netdevtolisten 'proto 99'
+
+Show also the parameters:
+tcpdump -s10000 -i netdevtolisten -v 'proto 99'
+
+Show the parameters and IPsec ESP traffic:
+tcpdump -s10000 -i netdevtolisten -v 'proto 99 or esp'
+
+
+
+HIP support for Ethereal
+------------------------
+
+Provided by Jeff Ahrenholz and Thomas Henderson from Boeing. See the 
+webpage below for the most recent patches:
+
+http://hipserver.mct.phantomworks.org/
+
+Status: experimental, not supported actively, might even be broken
+        or show incorrect values
+
+Installation instructions:
+
+Get Ethereal 0.10.7 from http://www.ethereal.com/download.html#sources
+Unpack it: tar xfvz ethereal-0.10.7.tar.gz
+Patch Ethereal: patch -p0 < /location/of/ethereal-0.10.7-hip.patch
+Change to the newly created directory: cd ethereal-0.10.7
+
+The rest of the installation proceeds as is written in the Ethereal
+INSTALL file.
+
+
+UML patches for the 2.4.20 HIP kernel and the 2.6.3 HIP kernel.
+---------------------------------------------------------------
+
+(deprecated)
+
+For 2.4.20 we have two patches. First one (hip-uml-2.4.20.patch) is
+intended for Debian Woody. The second one for Debian Sarge that has
+2.6 kernel headers installed).
+
+For tutorial and help on how to use UML, please check their website
+http://user-mode-linux.sourceforge.net.
+
+
+UML patch for 2.4.20 with HIP support
+-------------------------------------
+
+(depracated)
+
+Status: Basically works, Further changes to HIP might require some
+	additional changes in linux/arch/um/*
+
+Installation:
+cd hipl
+cp test/patch/hip-uml-2.4.20-8.patch linux/
+cd linux
+patch -p1 <hip-uml-2.4.20-8.patch
+
+Compiling: [use gcc-2.95]
+make clean mrproper menuconfig ARCH=um
+make dep ARCH=um
+make linux ARCH=um
+make modules ARCH=um
+
+<alternative 1>
+mkdir mntdir
+mount -t ext2 uml_disk_image.ext2 mntdir/ -o loop
+make modules_install INSTALL_MOD_PATH="/path/to/mntdir/" ARCH=um
+
+[This approach might create wrong directory (ie. /lib/modules/2.4.20-8um/).
+ Remedy is to remove the "EXTRAVERSION" from  the Makefile in 
+ linux/arch/um/Makefile*]
+
+<alternative 2>
+Run UML with uml_disk_image.ext2
+mount -t hostfs hostfs /mnt -o /path/to/hipl/linux
+cd /mnt
+make modules_install ARCH=um
+
+[If UML is not bootable/usable without all the modules installed, then this 
+ option cannot be used]
+
+Suggestions:
+Try to compile everything into the kernel (not modules). This way
+alternative 2 can be used.
+
+
+UML patch for 2.4.20 with HIP support in Debian Sarge
+(with 2.6 kernel header includes)
+--------------------------------------------------------
+
+Same as above apply. There will be lots of errors during
+the compilation of the UML kernel, but just ignore them.

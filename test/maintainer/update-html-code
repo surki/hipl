@@ -1,0 +1,19 @@
+#!/bin/sh
+
+# note: this script assumes that $TLA_HIPL_CACHE is updated periodically
+
+REVISION=hipl--main--2.6
+TMP_DIR=~/.hipl.doxygen.tmp.dir
+WWW_DIR=/var/www/infrahip/html/hipl
+OUTPUT_DIR=$WWW_DIR/doxygen
+HIPL_TAR=$WWW_DIR/hipl.tar.gz
+
+set -e
+
+rm -rf $TMP_DIR
+mkdir $TMP_DIR
+
+tar xvzf $HIPL_TAR
+cd hipl--main--2.6/doc
+doxygen
+mv doxy/html/* $OUTPUT_DIR

@@ -1,0 +1,387 @@
+
+ 
+diff -Naur iperf-2.0.4/include/Makefile.am temp/iperf-2.0.4/include/Makefile.am
+--- iperf-2.0.4/include/Makefile.am	2008-04-16 14:53:59.000000000 +0300
++++ temp/iperf-2.0.4/include/Makefile.am	2007-08-30 01:06:19.000000000 +0300
+@@ -1,2 +1,2 @@
+-EXTRA_DIST = Client.hpp Condition.h Extractor.h List.h Listener.hpp Locale.h Makefile.am Mutex.h PerfSocket.hpp Reporter.h Server.hpp Settings.hpp SocketAddr.h Thread.h Timestamp.hpp config.win32.h delay.hpp gettimeofday.h gnu_getopt.h headers.h inet_aton.h report_CSV.h report_default.h service.h snprintf.h util.h version.h UDPMessage.h
++EXTRA_DIST = Client.hpp Condition.h Extractor.h List.h Listener.hpp Locale.h Makefile.am Mutex.h PerfSocket.hpp Reporter.h Server.hpp Settings.hpp SocketAddr.h Thread.h Timestamp.hpp config.win32.h delay.hpp gettimeofday.h gnu_getopt.h headers.h inet_aton.h report_CSV.h report_default.h service.h snprintf.h util.h version.h
+ DISTCLEANFILES = $(top_builddir)/include/iperf-int.h
+diff -Naur iperf-2.0.4/include/Makefile.in temp/iperf-2.0.4/include/Makefile.in
+--- iperf-2.0.4/include/Makefile.in	2008-04-16 15:17:26.000000000 +0300
++++ temp/iperf-2.0.4/include/Makefile.in	2008-04-08 06:38:40.000000000 +0300
+@@ -152,7 +152,7 @@
+ sharedstatedir = @sharedstatedir@
+ sysconfdir = @sysconfdir@
+ target_alias = @target_alias@
+-EXTRA_DIST = Client.hpp Condition.h Extractor.h List.h Listener.hpp Locale.h Makefile.am Mutex.h PerfSocket.hpp Reporter.h Server.hpp Settings.hpp SocketAddr.h Thread.h Timestamp.hpp config.win32.h delay.hpp gettimeofday.h gnu_getopt.h headers.h inet_aton.h report_CSV.h report_default.h service.h snprintf.h util.h version.h UDPMessage.h
++EXTRA_DIST = Client.hpp Condition.h Extractor.h List.h Listener.hpp Locale.h Makefile.am Mutex.h PerfSocket.hpp Reporter.h Server.hpp Settings.hpp SocketAddr.h Thread.h Timestamp.hpp config.win32.h delay.hpp gettimeofday.h gnu_getopt.h headers.h inet_aton.h report_CSV.h report_default.h service.h snprintf.h util.h version.h
+ DISTCLEANFILES = $(top_builddir)/include/iperf-int.h
+ all: all-am
+ 
+diff -Naur iperf-2.0.4/include/UDPMessage.h temp/iperf-2.0.4/include/UDPMessage.h
+--- iperf-2.0.4/include/UDPMessage.h	2008-04-17 11:55:31.000000000 +0300
++++ temp/iperf-2.0.4/include/UDPMessage.h	1970-01-01 02:00:00.000000000 +0200
+@@ -1,54 +0,0 @@
+-#ifndef UDPMESSAGE_H_
+-#define UDPMESSAGE_H_
+-
+-#include <sys/types.h>
+-#include <sys/socket.h>
+-#include <sys/uio.h>
+-
+-#include <netinet/in.h>
+-#include <arpa/inet.h> 
+-
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-/* Reads the ancillary data buffer for the given msghdr and extracts the packet
+-   destination address which is copied to the `get_addr' struct.
+-   Returns 0 on success, a negative value otherwise. */
+-
+-int udphelper_ancillary_read(struct msghdr *msg,
+-			     struct sockaddr *get_addr,
+-			     socklen_t * src_len, int isipv6);
+-
+-/* this function is similar to standard recvfrom(), but it has an extra
+-parameter (last) to get the destination address for the operation.*/
+-
+-ssize_t 
+-recv_ex(int sock, void *buffer, int length,
+-        int flags, struct sockaddr *from,
+-        socklen_t *from_len, struct sockaddr *to,
+-	socklen_t *to_len, int isipv6);
+-
+-/* this function is similar to standard sendto(), but it has an extra
+-parameter (last) to specify source address for the operation. It will be
+-set as ancillary data to call of sendto() function */
+-
+-ssize_t 
+-send_ex(int sock, void *buf, size_t buf_len, int flags,
+-	 struct sockaddr *to, socklen_t tolen,
+-	 struct sockaddr *from, socklen_t fromlen,
+-	 int isipv6);
+-
+-/*Sets the socket option so that we can read ancillary data from UDP packets*/
+-int 
+-enable_ancillary_data (int sock, int isipv6);
+-
+-#ifdef __cplusplus
+-}
+-#endif
+-
+-#endif /*UDPMESSAGE_H_*/
+
+
+diff -Naur iperf-2.0.4/src/Listener.cpp temp/iperf-2.0.4/src/Listener.cpp
+--- iperf-2.0.4/src/Listener.cpp	2008-04-16 15:11:46.000000000 +0300
++++ temp/iperf-2.0.4/src/Listener.cpp	2007-08-30 01:06:19.000000000 +0300
+@@ -80,8 +80,6 @@
+ #include "List.h"
+ #include "util.h" 
+ 
+-#include "UDPMessage.h"
+-
+ /* ------------------------------------------------------------------- 
+  * Stores local hostname and socket info. 
+  * ------------------------------------------------------------------- */ 
+diff -Naur iperf-2.0.4/src/Makefile.am temp/iperf-2.0.4/src/Makefile.am
+--- iperf-2.0.4/src/Makefile.am	2008-04-16 14:54:35.000000000 +0300
++++ temp/iperf-2.0.4/src/Makefile.am	2008-04-08 05:37:54.000000000 +0300
+@@ -34,7 +34,6 @@
+ 		service.c \
+ 		sockets.c \
+ 		stdio.c \
+-		tcp_window_size.c \
+-		UDPMessage.c
++		tcp_window_size.c
+ 
+ iperf_LDADD = $(LIBCOMPAT_LDADDS)
+diff -Naur iperf-2.0.4/src/Makefile.in temp/iperf-2.0.4/src/Makefile.in
+--- iperf-2.0.4/src/Makefile.in	2008-04-16 15:17:26.000000000 +0300
++++ temp/iperf-2.0.4/src/Makefile.in	2008-04-08 06:38:40.000000000 +0300
+@@ -57,8 +57,7 @@
+ 	ReportDefault.$(OBJEXT) Reporter.$(OBJEXT) Server.$(OBJEXT) \
+ 	Settings.$(OBJEXT) SocketAddr.$(OBJEXT) gnu_getopt.$(OBJEXT) \
+ 	gnu_getopt_long.$(OBJEXT) main.$(OBJEXT) service.$(OBJEXT) \
+-	sockets.$(OBJEXT) stdio.$(OBJEXT) tcp_window_size.$(OBJEXT) \
+-	UDPMessage.$(OBJEXT) 
++	sockets.$(OBJEXT) stdio.$(OBJEXT) tcp_window_size.$(OBJEXT)
+ iperf_OBJECTS = $(am_iperf_OBJECTS)
+ am__DEPENDENCIES_1 = $(top_builddir)/compat/libcompat.a
+ iperf_DEPENDENCIES = $(am__DEPENDENCIES_1)
+@@ -214,8 +213,7 @@
+ 		service.c \
+ 		sockets.c \
+ 		stdio.c \
+-		tcp_window_size.c \
+-		UDPMessage.c
++		tcp_window_size.c
+ 
+ iperf_LDADD = $(LIBCOMPAT_LDADDS)
+ all: all-am
+@@ -304,7 +302,6 @@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sockets.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stdio.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tcp_window_size.Po@am__quote@
+-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/UDPMessage.Po@am__quote@
+ 
+ .c.o:
+ @am__fastdepCC_TRUE@	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \
+diff -Naur iperf-2.0.4/src/PerfSocket.cpp temp/iperf-2.0.4/src/PerfSocket.cpp
+--- iperf-2.0.4/src/PerfSocket.cpp	2008-04-17 12:12:06.000000000 +0300
++++ temp/iperf-2.0.4/src/PerfSocket.cpp	2008-04-08 05:37:54.000000000 +0300
+@@ -73,12 +73,11 @@
+ #define HEADERS()
+ 
+ #include "headers.h"
+-#include "UDPMessage.h"
++
+ #include "PerfSocket.hpp"
+ #include "SocketAddr.h"
+ #include "util.h"
+ 
+-//#include "UDPMessage.h"
+ /* -------------------------------------------------------------------
+  * Set socket options before the listen() or connect() calls.
+  * These are optional performance tuning factors.
+@@ -102,7 +101,7 @@
+ 		exit(1);
+ 	}
+ #else
+-	fprintf( stderr, "The -thread_SettingsZ option is not available on this operating system\n");
++	fprintf( stderr, "The -Z option is not available on this operating system\n");
+ #endif
+     }
+ 
+@@ -154,9 +153,6 @@
+             WARN_errno( rc == SOCKET_ERROR, "setsockopt TCP_NODELAY" );
+         }
+ #endif
+-    } else {
+-		int err = enable_ancillary_data (inSettings->mSock, isIPV6(inSettings));
+-		WARN_errno( err != 0, "enable_ancillary_data" );
+     }
+ }
+ // end SetSocketOptions
+
+diff -Naur iperf-2.0.4/src/Server.cpp temp/iperf-2.0.4/src/Server.cpp
+--- iperf-2.0.4/src/Server.cpp	2008-04-17 12:10:41.000000000 +0300
++++ temp/iperf-2.0.4/src/Server.cpp	2008-04-08 05:37:54.000000000 +0300
+@@ -56,14 +56,11 @@
+ #define HEADERS()
+ 
+ #include "headers.h"
+-#include "UDPMessage.h"
+ #include "Server.hpp"
+ #include "List.h"
+ #include "Extractor.h"
+ #include "Reporter.h"
+ #include "Locale.h"
+-#include "util.h"
+-
+ 
+ /* -------------------------------------------------------------------
+  * Stores connected socket and socket info.
+@@ -110,18 +107,10 @@
+     if ( reportstruct != NULL ) {
+         reportstruct->packetID = 0;
+         mSettings->reporthdr = InitReport( mSettings );
+-
+-
+         do {
+             // perform read 
+-	    if (!isUDP (mSettings)) {
+-	            currLen = recv( mSettings->mSock, mBuf, mSettings->mBufLen, 0 ); 
+-	    } else {
+-		      currLen = recv_ex (mSettings->mSock, mBuf, mSettings->mBufLen, MSG_WAITALL,
+-				  (struct sockaddr *)&mSettings->peer, &mSettings->size_peer,
+-				  (struct sockaddr *)&mSettings->local, &mSettings->size_local,
+-				  isIPV6(mSettings));
+-	    }
++            currLen = recv( mSettings->mSock, mBuf, mSettings->mBufLen, 0 ); 
++        
+             if ( isUDP( mSettings ) ) {
+                 // read the datagram ID and sentTime out of the buffer 
+                 reportstruct->packetID = ntohl( mBuf_UDP->id ); 
+@@ -215,14 +204,7 @@
+         }
+ 
+         // write data 
+-	if (!isUDP(mSettings)) {
+-	        write( mSettings->mSock, mBuf, mSettings->mBufLen ); 
+-	} else {
+-		send_ex (mSettings->mSock, mBuf, mSettings->mBufLen, 0, 
+-			 (struct sockaddr *)&mSettings->peer, mSettings->size_peer,
+-			 (struct sockaddr *)&mSettings->local, mSettings->size_local,
+-			 isIPV6(mSettings));
+-	} 
++        write( mSettings->mSock, mBuf, mSettings->mBufLen ); 
+ 
+         // wait until the socket is readable, or our timeout expires 
+         FD_SET( mSettings->mSock, &readSet ); 
+
+diff -Naur iperf-2.0.4/src/UDPMessage.c temp/iperf-2.0.4/src/UDPMessage.c
+--- iperf-2.0.4/src/UDPMessage.c	2008-04-17 12:39:59.000000000 +0300
++++ temp/iperf-2.0.4/src/UDPMessage.c	1970-01-01 02:00:00.000000000 +0200
+@@ -1,153 +0,0 @@
+-#include "UDPMessage.h"
+-
+-/* Reads the ancillary data buffer for the given msghdr and extracts the packet
+-   destination address which is copied to the `get_addr' struct.
+-   Returns 0 on success, a negative value otherwise. */
+-
+-int udphelper_ancillary_read(struct msghdr *msg,
+-			     struct sockaddr *get_addr,
+-			     socklen_t * src_len, int isipv6)
+-{
+-
+-  	/* let's hope that there is some ancillary data! */
+-  	if (msg->msg_controllen > 0) {
+-  	  /* We don't know which is the order of the ancillary messages and we don't
+-  	     know how many are there.  So I simply parse all of them until we find
+-  	     the right one, checking the index type. */
+-		struct cmsghdr     *cmsgptr = NULL;
+-		
+-		for (cmsgptr = CMSG_FIRSTHDR(msg);
+-				cmsgptr != NULL;
+-		        cmsgptr = CMSG_NXTHDR(msg, cmsgptr)) {
+-			//printf("Next cotrol chunk \n");
+-			if (!isipv6) {
+-				if (cmsgptr->cmsg_level == IPPROTO_IP &&
+-					cmsgptr->cmsg_type == IP_PKTINFO) {
+-					struct in_addr * addr = (struct in_addr *)(&(((struct in_pktinfo *)(CMSG_DATA(cmsgptr)))->ipi_addr));
+-					get_addr = (struct sockaddr *)addr;	
+-					*src_len = sizeof (struct sockaddr_in6);
+-	
+-					return 1;
+-				}
+-			} else {
+-				if (cmsgptr->cmsg_level == IPPROTO_IPV6 &&
+-					(cmsgptr->cmsg_type == IPV6_2292PKTINFO ||
+-					cmsgptr->cmsg_type == IPV6_PKTINFO)) {
+-					struct in6_addr * addr = (struct in6_addr *)(&(((struct in6_pktinfo *)(CMSG_DATA(cmsgptr)))->ipi6_addr));
+-					get_addr = (struct sockaddr *)addr;
+-					*src_len = sizeof (struct sockaddr_in);
+-					return 1;
+-				}
+-			}
+-		}
+-	}
+-	return 0;
+-}
+-
+-ssize_t 
+-recv_ex(int sock, void *buffer, int length,
+-        int flags, struct sockaddr *from,
+-        socklen_t *from_len, struct sockaddr *to,
+-	socklen_t *to_len, int isipv6)
+-{
+-	ssize_t rr;
+-
+-	char pktbuf[(isipv6 != 0) ? CMSG_SPACE(sizeof(struct in6_pktinfo)) :
+-			     CMSG_SPACE(sizeof(struct in_pktinfo))];
+-	struct iovec iov;
+-	struct msghdr msg;
+-	
+-	iov.iov_len = length;
+-	iov.iov_base = buffer;
+-	/* setup msg structure */
+-	memset(&msg, 0, sizeof(msg));
+-	msg.msg_name       = from;
+-	msg.msg_namelen    = from != NULL ? *from_len : 0;
+-	msg.msg_iov        = &iov;
+-	msg.msg_iovlen     = 1;
+-	msg.msg_control    = pktbuf;
+-	msg.msg_controllen = sizeof(pktbuf);
+-	rr = recvmsg(sock, &msg, 0);
+-	/* copy out updated namelen */
+-	if (from != NULL && from_len != 0) 
+-		*from_len = msg.msg_namelen;
+-	if (msg.msg_controllen != 0) 
+-		udphelper_ancillary_read(&msg, to, to_len, isipv6); 
+-	return rr;
+-}
+-
+-/* this function is similar to standard sendto(), but it has an extra
+-parameter (last) to specify source address for the operation. It will be
+-set as ancillary data to call of sendto() function */
+-ssize_t 
+-send_ex(int sock, void *buf, size_t buf_len, int flags,
+-	 struct sockaddr *to, socklen_t tolen,
+-	 struct sockaddr *from, socklen_t fromlen,
+-	 int isipv6)
+-{
+-	struct msghdr msg;
+-	char pktbuf[isipv6 ? CMSG_SPACE(sizeof(struct in6_pktinfo)) :
+-			     CMSG_SPACE(sizeof(struct in_pktinfo))];
+-	struct cmsghdr *cmptr;
+-	struct iovec iov;
+-/*
+-	if (isipv6) {
+-		struct sockaddr_in6 * peer = (struct sockaddr_in6 *) to;
+-		char dst[18]; 
+-		printf ("Destination address: %s \n", inet_ntop(AF_INET6, &peer->sin6_addr, dst, 18));
+-		printf ("Destination port: %d \n", ntohs(peer->sin6_port));
+-		peer = (struct sockaddr_in6 *) from;
+-		printf ("Source address: %s \n", inet_ntop(AF_INET6, &peer->sin6_addr, dst, 18));
+-		printf ("Source port: %d \n", ntohs(peer->sin6_port));
+-	} 
+-*/		
+-	msg.msg_name = to;
+-	msg.msg_namelen = tolen;
+-	iov.iov_base = buf;
+-	iov.iov_len = buf_len;
+-	msg.msg_iov = &iov;
+-	msg.msg_iovlen = 1;
+-	msg.msg_flags = 0;
+-	msg.msg_control = pktbuf;
+-	msg.msg_controllen = sizeof(pktbuf);
+-	
+-	cmptr = CMSG_FIRSTHDR(&msg);
+-	if (isipv6) {
+-		struct in6_pktinfo *pktinfo_tmp;
+-    		cmptr->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
+-		cmptr->cmsg_level = IPPROTO_IPV6;
+-		cmptr->cmsg_type = IPV6_2292PKTINFO;
+-		pktinfo_tmp = (struct in6_pktinfo *) CMSG_DATA(cmptr);
+-		memcpy((void *)&pktinfo_tmp->ipi6_addr, (void *)from, fromlen);
+-	} else {
+-		struct in_pktinfo *pktinfo_tmp;
+-		cmptr->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
+-		cmptr->cmsg_level = IPPROTO_IP;
+-		cmptr->cmsg_type = IP_PKTINFO;
+-		pktinfo_tmp = (struct in_pktinfo *) CMSG_DATA(cmptr);
+-		memcpy((void *)&pktinfo_tmp->ipi_addr, (void *)from, fromlen);
+-	}
+-
+-	/* call sendmsg() to send data from specified source address */
+-	return sendmsg(sock, &msg, flags);
+-}
+-
+-int enable_ancillary_data (int sock, int isipv6) {
+-    	int err = -1, on = 1;
+-#ifdef IPV6_PKTINFO
+-    	if (isipv6) {
+-    		err = setsockopt(sock, IPPROTO_IPV6,
+-    				IPV6_PKTINFO, &on, sizeof(on));
+-		if (err != 0) {
+-			err = setsockopt(sock, IPPROTO_IPV6,
+-				 IPV6_2292PKTINFO, &on, sizeof(on));
+-		}
+-    	} else {
+-    		err = setsockopt(sock, IPPROTO_IP,
+-    				IP_PKTINFO, &on, sizeof(on));
+-    	}
+-#endif
+-	return err;
+-}
+-
+-
+-

@@ -1,0 +1,4 @@
+#!/bin/sh
+
+killall tla
+rm -rf /tmp/,,arch-tree-*

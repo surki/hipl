@@ -1,0 +1,20 @@
+ HIP dissectors to TCPDUMP
+
+ Newest version tcpdump-4.0.0-hip.03.patch
+
+ If you find a bug in this (and there is no newer version) send mail describing the 
+ bug to me. Please include packet captures resulting to the error.
+ samu.varjonen@hiit.fi
+
+ Some notes on usage:
+ - If you get "[|hip]" on the end of the print out it means HIP packet is truncated
+ - Use "-s 0" to get the snaplen large enough to capture whole HIP packet
+ - Use "-n" to disable the transalation of addresses to fqdns so you'll see the                    
+   addresses inside locators for instance
+ - Verbose modes, if not present tcpdump will print 
+   "IPsrc>IPdst HIP HITsrc>HITdst packetname"
+   "-v" prints the HIP header
+   "-vv" prints the HIP header and parameter names
+   "-vvv" prints the HIP header and parameter names
+   and also the contents of the parameters
+

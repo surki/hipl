@@ -1,0 +1,91 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+'<html>
+<head>
+	<title>HIP enabled OpenWRT Linux Distro for mobile routers</title>
+	<style type="text/css">
+		a:link {color:#000000;text-decoration:underline;}
+		a:visited {color:#000000;text-decoration:none;}
+		a:hover {color:#CC0000;text-decoration:underline;}
+		a:active {color:#000000;text-decoration:none;}
+		body { margin:0px; background-color:#fff; background-image:url(Page-Background.png); background-attachment:fixed;}
+		DIV.block {border-width:2px;}
+	</style>
+</head>
+<body bgcolor="blue">
+	<div class="block">
+		<h1>HIP enabled OpenWRT Linux Distro for mobile routers</h1>
+	</div>
+	<div>
+	<div>
+                 <h3>Installing OpenWRT on La Fonera routers</h3>
+		 The OpenWRT installation should be as simple as coouple of steps that one should attempt to enable his/hers router with HIP.
+        <div>
+	<div class="block">
+		First of all we need to hack La Fonera wireless router, so that we can flash it with a kernel of our choice. 
+		To hack it download (<a href="FoneraHack/lafonera.pdf">hacking howto</a>) and folow instructions.  
+	</div>
+	<div class="block">
+		Shall you need to your own distro download and compile Kamikaze from <a href="http://downloads.openwrt.org/kamikaze/7.09/kamikaze_7.09.tar.bz2">here</a>. But before compiling please apply patches  
+		<a href="kamikaze_7.09-hipl.patch">kamikaze_7.09-hipl.patch</a> and <a href="kamikaze_7.09-kernel.patch">kamikaze_7.09-kernel.patch</a>: 
+			<ul>
+				<li>cd /path/to/kamikaze; <br/></li>
+				<li>patch -p1 < /path/to/kamikaze_7.09-hipl.patch;<br/> </li>
+				<li>patch -p1 < /path/to/kamikaze_7.09-kernel.patch<br/></li>	
+			</ul>
+		</div>
+		<div class="block">
+			Having the kamikaze patch do:
+			<ul>
+				<li>cd /path/to/kamikaze_7.09</li>
+				<li>make menuconfig</li>
+				<li>And select hipl, libxml2 and anything else you wish to have in your system </li>
+			</ul>
+		</div>
+		<div class="block">
+			If one need to have a precompiled pick them from here:
+			<ul>
+				<li><a href="openwrt-atheros-2.6-vmlinux.lzma">openwrt-atheros-2.6-vmlinux.lzma</a></li>
+				<li><a href="openwrt-atheros-2.6-root.squashfs">openwrt-atheros-2.6-root.squashfs</a></li>
+				</ul>
+			You can find needed kernel modules from here: <a href="kernel-modules">modules</a>. To install them, untar them first then scp /path/to/modules/folder root@&lt;fonera_ip&gt;:/lib/modules/&lt;kernel&gt; <br/>
+			After then copy this <a href="hipdservice">script</a> to scp /path/to/hipdservice root@&lt;fonera_ip&gt;:/etc/init.d/ <br/>
+			That should be sufficient to start the service by.: /etc/init.d/hipdservice start (it might take a while because modules are tested and in case of miss inserted)<br/>
+		</div>
+	</div>
+	<div>
+		<h3>Installing OpenWRT on Buffalo routers</h3>
+		<ul>
+			<li>Download firmware image (<a href="openwrt-brcm-2.6-squashfs.trx">openwrt-brcm-2.6-squashfs.trx</a>)</li>
+			<li>Plug the ethernet cabel directly into lan port #1 on the router </li>
+			<li>Assume you are doing this from linux. Start the <b>tfpt 192.168.11.1</b> client. 
+			<ul>
+				<li>tftp &gt; binary</li>
+				<li>tftp &gt; rexmt 1</li>
+				<li>tftp &gt; trace</li>
+				<li>tftp &gt; timeout 180</li>
+				<li>tftp &gt; put openwrt-brcm-2.6-squashfs.trx</li>
+				<li>Hit enter key</li>
+			</ul>
+			</li>
+			<li>Now quickly restart the Bufallo router (unplug and plug back again the power cabel)</li>
+			<li>The flashing should start after that. The output in success case should look something like this:
+				<ul>
+					<li>tftp &gt; put openwrt-brcm-2.4-squashfs.trx</li>
+					<li>sent WRQ &lt;file=open2.trx, mode=octet&gt;</li>
+					<li>received ACK &lt;block=0&gt;</li>
+					<li>sent DATA &lt;block=1, 512 bytes&gt;</li>
+					<li>received ACK &lt;block=1&gt;</li>
+					<li>...</li>
+				</ul>
+			</li>
+		</ul>
+	</div>
+	<div>
+		More detailed instructions can be found in:
+		<ul>
+			<li><a href="http://www.dd-wrt.com/wiki/index.php/Flash_Your_Buffalo_WBR-G54,_WLA-G54,_...">Installing Open-WRT on Buffalo</a></li>
+			<li><a href="http://wiki.openwrt.org/OpenWrtDocs/Hardware/Buffalo/WBR2-G54?highlight=(WBR2-G54)">Open-WRT wiki for Buffalo</a></li>
+			<li><a href="http://www.dd-wrt.com/wiki/index.php/Installation#Downloading_DD-WRT">DD-WRT another distro</a></li>
+		</ul>
+	</div>
+</body>

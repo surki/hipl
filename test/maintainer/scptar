@@ -1,0 +1,41 @@
+#!/bin/sh
+
+######################## about ##############################################
+#
+# purpose: make a tar file from a directory/file and
+#          copy it to a remote host using ssh
+# author:  Miika Komu, miika@iki.fi
+# licence: GNU/GPL
+# usage:   see $USAGE
+
+######################## functions ##########################################
+
+# purpose: print an error message and exit with an error code
+# params:  error message
+# depends: $SCRIPTNAME
+#
+die() {
+  echo "$@"
+  exit 1
+}
+
+######################## global variables ###################################
+
+USAGE="usage: remotebackup <src_dir> <user@remote_host:remote_dir/dst_filename>"
+
+SSH="/usr/bin/ssh"
+TAR="/bin/tar"
+# note: using gz compression, because bz2 puts garbage in the eof
+TAR_OPTS="--rsh-command=$SSH -cvzf"
+SRC_DIR="$1"
+REMOTE_DST="$2"
+
+######################## main program #######################################
+
+if [ $# != 2 ]
+then
+    die "$USAGE"
+fi
+
+$TAR $TAR_OPTS $REMOTE_DST $SRC_DIR
+

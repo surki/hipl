@@ -1,0 +1,896 @@
+
+
+
+IRTF HIP Research Group                                     J. Ahrenholz
+Internet-Draft                                        The Boeing Company
+Expires: February 26, 2006                               August 25, 2005
+
+
+                           HIP DHT Interface
+                      draft-ahrenholz-hiprg-dht-00
+
+Status of this Memo
+
+   By submitting this Internet-Draft, each author represents that any
+   applicable patent or other IPR claims of which he or she is aware
+   have been or will be disclosed, and any of which he or she becomes
+   aware will be disclosed, in accordance with Section 6 of BCP 79.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF), its areas, and its working groups.  Note that
+   other groups may also distribute working documents as Internet-
+   Drafts.
+
+   Internet-Drafts are draft documents valid for a maximum of six months
+   and may be updated, replaced, or obsoleted by other documents at any
+   time.  It is inappropriate to use Internet-Drafts as reference
+   material or to cite them other than as "work in progress."
+
+   The list of current Internet-Drafts can be accessed at
+   http://www.ietf.org/ietf/1id-abstracts.txt.
+
+   The list of Internet-Draft Shadow Directories can be accessed at
+   http://www.ietf.org/shadow.html.
+
+   This Internet-Draft will expire on February 26, 2006.
+
+Copyright Notice
+
+   Copyright (C) The Internet Society (2005).
+
+Abstract
+
+   This document specifies a common interface for using HIP with a DHT
+   to provide lookup services.
+
+
+
+
+
+
+
+
+
+
+Ahrenholz               Expires February 26, 2006               [Page 1]
+
+Internet-Draft              HIP DHT Interface                August 2005
+
+
+Table of Contents
+
+   1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  3
+   2.  The Open DHT interface . . . . . . . . . . . . . . . . . . . .  4
+   3.  HIP lookup services  . . . . . . . . . . . . . . . . . . . . .  6
+     3.1.  HIP address lookup . . . . . . . . . . . . . . . . . . . .  6
+     3.2.  HIP HIT lookup . . . . . . . . . . . . . . . . . . . . . .  8
+     3.3.  When to use HIP lookup services  . . . . . . . . . . . . .  9
+   4.  Issues with DHT support  . . . . . . . . . . . . . . . . . . . 11
+   5.  Security Considerations  . . . . . . . . . . . . . . . . . . . 12
+   6.  IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 13
+   7.  Acknowledgments  . . . . . . . . . . . . . . . . . . . . . . . 14
+   8.  References . . . . . . . . . . . . . . . . . . . . . . . . . . 14
+   Author's Address . . . . . . . . . . . . . . . . . . . . . . . . . 15
+   Intellectual Property and Copyright Statements . . . . . . . . . . 16
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Ahrenholz               Expires February 26, 2006               [Page 2]
+
+Internet-Draft              HIP DHT Interface                August 2005
+
+
+1.  Introduction
+
+   The Host Identity Protocol [2] may benefit from a lookup service
+   based on Distributed Hash Tables (DHTs).  The Host Identity namespace
+   is flat, consisting of public keys, in contrast to the hierarchical
+   Domain Name System.  These keys are hashed to form Host Identity Tags
+   (HITs) which appear as large random numbers.  The current DNS system
+   does not provide a suitable lookup mechanism for these flat, random
+   values, and has been heavily optimized for address lookup.  DHTs
+   manage such data well by applying a hash function that distributes
+   data across a number of servers.  DHTs also feature good support for
+   updating stored values.
+
+   One freely available implementation of a DHT is the Bamboo DHT, which
+   has been deployed on PlanetLab servers to form a free service named
+   Open DHT.  Open DHT is available via the Internet for any program to
+   store and retrieve arbitrary data.  Open DHT uses a well defined XML-
+   RPC interface, featuring both put and get operations.  This document
+   discusses a common interface for HIP to be used with Open DHT, so
+   that various HIP implementations may leverage this lookup service in
+   an interoperable fashion.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Ahrenholz               Expires February 26, 2006               [Page 3]
+
+Internet-Draft              HIP DHT Interface                August 2005
+
+
+2.  The Open DHT interface
+
+   Open DHT is a public deployment of Bamboo DHT servers running on 200-
+   300 PlanetLab nodes.  While the Bamboo project provides the actual
+   software running on the servers, here we will refer only to Open DHT,
+   which uses a certain defined interface for the XML-RPC calls.  One
+   can run their own Bamboo nodes to set up a private ring of servers,
+   but here we are interested in providing a service for use with
+   mutiple, different HIP implementations.
+
+   Open DHT was chosen because it is a well-known, publicly available
+   DHT used within the research community.  Its interface features a
+   simple, standards-based protocol that can be easily implemented by
+   HIP developers.  This document does not aim to dictate that only the
+   services and servers described here should be used, but is rather
+   meant to act as a starting point to gain experience with these
+   services, choosing tools that are readily available.
+
+   Open DHT stores values using (hash) keys.  Keys are limited to 20
+   bytes in length, and values can be up to 1024 bytes.  Values are
+   stored for a certain number of seconds, up to a maximum of 604,800
+   seconds (one week.)  See the Open DHT website:
+   <http://www.opendht.org/>
+
+   Two RPC operations are supported: put and get.  Put is called with
+   key and value parameters, causing the value to be stored using the
+   key as its hash index.  Get is called with the key parameter, when
+   you have a key and want to retrieve the value.
+
+   The definitions below are taken from
+   <http://opendht.org/users-guide.html>.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Ahrenholz               Expires February 26, 2006               [Page 4]
+
+Internet-Draft              HIP DHT Interface                August 2005
+
+
+             The put operation takes the following arguments:
+
+         +----------------+--------------------------------------+
+         | field          | type                                 |
+         +----------------+--------------------------------------+
+         | application    | string                               |
+         |                |                                      |
+         | client_library | string                               |
+         |                |                                      |
+         | key            | byte array, 20 bytes max.            |
+         |                |                                      |
+         | value          | byte array, 1024 bytes max.          |
+         |                |                                      |
+         | ttl_sec        | four-byte integer, max. value 604800 |
+         +----------------+--------------------------------------+
+
+     The server replies with an integer -- 0 for "success", 1 if it is
+              "over capacity", and 2 indicating "try again".
+
+             The get operation takes the following arguments:
+
+     +----------------+---------------------------------------------+
+     | field          | type                                        |
+     +----------------+---------------------------------------------+
+     | application    | string                                      |
+     |                |                                             |
+     | client_library | string                                      |
+     |                |                                             |
+     | key            | byte array, 20 bytes max.                   |
+     |                |                                             |
+     | maxvals        | four-byte singed integer, max. value 2^31-1 |
+     |                |                                             |
+     | placemark      | byte array, 100 bytes max.                  |
+     +----------------+---------------------------------------------+
+
+   The server replies with an array of values, and a placemark that can
+                  be used for fetching additional values.
+
+   This is the basic XML-RPC interface provided by Open DHT.  Each
+   "field" from the above tables are XML tags that enclose their
+   corresponding values.  Below, specific uses for HIP are suggested,
+   along with values that can be used inside the fields shown above.
+
+
+
+
+
+
+
+
+
+Ahrenholz               Expires February 26, 2006               [Page 5]
+
+Internet-Draft              HIP DHT Interface                August 2005
+
+
+3.  HIP lookup services
+
+   Here we define two lookup services for use with HIP.
+
+   The first is an address lookup service.  Before a HIP association can
+   be initiated (a non-opportunistic initiation), a HIP host needs the
+   peer's HIT and the current address at which the peer is reachable.
+   Often the HIT will be pre-configured or available via DNS lookup
+   using a hostname lookup [3].  With HIP mobility [4], IP addresses may
+   be used as locators that are subject to change frequently.  The Host
+   Identity and the HIT remain constant and can be used to securely
+   identify a host, so the HIT makes a good DHT key for storing and
+   retrieving addresses.
+
+   The second service is a HIT lookup service.  The need for this arose
+   when experimenting with an IPv4 implementation that relies on 32-bit
+   LSIs.  When an application attempts to make a connection using the
+   LSI, the HIP layer needs to somehow translate this LSI into a HIT
+   before initiating a HIP association.  If the LSI is an arbitrary
+   number (not based on any bits from the HIT) then this LSI-HIT mapping
+   must be either pre-configured or available through a lookup service
+   such as this.  Also, if the peer address is keyed off the HIT as for
+   the previously described service, the HIT must be known to obtain a
+   reachable address for that peer.
+
+   Both of these services reduce the amount of pre-configuration
+   required at each HIP host.  For the first service, the address of the
+   peer does not need to be known ahead of time.  For the second
+   service, only a list of LSIs may need to be configured, the remainder
+   of peer parameters can be dynamically acquired.  They do add an
+   additional item for configuration -- the DHT server that will be
+   contacted to service lookup requests.
+
+3.1.  HIP address lookup
+
+   Functionally, this interface is: addr = get(HIT).  Publish and lookup
+   operations are defined.  Given a HIT, a lookup returns the preferred
+   address of the peer.
+
+
+
+
+
+
+
+
+
+
+
+
+
+Ahrenholz               Expires February 26, 2006               [Page 6]
+
+Internet-Draft              HIP DHT Interface                August 2005
+
+
+                              Address publish
+
+     +----------------+----------------------------+----------------+
+     | field          | value                      | data type      |
+     +----------------+----------------------------+----------------+
+     | application    | "hip-addr"                 | string         |
+     |                |                            |                |
+     | client_library | (implementation dependent) | string         |
+     |                |                            |                |
+     | key            | 128-bit HIT                | base64 encoded |
+     |                |                            |                |
+     | value          | struct sockaddr            | base64 encoded |
+     |                |                            |                |
+     | ttl_sec        | current address lifetime   | numeric string |
+     +----------------+----------------------------+----------------+
+
+                              Address lookup
+
+   +----------------+---------------------------------+----------------+
+   | field          | value                           | data type      |
+   +----------------+---------------------------------+----------------+
+   | application    | "hip-addr"                      | string         |
+   |                |                                 |                |
+   | client_library | (implementation dependent)      | string         |
+   |                |                                 |                |
+   | key            | 128-bit HIT                     | base64 encoded |
+   |                |                                 |                |
+   | maxvals        | (implementation dependent)      | numeric string |
+   |                |                                 |                |
+   | placemark      | (NULL, or used from server      | base64 encoded |
+   |                | reply)                          |                |
+   +----------------+---------------------------------+----------------+
+
+   The application and client_library fields are used for logging in
+   Open DHT.  The client_library may vary between different
+   implementations, specifying the name of the XML-RPC library used or
+   the application that directly makes XML-RPC calls.
+
+   The key for both address publish and lookup is the 128-bits of the
+   HIT, base64 encoded [1].  The value used in the publish and lookup
+   response is the struct sockaddr that stores the address in network
+   byte order, base64 encoded.  The struct sockaddr was chosen because
+   it is a standard interface that includes the address family.
+
+   The ttl_sec field used with address publish includes the time-to-
+   live, the number of seconds for which the entry will be stored by the
+   DHT, which is set to the number of seconds remaining in the address
+   lifetime.
+
+
+
+Ahrenholz               Expires February 26, 2006               [Page 7]
+
+Internet-Draft              HIP DHT Interface                August 2005
+
+
+   The max_vals and placemark fields used with address lookup are
+   defined by the get XML-RPC interface.  The get needs to know the
+   maximum number of values to retrieve.  The placemark is a value found
+   in the server reply that causes the get to continue to retrieve
+   values starting at where it left off.
+
+3.2.  HIP HIT lookup
+
+   Functionally, this interface is: HIT = get(f(LSI)).  The LSI is a
+   handle to a Host Identity that can be used in socket calls by legacy
+   applications.  The hash key is a function f(LSI).  One problem with
+   LSIs is that they are not unique.  We therefore define a "site id" to
+   identify the site or domain to which the host named by the LSI
+   belongs.  This can be the same string used in the domain part of the
+   DNS domain name, for example.  The assignment of site ids is outside
+   the scope of this document, but is assumed to be preconfigured among
+   corresponding hosts at that site, and the concatenation of LSI and
+   site id is assumed to have site-local scope.
+
+                                HIT publish
+
+   +----------------+---------------------------------+----------------+
+   | field          | value                           | data type      |
+   +----------------+---------------------------------+----------------+
+   | application    | "hip-hit"                       | string         |
+   |                |                                 |                |
+   | client_library | (implementation dependent)      | string         |
+   |                |                                 |                |
+   | key            | SHA1(struct sockaddr LSI|site   | base64 encoded |
+   |                | id)                             |                |
+   |                |                                 |                |
+   | value          | 128-bit HIT                     | base64 encoded |
+   |                |                                 |                |
+   | ttl_sec        | "604800" (maximum value)        | numeric string |
+   +----------------+---------------------------------+----------------+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Ahrenholz               Expires February 26, 2006               [Page 8]
+
+Internet-Draft              HIP DHT Interface                August 2005
+
+
+                                HIT lookup
+
+   +----------------+---------------------------------+----------------+
+   | field          | value                           | data type      |
+   +----------------+---------------------------------+----------------+
+   | application    | "hip-hit"                       | string         |
+   |                |                                 |                |
+   | client_library | (implementation dependent)      | string         |
+   |                |                                 |                |
+   | key            | SHA1(struct sockaddr LSI|site   | base64 encoded |
+   |                | id)                             |                |
+   |                |                                 |                |
+   | maxvals        | (implementation dependent)      | numeric string |
+   |                |                                 |                |
+   | placemark      | (NULL, or used from server      | base64 encoded |
+   |                | reply)                          |                |
+   +----------------+---------------------------------+----------------+
+
+   The application field is now "hip-hit".  The client_library, maxvals,
+   and placemark fields are the same as described in Section 3.1.
+
+   The key is the SHA-1 hash of the concatentation of the LSI with the
+   site identifier.  The LSI is stored in network byte order in struct
+   sockaddr form, in the same manner as addresses before.  This binary
+   data is then appended with the null-terminated string containing the
+   site id, and then SHA-1 hashed.  If the site id happens to be
+   numeric, its string representation should be used.  The hash is used
+   due to the 20 byte limitiation on key sizes, allowing for lengthy
+   site identifiers.  The hash is base64 encoded.
+
+   The value is the 128-bit HIT, base64 encoded.
+
+   The time-to-live is set to its maximum value, under the assumption
+   that the LSI to HIT mapping is long-lived.
+
+3.3.  When to use HIP lookup services
+
+   Below are some suggestions of when a HIP implementation may want to
+   use the HIP lookup services.
+
+   When a peer HIT is first configured, an address lookup could be
+   performed so that an address can be cached and immediately available
+   for when an association is requested.  Implementations might load a
+   list of peer HITs on startup, resulting in several lookups that can
+   take some time to complete.
+
+   However, cached addresses may quickly become obsolete, depending on
+   how often the peer changes its preferred address.  Performing an
+
+
+
+Ahrenholz               Expires February 26, 2006               [Page 9]
+
+Internet-Draft              HIP DHT Interface                August 2005
+
+
+   address lookup before sending the I1 may be needed.  At this time the
+   latency of a lookup may be intolerable, and a lookup could instead be
+   performed after the I1 retransmission timer fires -- when no R1 reply
+   has been received -- to detect any change in address.
+
+   A HIP host should publish its preferred address upon startup, so
+   other hosts may determine where it is reachable.  Also, when there is
+   a change in preferred address, usually associated with sending UPDATE
+   packets with included locator parameters, the host should update its
+   address with the DHT.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Ahrenholz               Expires February 26, 2006              [Page 10]
+
+Internet-Draft              HIP DHT Interface                August 2005
+
+
+4.  Issues with DHT support
+
+   As of this writing, Open DHT did not support a remove operation for
+   XML-RPC.  When no remove is available, each put appends the new value
+   to any existing values.  When performing an address lookup, the last
+   address in the list should be used and considered to be the current
+   preferred address.  Authenticated puts and removes will be supported
+   in the future, where a SHA-1 hash of a secret key is included.
+
+   Selecting an appropriate DHT server to use is not covered here.  If a
+   particular server becomes unavailable, the connect will timeout and
+   some server selection algorithm should be performed, such as trying
+   the next server in a configured list.
+
+   Because the put and get calls rely on outside servers located across
+   the Internet, operations may have a latency involved that should be
+   considered when using these services with HIP.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Ahrenholz               Expires February 26, 2006              [Page 11]
+
+Internet-Draft              HIP DHT Interface                August 2005
+
+
+5.  Security Considerations
+
+   There are two possible attacks on this information exchange between
+   host and DHT server: attacks on the validity of the information
+   provided by the DHT to the host (such as a spoofed DHT response) and
+   attacks on the DHT records themselves (such as polluted records for a
+   given key).
+
+   For the address lookup based on HIT (Section 3.1), the validity of
+   the DHT response can be checked by an initiating host after the R1
+   message is received.  The Host Identity provided in the R1 can be
+   hashed to obtain a HIT that can be checked against the original HIT.
+   However, the Open DHT service does not currently prevent an attacker
+   from polluting the DHT records for a known HIT, thereby causing a
+   denial-of-service attack.  It is possible for a future DHT
+   implementation to use HIP signatures to validate put() requests for
+   HITs, but such an extension is not currently available for Open DHT.
+
+   For the HIT lookup based on LSI (Section 3.2), there is not a
+   corresponding guarantee that the LSI is securely bound to the Host
+   Identifier.  Additional infrastructure (shared secrets between DHT
+   and hosts, or third-party certificate infrastructure) is likely
+   needed to secure those records.  Such issues are for further study.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Ahrenholz               Expires February 26, 2006              [Page 12]
+
+Internet-Draft              HIP DHT Interface                August 2005
+
+
+6.  IANA Considerations
+
+   This document has no actions for IANA.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Ahrenholz               Expires February 26, 2006              [Page 13]
+
+Internet-Draft              HIP DHT Interface                August 2005
+
+
+7.  Acknowledgments
+
+   Thanks to Tom Henderson for providing comments.  Thanks to Teemu
+   Koponen for his ideas about adding a site-local identifier to the LSI
+   DHT key.
+
+8.  References
+
+   [1]  Freed, N. and N. Borenstein, "Multipurpose Internet Mail
+        Extensions (MIME) Part One: Format of Internet Message Bodies",
+        RFC 2045, November 1996.
+
+   [2]  Moskowitz, R., "Host Identity Protocol", draft-ietf-hip-base-03
+        (work in progress), June 2005.
+
+   [3]  Nikander, P. and J. Laganier, "Host Identity Protocol (HIP)
+        Domain Name System (DNS) Extensions", draft-ietf-hip-dns-02
+        (work in progress), July 2005.
+
+   [4]  Nikander, P., "End-Host Mobility and Multihoming with the Host
+        Identity Protocol", draft-ietf-hip-mm-02 (work in progress),
+        July 2005.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Ahrenholz               Expires February 26, 2006              [Page 14]
+
+Internet-Draft              HIP DHT Interface                August 2005
+
+
+Author's Address
+
+   Jeff Ahrenholz
+   The Boeing Company
+   P.O. Box 3707
+   Seattle, WA
+   USA
+
+   Email: jeffrey.m.ahrenholz@boeing.com
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Ahrenholz               Expires February 26, 2006              [Page 15]
+
+Internet-Draft              HIP DHT Interface                August 2005
+
+
+Intellectual Property Statement
+
+   The IETF takes no position regarding the validity or scope of any
+   Intellectual Property Rights or other rights that might be claimed to
+   pertain to the implementation or use of the technology described in
+   this document or the extent to which any license under such rights
+   might or might not be available; nor does it represent that it has
+   made any independent effort to identify any such rights.  Information
+   on the procedures with respect to rights in RFC documents can be
+   found in BCP 78 and BCP 79.
+
+   Copies of IPR disclosures made to the IETF Secretariat and any
+   assurances of licenses to be made available, or the result of an
+   attempt made to obtain a general license or permission for the use of
+   such proprietary rights by implementers or users of this
+   specification can be obtained from the IETF on-line IPR repository at
+   http://www.ietf.org/ipr.
+
+   The IETF invites any interested party to bring to its attention any
+   copyrights, patents or patent applications, or other proprietary
+   rights that may cover technology that may be required to implement
+   this standard.  Please address the information to the IETF at
+   ietf-ipr@ietf.org.
+
+
+Disclaimer of Validity
+
+   This document and the information contained herein are provided on an
+   "AS IS" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS
+   OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET
+   ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED,
+   INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE
+   INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED
+   WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+
+
+Copyright Statement
+
+   Copyright (C) The Internet Society (2005).  This document is subject
+   to the rights, licenses and restrictions contained in BCP 78, and
+   except as set forth therein, the authors retain all their rights.
+
+
+Acknowledgment
+
+   Funding for the RFC Editor function is currently provided by the
+   Internet Society.
+
+
+
+
+Ahrenholz               Expires February 26, 2006              [Page 16]
+

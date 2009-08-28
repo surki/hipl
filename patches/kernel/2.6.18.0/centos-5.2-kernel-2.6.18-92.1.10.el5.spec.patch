@@ -1,0 +1,29 @@
+--- kernel-2.6.spec.orig	2008-09-14 18:39:01.000000000 -0400
++++ kernel-2.6.spec	2008-09-14 18:38:30.000000000 -0400
+@@ -81,6 +81,9 @@
+ %define xen_target vmlinuz
+ %define xen_image vmlinuz
+ 
++# beet
++%define rhbsys .beet
++
+ %define KVERREL %{PACKAGE_VERSION}-%{PACKAGE_RELEASE}
+ %define hdrarch %_target_cpu
+ 
+@@ -2380,6 +2383,8 @@
+ Patch22585: linux-2.6-misc-signaling-msgrvc-should-not-pass-back-error.patch
+ Patch22586: linux-2.6-ia64-softlock-prevent-endless-warnings-in-kdump.patch
+ # adds rhel version info to version.h
++# beet
++Patch22587: centos-5.2-hipmod-sleep-beet-and-interfamily-all-in-one.patch
+ Patch99990: linux-2.6-rhel-version-h.patch
+ # empty final patch file to facilitate testing of kernel patches
+ 
+@@ -4714,6 +4719,7 @@
+ %patch22584 -p1
+ %patch22585 -p1
+ %patch22586 -p1
++%patch22587 -p1
+ 
+ # correction of SUBLEVEL/EXTRAVERSION in top-level source tree Makefile
+ # patch the Makefile to include rhel version info

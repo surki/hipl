@@ -1,0 +1,235 @@
+diff -urN linux-2.6.17.14/include/linux/xfrm.h linux-2.6.17.14-beet/include/linux/xfrm.h
+--- linux-2.6.17.14/include/linux/xfrm.h	2007-05-15 00:08:08.000000000 +0300
++++ linux-2.6.17.14-beet/include/linux/xfrm.h	2007-05-15 00:04:21.000000000 +0300
+@@ -43,12 +43,6 @@
+ #define XFRM_SC_ALG_RESERVED 0
+ #define XFRM_SC_ALG_SELINUX 1
+ 
+-/* Transport layer flag  passed to xfrm_lookup. If set, the userspace
+-   process sleeps in a waitqueue until key management daemon has 
+-   finished setting up security associations. This workaround exists 
+-   until we have queues for outgoing IPsec packets. */
+-#define XFRM_LOOKUP_SLEEP (!in_atomic() && !in_softirq())
+-
+ /* Selector, used as selector both on policy rules (SPD) and SAs. */
+ 
+ struct xfrm_selector
+diff -urN linux-2.6.17.14/include/net/route.h linux-2.6.17.14-beet/include/net/route.h
+--- linux-2.6.17.14/include/net/route.h	2006-10-13 21:55:04.000000000 +0300
++++ linux-2.6.17.14-beet/include/net/route.h	2007-05-15 00:04:21.000000000 +0300
+@@ -146,7 +146,8 @@
+ 
+ static inline int ip_route_connect(struct rtable **rp, u32 dst,
+ 				   u32 src, u32 tos, int oif, u8 protocol,
+-				   u16 sport, u16 dport, struct sock *sk)
++				   u16 sport, u16 dport, struct sock *sk,
++                                   int flags)
+ {
+ 	struct flowi fl = { .oif = oif,
+ 			    .nl_u = { .ip4_u = { .daddr = dst,
+@@ -167,7 +168,7 @@
+ 		ip_rt_put(*rp);
+ 		*rp = NULL;
+ 	}
+-	return ip_route_output_flow(rp, &fl, sk, 0);
++	return ip_route_output_flow(rp, &fl, sk, flags);
+ }
+ 
+ static inline int ip_route_newports(struct rtable **rp, u8 protocol,
+diff -urN linux-2.6.17.14/include/net/xfrm.h linux-2.6.17.14-beet/include/net/xfrm.h
+--- linux-2.6.17.14/include/net/xfrm.h	2007-05-15 00:08:08.000000000 +0300
++++ linux-2.6.17.14-beet/include/net/xfrm.h	2007-05-15 00:04:21.000000000 +0300
+@@ -223,7 +223,7 @@
+ extern int xfrm_policy_unregister_afinfo(struct xfrm_policy_afinfo *afinfo);
+ extern void km_policy_notify(struct xfrm_policy *xp, int dir, struct km_event *c);
+ extern void km_state_notify(struct xfrm_state *x, struct km_event *c);
+-#define XFRM_ACQ_EXPIRES	3
++#define XFRM_ACQ_EXPIRES	30
+ 
+ struct xfrm_tmpl;
+ extern int km_query(struct xfrm_state *x, struct xfrm_tmpl *t, struct xfrm_policy *pol);
+diff -urN linux-2.6.17.14/net/dccp/ipv4.c linux-2.6.17.14-beet/net/dccp/ipv4.c
+--- linux-2.6.17.14/net/dccp/ipv4.c	2006-10-13 21:55:04.000000000 +0300
++++ linux-2.6.17.14-beet/net/dccp/ipv4.c	2007-05-15 00:04:21.000000000 +0300
+@@ -76,7 +76,7 @@
+ 	tmp = ip_route_connect(&rt, nexthop, inet->saddr,
+ 			       RT_CONN_FLAGS(sk), sk->sk_bound_dev_if,
+ 			       IPPROTO_DCCP,
+-			       inet->sport, usin->sin_port, sk);
++			       inet->sport, usin->sin_port, sk, 0);
+ 	if (tmp < 0)
+ 		return tmp;
+ 
+diff -urN linux-2.6.17.14/net/dccp/ipv6.c linux-2.6.17.14-beet/net/dccp/ipv6.c
+--- linux-2.6.17.14/net/dccp/ipv6.c	2006-10-13 21:55:04.000000000 +0300
++++ linux-2.6.17.14-beet/net/dccp/ipv6.c	2007-05-15 00:04:21.000000000 +0300
+@@ -217,7 +217,7 @@
+ 	if (final_p)
+ 		ipv6_addr_copy(&fl.fl6_dst, final_p);
+ 
+-	err = xfrm_lookup(&dst, &fl, sk, 0);
++	err = xfrm_lookup(&dst, &fl, sk, 1);
+ 	if (err < 0)
+ 		goto failure;
+ 
+diff -urN linux-2.6.17.14/net/ipv4/af_inet.c linux-2.6.17.14-beet/net/ipv4/af_inet.c
+--- linux-2.6.17.14/net/ipv4/af_inet.c	2006-10-13 21:55:04.000000000 +0300
++++ linux-2.6.17.14-beet/net/ipv4/af_inet.c	2007-05-15 00:04:21.000000000 +0300
+@@ -1006,7 +1006,7 @@
+ 			       RT_CONN_FLAGS(sk),
+ 			       sk->sk_bound_dev_if,
+ 			       sk->sk_protocol,
+-			       inet->sport, inet->dport, sk);
++			       inet->sport, inet->dport, sk, 0);
+ 	if (err)
+ 		return err;
+ 
+diff -urN linux-2.6.17.14/net/ipv4/datagram.c linux-2.6.17.14-beet/net/ipv4/datagram.c
+--- linux-2.6.17.14/net/ipv4/datagram.c	2006-10-13 21:55:04.000000000 +0300
++++ linux-2.6.17.14-beet/net/ipv4/datagram.c	2007-05-15 00:04:21.000000000 +0300
+@@ -50,7 +50,7 @@
+ 	err = ip_route_connect(&rt, usin->sin_addr.s_addr, saddr,
+ 			       RT_CONN_FLAGS(sk), oif,
+ 			       sk->sk_protocol,
+-			       inet->sport, usin->sin_port, sk);
++			       inet->sport, usin->sin_port, sk, 1);
+ 	if (err)
+ 		return err;
+ 	if ((rt->rt_flags & RTCF_BROADCAST) && !sock_flag(sk, SOCK_BROADCAST)) {
+diff -urN linux-2.6.17.14/net/ipv4/raw.c linux-2.6.17.14-beet/net/ipv4/raw.c
+--- linux-2.6.17.14/net/ipv4/raw.c	2006-10-13 21:55:04.000000000 +0300
++++ linux-2.6.17.14-beet/net/ipv4/raw.c	2007-05-15 00:04:21.000000000 +0300
+@@ -484,7 +484,7 @@
+ 		if (!inet->hdrincl)
+ 			raw_probe_proto_opt(&fl, msg);
+ 
+-		err = ip_route_output_flow(&rt, &fl, sk, !(msg->msg_flags&MSG_DONTWAIT));
++		err = ip_route_output_flow(&rt, &fl, sk, 1);
+ 	}
+ 	if (err)
+ 		goto done;
+diff -urN linux-2.6.17.14/net/ipv4/route.c linux-2.6.17.14-beet/net/ipv4/route.c
+--- linux-2.6.17.14/net/ipv4/route.c	2007-05-15 00:08:08.000000000 +0300
++++ linux-2.6.17.14-beet/net/ipv4/route.c	2006-10-13 21:55:04.000000000 +0300
+@@ -108,7 +108,6 @@
+ #ifdef CONFIG_SYSCTL
+ #include <linux/sysctl.h>
+ #endif
+-#include <linux/xfrm.h>
+ 
+ #define RT_FL_TOS(oldflp) \
+     ((u32)(oldflp->fl4_tos & (IPTOS_RT_MASK | RTO_ONLINK)))
+@@ -2619,7 +2618,7 @@
+ 
+ int ip_route_output_key(struct rtable **rp, struct flowi *flp)
+ {
+-	return ip_route_output_flow(rp, flp, NULL, XFRM_LOOKUP_SLEEP);
++	return ip_route_output_flow(rp, flp, NULL, 0);
+ }
+ 
+ static int rt_fill_info(struct sk_buff *skb, u32 pid, u32 seq, int event,
+diff -urN linux-2.6.17.14/net/ipv4/tcp_ipv4.c linux-2.6.17.14-beet/net/ipv4/tcp_ipv4.c
+--- linux-2.6.17.14/net/ipv4/tcp_ipv4.c	2006-10-13 21:55:04.000000000 +0300
++++ linux-2.6.17.14-beet/net/ipv4/tcp_ipv4.c	2007-05-15 00:04:21.000000000 +0300
+@@ -179,7 +179,7 @@
+ 	tmp = ip_route_connect(&rt, nexthop, inet->saddr,
+ 			       RT_CONN_FLAGS(sk), sk->sk_bound_dev_if,
+ 			       IPPROTO_TCP,
+-			       inet->sport, usin->sin_port, sk);
++			       inet->sport, usin->sin_port, sk, 1);
+ 	if (tmp < 0)
+ 		return tmp;
+ 
+diff -urN linux-2.6.17.14/net/ipv4/udp.c linux-2.6.17.14-beet/net/ipv4/udp.c
+--- linux-2.6.17.14/net/ipv4/udp.c	2006-10-13 21:55:04.000000000 +0300
++++ linux-2.6.17.14-beet/net/ipv4/udp.c	2007-05-15 00:04:21.000000000 +0300
+@@ -604,7 +604,7 @@
+ 				    .uli_u = { .ports =
+ 					       { .sport = inet->sport,
+ 						 .dport = dport } } };
+-		err = ip_route_output_flow(&rt, &fl, sk, !(msg->msg_flags&MSG_DONTWAIT));
++		err = ip_route_output_flow(&rt, &fl, sk, 1);
+ 		if (err)
+ 			goto out;
+ 
+diff -urN linux-2.6.17.14/net/ipv6/datagram.c linux-2.6.17.14-beet/net/ipv6/datagram.c
+--- linux-2.6.17.14/net/ipv6/datagram.c	2006-10-13 21:55:04.000000000 +0300
++++ linux-2.6.17.14-beet/net/ipv6/datagram.c	2007-05-15 00:04:21.000000000 +0300
+@@ -176,7 +176,7 @@
+ 	if (final_p)
+ 		ipv6_addr_copy(&fl.fl6_dst, final_p);
+ 
+-	if ((err = xfrm_lookup(&dst, &fl, sk, 0)) < 0)
++	if ((err = xfrm_lookup(&dst, &fl, sk, 1)) < 0)
+ 		goto out;
+ 
+ 	/* source address lookup done in ip6_dst_lookup */
+diff -urN linux-2.6.17.14/net/ipv6/icmp.c linux-2.6.17.14-beet/net/ipv6/icmp.c
+--- linux-2.6.17.14/net/ipv6/icmp.c	2007-05-15 00:08:08.000000000 +0300
++++ linux-2.6.17.14-beet/net/ipv6/icmp.c	2006-10-13 21:55:04.000000000 +0300
+@@ -64,7 +64,6 @@
+ #include <net/ip6_route.h>
+ #include <net/addrconf.h>
+ #include <net/icmp.h>
+-#include <linux/xfrm.h>
+ 
+ #include <asm/uaccess.h>
+ #include <asm/system.h>
+@@ -390,7 +389,7 @@
+ 		goto out_dst_release;
+ 	}
+ 
+-	if ((err = xfrm_lookup(&dst, &fl, sk, XFRM_LOOKUP_SLEEP)) < 0)
++	if ((err = xfrm_lookup(&dst, &fl, sk, 0)) < 0)
+ 		goto out;
+ 
+ 	if (ipv6_addr_is_multicast(&fl.fl6_dst))
+diff -urN linux-2.6.17.14/net/ipv6/raw.c linux-2.6.17.14-beet/net/ipv6/raw.c
+--- linux-2.6.17.14/net/ipv6/raw.c	2006-10-13 21:55:04.000000000 +0300
++++ linux-2.6.17.14-beet/net/ipv6/raw.c	2007-05-15 00:04:21.000000000 +0300
+@@ -765,7 +765,7 @@
+ 	if (final_p)
+ 		ipv6_addr_copy(&fl.fl6_dst, final_p);
+ 
+-	if ((err = xfrm_lookup(&dst, &fl, sk, 0)) < 0)
++	if ((err = xfrm_lookup(&dst, &fl, sk, 1)) < 0)
+ 		goto out;
+ 
+ 	if (hlimit < 0) {
+diff -urN linux-2.6.17.14/net/ipv6/tcp_ipv6.c linux-2.6.17.14-beet/net/ipv6/tcp_ipv6.c
+--- linux-2.6.17.14/net/ipv6/tcp_ipv6.c	2007-05-15 00:08:08.000000000 +0300
++++ linux-2.6.17.14-beet/net/ipv6/tcp_ipv6.c	2007-05-15 00:04:21.000000000 +0300
+@@ -258,7 +258,7 @@
+ 	if (final_p)
+ 		ipv6_addr_copy(&fl.fl6_dst, final_p);
+ 
+-	if ((err = xfrm_lookup(&dst, &fl, sk, XFRM_LOOKUP_SLEEP)) < 0)
++	if ((err = xfrm_lookup(&dst, &fl, sk, 1)) < 0)
+ 		goto failure;
+ 
+ 	if (saddr == NULL) {
+diff -urN linux-2.6.17.14/net/ipv6/udp.c linux-2.6.17.14-beet/net/ipv6/udp.c
+--- linux-2.6.17.14/net/ipv6/udp.c	2007-05-15 00:08:08.000000000 +0300
++++ linux-2.6.17.14-beet/net/ipv6/udp.c	2007-05-15 00:04:21.000000000 +0300
+@@ -789,7 +789,7 @@
+ 	if (final_p)
+ 		ipv6_addr_copy(&fl->fl6_dst, final_p);
+ 
+-	if ((err = xfrm_lookup(&dst, fl, sk, XFRM_LOOKUP_SLEEP)) < 0)
++	if ((err = xfrm_lookup(&dst, fl, sk, 1)) < 0)
+ 		goto out;
+ 
+ 	if (hlimit < 0) {
+diff -urN linux-2.6.17.14/net/ipv6/xfrm6_policy.c linux-2.6.17.14-beet/net/ipv6/xfrm6_policy.c
+--- linux-2.6.17.14/net/ipv6/xfrm6_policy.c	2007-05-15 00:08:01.000000000 +0300
++++ linux-2.6.17.14-beet/net/ipv6/xfrm6_policy.c	2007-05-15 00:06:06.000000000 +0300
+@@ -140,6 +140,9 @@
+ 			case AF_INET:
+ 				fl_tunnel.fl4_dst = remote.in->s_addr;
+ 				fl_tunnel.fl4_src = local.in->s_addr;
++                                fl_tunnel.fl4_tos = 0;
++                                fl_tunnel.fl4_fwmark = 0;
++                                fl_tunnel.fl4_scope = 0;
+ 				break;
+ 			case AF_INET6:
+ 				ipv6_addr_copy(&fl_tunnel.fl6_dst, remote.in6);

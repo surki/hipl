@@ -1,0 +1,118 @@
+diff -urN mail.orig/access mail.hipl/access
+--- mail.orig/access	2006-02-13 00:47:20.000000000 +0200
++++ mail.hipl/access	2006-03-13 14:44:18.000000000 +0200
+@@ -97,10 +97,15 @@
+ #Connect:172.29			RELAY
+ #Connect:172.30			RELAY
+ #Connect:172.31			RELAY
+-#Connect:192.168			RELAY
+-#GreetPause:192.168		0
+-#ClientRate:192.168		0
+-#ClientConn:192.168		0
++Connect:192.168			RELAY
++GreetPause:192.168		0
++ClientRate:192.168		0
++ClientConn:192.168		0
++Connect:10.0                    RELAY
++GreetPause:10.0                 0
++ClientRate:10.0                 0
++ClientConn:10.0                 0
++
+ # Defaults
+ GreetPause:				5000
+ ClientRate:				10
+diff -urN mail.orig/local-host-names mail.hipl/local-host-names
+--- mail.orig/local-host-names	2006-02-13 00:47:20.000000000 +0200
++++ mail.hipl/local-host-names	2006-02-13 14:57:04.000000000 +0200
+@@ -1,2 +1,3 @@
+ localhost
+ ritsa
++ritsa.localnet
+diff -urN mail.orig/sendmail.mc mail.hipl/sendmail.mc
+--- mail.orig/sendmail.mc	2006-02-13 00:47:14.000000000 +0200
++++ mail.hipl/sendmail.mc	2006-03-13 21:04:14.000000000 +0200
+@@ -51,19 +51,20 @@
+ dnl # Daemon options - restrict to servicing LOCALHOST ONLY !!!
+ dnl # Remove `, Addr=' clauses to receive from any interface
+ dnl # If you want to support IPv6, switch the commented/uncommentd lines
+-FEATURE(`no_default_msa')dnl
++dnl FEATURE(`no_default_msa')dnl
+ dnl DAEMON_OPTIONS(`Family=inet6, Name=MTA-v6, Port=smtp, Addr=::1')dnl
+-DAEMON_OPTIONS(`Family=inet,  Name=MTA-v4, Port=smtp, Addr=127.0.0.1')dnl
++dnl DAEMON_OPTIONS(`Family=inet,  Name=MTA-v4, Port=smtp, Addr=127.0.0.1')dnl
+ dnl DAEMON_OPTIONS(`Family=inet6, Name=MSP-v6, Port=submission, Addr=::1')dnl
+-DAEMON_OPTIONS(`Family=inet,  Name=MSP-v4, Port=submission, Addr=127.0.0.1')dnl
++dnl DAEMON_OPTIONS(`Family=inet,  Name=MSP-v4, Port=submission, Addr=127.0.0.1')dnl
++DAEMON_OPTIONS(`Family=inet6, Name=MTA-v6')dnl
+ dnl #
+ dnl # Be somewhat anal in what we allow
+ define(`confPRIVACY_FLAGS',dnl
+ `needmailhelo,needexpnhelo,needvrfyhelo,restrictqrun,restrictexpand,nobodyreturn,authwarnings')dnl
+ dnl #
+ dnl # Define connection throttling and window length
+-define(`confCONNECTION_RATE_THROTTLE', `15')dnl
+-define(`confCONNECTION_RATE_WINDOW_SIZE',`10m')dnl
++dnl define(`confCONNECTION_RATE_THROTTLE', `15')dnl
++dnl define(`confCONNECTION_RATE_WINDOW_SIZE',`10m')dnl
+ dnl #
+ dnl # Features
+ dnl #
+@@ -72,29 +73,38 @@
+ dnl #
+ dnl # The greet_pause feature stops some automail bots - but check the
+ dnl # provided access db for details on excluding localhosts...
+-FEATURE(`greet_pause', `1000')dnl 1 seconds
++dnl FEATURE(`greet_pause', `1000')dnl 1 seconds
+ dnl #
+ dnl # Delay_checks allows sender<->recipient checking
+-FEATURE(`delay_checks', `friend', `n')dnl
++dnl FEATURE(`delay_checks', `friend', `n')dnl
+ dnl #
+ dnl # If we get too many bad recipients, slow things down...
+ define(`confBAD_RCPT_THROTTLE',`3')dnl
+ dnl #
+ dnl # Stop connections that overflow our concurrent and time connection rates
+-FEATURE(`conncontrol', `nodelay', `terminate')dnl
+-FEATURE(`ratecontrol', `nodelay', `terminate')dnl
++dnl FEATURE(`conncontrol', `nodelay', `terminate')dnl
++dnl FEATURE(`ratecontrol', `nodelay', `terminate')dnl
+ dnl #
+ dnl # If you're on a dialup link, you should enable this - so sendmail
+ dnl # will not bring up the link (it will queue mail for later)
+ dnl define(`confCON_EXPENSIVE',`True')dnl
+ dnl #
+-dnl # Default Mailer setup
+-MAILER_DEFINITIONS
+-MAILER(`local')dnl
+-MAILER(`smtp')dnl
++FEATURE(`use_cw_file')
+ 
+ dnl # Masquerading options
+ FEATURE(`always_add_domain')dnl
+-MASQUERADE_AS(`ritsa.localnet')dnl
++MASQUERADE_AS(`ritsa')dnl
+ FEATURE(`allmasquerade')dnl
+ FEATURE(`masquerade_envelope')dnl
++FEATURE(`accept_unqualified_senders')dnl
++FEATURE(`accept_unresolvable_domains')dnl
++FEATURE(`bestmx_is_local')dnl
++
++dnl # Default Mailer setup
++MAILER_DEFINITIONS
++MAILER(`local')dnl
++MAILER(`smtp')dnl
++
++# filters
++INPUT_MAIL_FILTER(`spamassassin',
++           `S=local:/var/run/sendmail/spamass.sock, F=, T=S:4m;R:4m;E:10m')dnl
+diff -urN mail.orig/submit.mc mail.hipl/submit.mc
+--- mail.orig/submit.mc	2006-02-13 00:47:14.000000000 +0200
++++ mail.hipl/submit.mc	2006-02-13 15:06:42.000000000 +0200
+@@ -48,6 +48,7 @@
+ dnl # The real reason we're here: the FEATURE(msp)
+ dnl #---------------------------------------------------------------------
+ FEATURE(`msp', `[127.0.0.1]', `MSA')dnl
++dnl FEATURE(`msp', `[IPv6:::1]', `MSA')dnl
+ dnl #
+ dnl #---------------------------------------------------------------------
+ dnl # Some minor cleanup from FEATURE(msp)

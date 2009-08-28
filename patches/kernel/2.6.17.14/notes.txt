@@ -1,0 +1,5 @@
+Compilation notes for 2.6.17.14 kernel
+======================================
+
+If the kernel compilation fails in the end, please add 
+-fno-stack-protector to the CFLAGS in the toplevel Makefile.

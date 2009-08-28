@@ -1,0 +1,16 @@
+tiedosto kuvaus
+=====================
+ext1   ip(ah(udp))  localhost:2000->localhost:2001 data: hello
+esp1   ip(esp(udp),esptrailer) localhost:2000->localhost:2001 data: hello
+hip_i1 initiator1-packet IP(HIP(HITr)):
+       tämä ei ole oikein hyvä HIP-paketti
+       IP-next-proto: HIP=200 (=C8)
+         hip-vers=0
+         mikä hitto on RES? laitoin nollaksi
+         HIT=hhh...hhh
+         no fqdn => rcount = .
+         rdlength = 0 => no rdata
+         type = 0
+icmp_no_ext ordinary packet
+tcp_no_ext  ordinary packet
+udp_no_ext  ordinary packet

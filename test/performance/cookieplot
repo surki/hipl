@@ -1,0 +1,14 @@
+set terminal fig color
+set ylabel "time/s"
+set xlabel "puzzle difficulty K"
+set xrange [1:31]
+set yrange [0:620]
+#set xtics 256
+set style data yerrorbars
+#set style data linespoints
+
+set output "cookie.fig"
+set terminal fig color
+set terminal x11
+
+plot "logs/cookieperf-final" using 1:2:3 notitle

@@ -1,0 +1,74 @@
+The source for ipv4 bamboo can be obtained from:
+	http://bamboo-dht.org/bamboo-cvs-2006-03-03.tgz
+The source for ipv6 bamboo can be obtained from:
+	http://lxpworkroom.googlepages.com/bamboo1.zip
+
+
+
+Both ipv4 and ipv6 bamboos had an assertion error when a connection was closed at the bamboo, but was still alive at hipd. The assertion was fixed with these patches:
+	bamboo_fix_TO_ipv4-20060303_FOR_assertion.diff
+	bamboo_fix_TO_ipv6-20080612_FOR_assertion.diff
+
+
+
+In order to create the /etc/init.d/ scripts for fedora, a small change to a file in both versions of bamboo was needed. The two patches for that are:
+	bamboo_changes_TO_ipv4-20060303_FOR_fedora-script.diff
+	bamboo_changes_TO_ipv6-20080612_FOR_fedora-script.diff
+
+
+
+The patch for going from the ipv4 bamboo to the ipv6 bamboo is:
+	bamboo_diff_FROM_ipv4-20060303_TO_ipv6-20080612.diff
+
+
+
+The following patch was not created by me (Blerta Bishaj).
+	bamboo-orig-cvs-2006-03-03-ipv6-luxiaopeng.diff
+
+
+
+After the source has been obtained, it can be compiled by moving into the downloaded folder and executing 'make'.
+For running bamboo, you have to execute (supposing you are still in the bamboo folder):
+	bin/run-java bamboo.lss.DustDevil gateway.cfg
+where gateway.cfg is a configuration file.
+
+
+
+An example config file for ipv4 bamboo is in:
+	http://www.cs.helsinki.fi/u/sklvarjo/sample.cfg
+The port here can be changed from 3600/3602 to 5850.
+Also, the min_replica_count value should be set to 1, since only one gateway is specified. The min_replica_count value specifies in how many dht servers the data is replicated.
+
+
+
+In test/packaging/ inside hipd code, there are some sample /etc/init.d/ scripts for running both bamboo versions (ipv4 and ipv6) on fedora and ubuntu:
+	ubuntu-init.d-bamboo_v4
+	ubuntu-init.d-bamboo_v6
+	fedora-init.d-bamboo_v4
+	fedora-init.d-bamboo_v6
+Later, we tried to limit the privileges of the user executing these scripts by:
+- switching from 'daemon /home/bishaj/bamboo_v4/bin/run-java ... ' to 'daemon --user=nobody /home/bishaj/bamboo_v4/bin/run-java ... ', there might be some problems related to file rights and ownership caused by this.
+- putting the bamboo source code inside the /opt/ folder
+
+The scripts are now updated with the latest changes for reducing privileges.
+-In ubuntu reducing privileges was straight-forward.
+-In fedora, there were problems with user rights on the files.
+
+
+
+One other thing to be careful about is when configuring the gateways. If there is one, this is fine:
+    <initargs>
+	gateway 193.167.187.133:5850
+	leaf_set_size  4
+	digit_values   2
+	immediate_join true
+    </initargs>
+If there are several gateways to be configured, numbering them should start from 0, otherwise bamboo might crash (not always). Configuring can be like this for example:
+    <initargs>
+	gateway_count 1
+	gateway_0 193.167.187.130:5850
+	leaf_set_size  4
+	digit_values   2
+	immediate_join true
+    </initargs>
+

@@ -1,0 +1,77 @@
+#!/bin/sh
+#
+### BEGIN INIT INFO
+# Provides:		hipd
+# Required-Start:	$remote_fs $syslog
+# Required-Stop:	$remote_fs $syslog
+# Default-Start:	2 3 4 5
+# Default-Stop:		1
+# Short-Description:	HIPL IPsec key and mobility management daemon
+### END INIT INFO
+
+HIPD_OPTS="-bk"
+PID=`pidof -o $$ hipd`
+
+set -e
+
+. /lib/lsb/init-functions
+
+test -x /usr/sbin/hipd || exit 0
+
+if test -f /etc/default/hipd; then
+    . /etc/default/hipd
+fi
+
+stop_hipd() {
+    # Ensure that we don't try to kill init.d script itself
+    if [ $PID ]
+    then
+	kill $1 $PID
+    fi
+}
+
+case "$1" in
+  start)
+        log_daemon_msg "Starting hipd"
+	if start-stop-daemon --start --quiet --exec /usr/sbin/hipd -- $HIPD_OPTS; then
+	    log_end_msg 0
+	else
+	    log_end_msg 1
+	fi
+	;;
+  stop)
+        log_daemon_msg "Stopping hipd"
+	stop_hipd
+	log_end_msg 0
+	;;
+
+  reload|force-reload)
+        log_daemon_msg "Reloading hipd"
+	if start-stop-daemon --stop --signal 1 --quiet --oknodo --exec /usr/sbin/hipd -name hipd; then
+	    log_end_msg 0
+	else
+	    log_end_msg 1
+	fi
+	;;
+
+  restart)
+        log_daemon_msg "Restarting hipd"
+        # Daemon waits N seconds for closing of connections - just kill it
+	stop_hipd -KILL
+	if start-stop-daemon --start --quiet --exec /usr/sbin/hipd -- $HIPD_OPTS; then
+	    log_end_msg 0
+	else
+	    log_end_msg 1
+	fi
+	;;
+
+  status)
+	status_of_proc -p /var/lock/hipd.lock /usr/sbin/hipd hipd && exit 0 || exit $?
+	;;
+
+  *)
+	log_action_msg "Usage: /etc/init.d/hipd {start|stop|reload|force-reload|restart}"
+	exit 1
+esac
+
+exit 0

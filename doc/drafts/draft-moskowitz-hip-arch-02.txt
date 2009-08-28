@@ -1,0 +1,890 @@
+
+                                           R. Moskowitz, ICSA Labs
+
+Internet Draft
+
+Document: <draft-moskowitz-hip-arch-02.txt>          February 2001
+
+
+
+                         Host Identity Payload
+
+                              Architecture
+
+
+
+Status of this Memo
+
+
+   This document is an Internet-Draft and is in full conformance with
+   all provisions of Section 10 of RFC2026.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF), its areas, and its working groups.  Note that
+   other groups may also distribute working documents as Internet-
+   Drafts.
+
+   Internet-Drafts are draft documents valid for a maximum of six
+   months and may be updated, replaced, or obsoleted by other documents
+   at any time.  It is inappropriate to use Internet-Drafts as
+   reference material or to cite them other than as "work in progress."
+
+   The list of current Internet-Drafts can be accessed at
+   http://www.ietf.org/ietf/1id-abstracts.txt
+
+   The list of Internet-Draft Shadow Directories can be accessed at
+   http://www.ietf.org/shadow.html.
+
+
+
+Table of Contents
+
+
+1. Abstract...........................................................2
+2. Conventions used in this document..................................2
+3. Introduction.......................................................2
+4. Background.........................................................3
+5. The Host Identity..................................................4
+5.1. Host Identity....................................................5
+5.2. Host Identity Tag (HIT)..........................................5
+5.2.1. Storing HIT in DNS.............................................6
+5.3. Host Assigning Authority (HAA) field.............................6
+5.4. Local Scope Identity (LSI).......................................7
+5.5. Security Parameter Index (SPI)...................................7
+5.6. Difference between an LSI and the SPI............................7
+6. Using the Host Identity............................................8
+7. Mobility via HIP...................................................8
+8. HIP and NATs.......................................................9
+8.1. HIP and TCP Checksum.............................................9
+9. HIP Policies......................................................10
+10. Benefits of HIP..................................................10
+11. Security Considerations..........................................11
+
+
+Moskowitz                                                            1
+
+                  Host Identity Payload Architecture     February 2001
+
+
+11.1. HITs used in ACLs..............................................13
+11.2. Non-security Considerations....................................13
+12. IANA Considerations..............................................13
+13. ICANN Considerations.............................................14
+14. References.......................................................14
+15. Acknowledgments..................................................14
+16. Author's Address.................................................15
+17. Copyright Statement..............................................15
+
+
+1. Abstract
+
+   This memo describes the reasoning behind proposing a new namespace,
+   the Host Identity, and a payload, between the Internetworking and
+   Transport layers, the Host layer, to carry this identity.  Herein is
+   presented the basics of the current namespaces, strengths and
+   weaknesses, and how a new namespace will add completeness to them.
+   This new namespace's roles in the protocols are defined.
+
+
+2. Conventions used in this document
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED",  "MAY", and "OPTIONAL" in
+   this document are to be interpreted as described in [RFC-2119].
+
+
+3. Introduction
+
+   The Internet has created two namespaces: Internet Protocol (IP)
+   addresses, and Domain Name Services (DNS) names.  These two
+   namespaces have a set of features and abstractions that have powered
+   the Internet to what it is today.  They also have a number of
+   weaknesses.  Basically, since they are all we have, we try and do
+   too much with them.  Semantic overloading and functionality
+   extensions have greatly complicated these namespaces.
+
+   The Host Identity (HI) namespace fills an important gap between the
+   IP and DNS namespaces.  The HI is cryptographic in its nature; it is
+   the public key of an asymmetric key-pair.  It is assigned to each
+   host, or technically it's networking kernel or stack.  Each host
+   will have at least one HI, which can either be public (e.g.
+   published in DNS), or anonymous.  Client systems will tend to have
+   both public and anonymous HIs.
+
+   Although the HI can be used in many authentication systems, its
+   principle design calls out for a new protocol header (HIP)_and
+   exchange [HIP] that will support trust between systems, enhance
+   mobility and dynamic IP renumbering, aid in protocol
+   translation/transition, and greatly reduce Denial Of Service (DOS)
+   attacks.
+
+
+
+Moskowitz                                                            2
+
+                  Host Identity Payload Architecture     February 2001
+
+
+4. Background
+
+   The Internet is built from three principle components: Computing
+   platforms, Packet transport (i.e. internetworking) infrastructure,
+   and Services (applications).  The Internet exists to service two
+   principle components: People and Robotic processes (silicon based
+   people, if you will).  All these components need to be named in
+   order to interact in a scalable manner.
+
+   There are two principle namespaces in use in the Internet for these
+   components: IP numbers, and Domain Names. Email and SIP addresses
+   are really only an extension of Domain Names.
+
+   IP numbers are a confounding of two namespaces ('confounding' is a
+   term used in statistics to discuss to metrics that were merged into
+   one with a gain in indexing, but a loss in informational value), the
+   name of the networking interfaces and the routing direction vector.
+   IP numbers name networking interfaces, and typically only when the
+   interface is connected to the network.  Originally IP numbers had
+   long-term significance.  Today, the vast number of interfaces uses
+   ephemeral and/or non-unique IP numbers.  That is ever time the
+   interface is connected to the network, it is assigned an IP number.
+
+   Further the transport layers are coupled to the IP addresses.
+   Neither can evolve separately from the other.  IPng deliberations
+   were framed by concerns of requiring a TCPng effort as well.
+
+   Domain Names provide hierarchically assigned names for some
+   computing platforms and some services.  Each hierarchy is delegated
+   from the level above; there is no anonymity in Domain Names.
+
+   Email addresses provide naming for both carbon and silicon based
+   people.  Email addresses are extensions of Domain Names, only in so
+   far as a named service is responsible for managing a person's mail.
+   There is some anonymity in Email addresses.
+
+   There are three critical deficiencies with the current namespaces.
+   Dynamic readdressing cannot be directly managed.  Anonymity is not
+   provided in a consistent, trustable manner.  And authentication for
+   systems and datagrams is not provided.  All because computing
+   platforms are not well named with the current namespaces.
+
+        A namespace for computing platforms can be used in end-to-end
+        operations independent of the evolution of the internetworking
+        layer and across the many internetworking layers.  This could
+        support rapid readdressing of the internetworking layer either
+        from mobility or renumbering.
+
+        If this namespace is cryptographically based, it can also
+        provide authentication services for IPsec.  If this namespace
+        is locally created without requiring registration, it can
+        provide anonymity.
+
+
+Moskowitz                                                            3
+
+                  Host Identity Payload Architecture     February 2001
+
+
+   Such a namespace (for computing platforms) should have the following
+   characteristics:
+
+        It is applied to the IP 'kernel'.  The IP kernel is the
+        'component' between services and the packet transport
+        infrastructure.
+
+        It should fully decouple the Internetworking layer from the
+        higher layers.  It should replace all occurrences of IP
+        addresses within applications (like in the TCB).  This may
+        require API changes.
+
+        It should not mandate any infrastructure.  Deployment must come
+        from the bottom up, in a pairwise deployment.
+
+        It should be fixed length, for easy inclusion in datagrams and
+        programming interfaces (e.g the TCB).
+
+        It should be affordable when used in protocols.  This is
+        primarily a packet size issue.  There is also a computational
+        concern in affordablity.
+
+        It MUST be statistically globally unique.  64 bits is
+        inadequate (1% chance of collision in a population of 640M);
+        thus approximately 128 bits should be used.
+
+        It should have a localized abstraction so that it can be used
+        in existing protocols and APIs.
+
+        It SHOULD be locally created.  This can provide anonymity at
+        the cost of making resolvability very difficult.
+
+                Sometimes it MAY contain a delegation component.  This
+                is the cost of resolvability.
+
+        It SHOULD provide authentication services.  This is a preferred
+        function.
+
+        It should be long lived, but replaceable at any time.  This
+        impacts access control lists; short lifetimes will tend to
+        result in tedious list maintenance or require a namespace
+        infrastructure for central control of access lists.
+
+   This new namespace will be called the Host Identity.  It will
+   require its own protocol layer (the Host Identity Payload), between
+   the Internetworking and Transport layers.  It will be based on
+   Public Key Cryptography to supply authentication services.  Properly
+   designed, it can deliver all of the above stated requirements.
+
+
+5. The Host Identity
+
+
+
+Moskowitz                                                            4
+
+                  Host Identity Payload Architecture     February 2001
+
+
+   The Host Identity represents a statistically globally unique name
+   for naming any system with an IP stack.  This identity is normally
+   associated, but not limited to, an IP stack. A system can have
+   multiple identities, some 'well known', some anonymous.  A system
+   may self assert its identity, or may use a third-party authenticator
+   like DNSSEC, PGP, or X.509 to 'notarize' the identity assertion.
+   DNSSEC is the MUST implement authenticator for the Host Identity.
+
+   Although the Host Identity can be any name that can claim
+   'statistically globally unique', a public key of a 'public key' pair
+   makes the best Host Identity.  As documented in the Host Identity
+   Payload (HIP) protocol [HIP], a public key based HI can authenticate
+   the HIP packets and protect them for man-in-the-middle attacks.  And
+   since authenticated datagrams are MANDITORY to provide much of HIP's
+   DOS protection, the Diffie-Hellman exchange in HIP has to be
+   authenticated.  Thus only public key HI and authenticated datagrams
+   SHOULD be supported.  The non-cryptographic forms of HI and HIP are
+   presented to complete the theory of HI, but SHOULD NOT be
+   implemented as they could produce worst DOS attacks than the
+   internet has without HI.
+
+
+5.1. Host Identity
+
+   Host Identity adds two main features to Internet protocols.  The
+   first is a decoupling of the internetworking and transport layers.
+   This decoupling will allow for independent evolution of the two
+   layers.  Additionally it can provide end-to-end services over
+   multiple internetworking realms.  The second feature is host
+   authentication.  If the Host Identity is a public key, this key can
+   be used to authenticate security protocols like IPsec.
+
+   The preferred structure of the Host Identity is that of a public key
+   pair.  DSA is the MUST implement algorithm for any implementation
+   supporting public keys for the Host Identity.  Any other Internet
+   naming convention MAY be used for the Host Identity.  However, these
+   should only be used in situations of high trust - low risk.  That is
+   any place where host authentication is not needed (no risk of host
+   spoofing) and no use of IPsec.
+
+   The Host Identity is never directly used in any Internet protocol.
+   It may be stored in various DNS or LDAP directories as identified in
+   the HIP architecture and it is passed in the HIP payload.  If the
+   Host Identity is a public key, it SHOULD be stored in a DNS KEY RR
+   with the protocol set to HIP.  A Host Identity Tag (HIT) is used in
+   protocols to represent the Host Identity.  Another representation of
+   the Host Identity, the Local Scope Identity (LSI) can also be used
+   in protocols and APIs.  LSI's advantage over HIT is its size; its
+   disadvantage is its local scope.
+
+
+5.2. Host Identity Tag (HIT)
+
+
+Moskowitz                                                            5
+
+                  Host Identity Payload Architecture     February 2001
+
+
+   The Host Identity Tag is a 128 bit field.  There are two advantages
+   of using a hash over the actual Identity in protocols.  First its
+   fix length makes for easier protocol coding and also better manages
+   the packet size cost of this technology.  Secondly, it presents a
+   consistent format to the protocol whatever underlying identity
+   technology is used.
+
+   When the Host Identity is a public key, HIT functions much like the
+   SPI does in IPsec.  However, instead of being an arbitrary 32-bit
+   value that, in combination with the destination IP address and
+   security protocol (ESP), uniquely identifies the Security
+   Association for a datagram, HIT identifies the public key that can
+   validate the packet authentication.  HIT SHOULD be unique in the
+   whole IP universe.  If there is more than one public key for a HIT,
+   the HIT acts as a hint for the correct public key to use.
+
+   There are two formats for HIT.  Bit 0 is used to differentiate the
+   formats.  If Bit 0 is zero, then the rest of HIT is a 127 bits of a
+   Hash of the key.  For example, if the Identity is DSA, these bits
+   are the least significant 127 bits of the SHA-1 [FIPS-180-1] hash of
+   the DSA public key Host Identity.
+
+   If Bit 0 is one, then the next 63 bits is the Host Assigning
+   Authority (HAA) field, and only the last 64 bits come from a hash of
+   the Host Identity.  This format for HIT is recommended for 'well
+   known' systems.  It is possible to support a resolution mechanism
+   for these names in directories like DNS.  Another use of HAA is in
+   policy controls.
+
+   The birthday paradox sets a bound for the expectation of collisions.
+   It is based on the square root of the number of values.  A 64-bit
+   hash, then, would put the chances of a collision at 50-50 with 2^32
+   hosts (4 billion).  A 1% chance of collision would occur in a
+   population of 640M and a .001% collision chance in a 20M population.
+   A 128 bit hash will have the same .001% collision chance in a
+   9x10^16 population.
+
+
+5.2.1. Storing HIT in DNS
+
+   The HIT SHOULD be stored in DNS.  The exception to this is anonymous
+   identities.  The HIT is stored in a new KEY RR.  The HIT KEY RR will
+   have all flags set to ZERO, its protocol set to HIP, and algorithm
+   set to HIT128.  The 'public key' field of the HIT KEY RR will be the
+   128 bit HIT.
+
+
+5.3. Host Assigning Authority (HAA) field
+
+   The 63 bits of HAA supports two levels of delegation.  The first is
+   a registered assigning authority (RAA).  The second is a registered
+   identity (RI, commonly a company).  The RAA is 23 bits with values
+   assign sequentially by ICANN.  The RI is 40 bits, also assigned
+
+Moskowitz                                                            6
+
+                  Host Identity Payload Architecture     February 2001
+
+
+   sequentially but by the RAA.  This can be used to create a
+   resolution mechanism in the DNS.  For example if FOO is RAA number
+   100 and BAR is FOO's 50th registered identity, and if
+   1385D17FC63961F5 is the hash of the key for www.foo.com, then by
+   using DNS Binary Labels [DNSBIN] there could be a reverse lookup
+   record like:
+
+   \[x1385D17FC63961F5/64].\[x32/40].\[x64/23].HIT.int   IN PTR
+   www.foo.com.
+
+
+5.4. Local Scope Identity (LSI)
+
+   LSIs are 32 bit localized representations of a Host Identity.  The
+   purpose of an LSI is to facilitate using Host Identities in existing
+   protocols and APIs.  The owner of the Host Identity does not set its
+   own LSI; each host selects its partner's 32 bit representation for a
+   Host Identity.  It MUST be random.  The risk of collisions is too
+   great (1% in a population of 10,000).  Since the LSI only has
+   meaning to the host, its generation is a local policy issue.
+
+   One method for LSI creation that meets these criteria, would be to
+   concatenate the HIT with a 32 bit random number, hash this (using
+   SHA1), and then use the high order 32 bits as the LSI.
+
+   Examples of how LSIs can be used include: as the address in a FTP
+   command and as the address in a socket call.  Thus LSIs act as a
+   bridge for Host Identity into old protocols and APIs.
+
+
+5.5. Security Parameter Index (SPI)
+
+   SPIs are used in ESP to index into the security association
+   negotiated in HIP.  The ESP SPIs have added significance when used
+   with HIP; they are a compressed representation of the HIT in every
+   packet.  Thus they MAY be used by intermediary systems in providing
+   services like address mapping.  A system does not set its own SPI;
+   each host selects its partner's SPI.  It MUST be random.  The risk
+   of collisions is too great (1% in a population of 10,000).
+
+   A different SPI MUST be used for each HIP exchange with a particular
+   host; this is to avoid a replay attack.  Additionally, when a host
+   rekeys, the SPI MUST change.  One method for SPI creation that meets
+   these criteria, would be to concatenate the HIT with a 32 bit random
+   number, hash this (using SHA1), and then use the high order 32 bits
+   as the SPI.
+
+
+5.6. Difference between an LSI and the SPI
+
+   There is a subtle difference between an LSI and a SPI.
+
+
+
+Moskowitz                                                            7
+
+                  Host Identity Payload Architecture     February 2001
+
+
+   The LSI is relatively longed lived.  A system selects its peer's LSI
+   and SHOULD reuse a previous LSI for a HIT during a HIP exchange.
+   The LSI ONLY appears in the 3rd and 4th HIP packets (each system
+   providing the other with its LSI).  The LSI is used anywhere in
+   system processes where IP addresses have traditionally have been
+   used, like in TCBs and FTP port commands.
+
+   The SPI is short-lived.  It changes with each HIP exchange and with
+   a HIP rekey.  A system notifies its peer of the SPI to use in ESP
+   packets sent to it.  Since the SPI is in all but the first two HIP
+   packets, it can be used in intermediary systems to assist in address
+   remapping.
+
+
+6. Using the Host Identity
+
+   There are a number of ways that Host Identity can be used in
+   Internet Protocols.  The first is to use it in IKE [IKE].  HIT can
+   be used in Main Mode.  For this, the Host Identity MUST be a Public
+   Key, and an appropriate Main Mode authentication (e.g. DSA
+   signature) used.  The LSI of the HIT can replace the usage of IP
+   addresses in IKE.  An appropriate ISAKMP [ISAKMP] payload will be
+   needed to accommodate the Host Identity and HIT.  These additions to
+   IKE would produce a mode of operation for IKE that could traverse a
+   NAT.  This, coupled with ESP transport mode, would produce a NAT
+   friendly IPsec mode (note that the NATs can alter none of the data
+   within the ESP).
+
+   Another, and perhaps more powerful mode is a new, lightweight,
+   protocol that will allow for one host to convey its Host Identity to
+   another host.  This Host Identity Protocol will enable two hosts to
+   exchange Host Identity and related information and rapidly establish
+   an ESP Security Association.  It will lack the fine-grain controls
+   of IKE and some of IKE's security features (like identity
+   protection).
+
+
+7. Mobility via HIP
+
+   As HIP decouples the Transport from the Internetworking layer, and
+   binds the Transport to the Host Identity (through actually either
+   the HIT or LSI), HIP can provide for a HIT degree of Internetworking
+   'mobility' at a very low infrastructure cost.  HIP Internetworking
+   Mobility includes IP address changes (via any method) to either the
+   initiator or responder.  Thus a system is considered mobile if its
+   IP address can change dynamically for any reason like PPP, DHCP,
+   IPv6 TLA reassignments, or a NAT remapping its translation.
+
+   Initiator address changes are rather straightforward.  A responder
+   CAN just accept a HIP or an ESP (whose SPI is an LSI) packet from
+   any address and totally ignore the address for anything more than
+   transmitting return packets.  An initiator MAY send a HIP readdress
+   packet to inform the responder of the new location of the initiator.
+
+Moskowitz                                                            8
+
+                  Host Identity Payload Architecture     February 2001
+
+
+   This is especially helpful for those situations where the responder
+   is sending data periodically to the initiator (that is starting a
+   connection after the initial connection).
+
+   Responder mobility is slightly more involved.  The initiator has to
+   know where the responder is to start the HIP exchange.  HIP need not
+   rely on Dynamic DNS for this function, but will use a rendezvous
+   server.  The DNS address for the responder will be the address of
+   the rendezvous server.  The responder will keep the rendezvous
+   server continuously updated with its IP address.  The rendezvous
+   server simply forwards the initial HIP packet from the initiator to
+   the responder at its current location.  All further packets are
+   between the initiator and responder, and responder mobility is
+   handled just like initiator mobility.  There is very little activity
+   on the rendezvous server, responder address updates and initial HIP
+   packet forwarding, thus one server can support a large number of
+   potential responders.  The responders MUST trust the rendezvous
+   server to properly maintain its HIT and IP address mapping.
+
+   The responder keeps its address current on the rendezvous server by
+   setting up a HIP based SA with the rendezvous server and sending it
+   HIP Readdress packets.  The rendezvous server MUST have the
+   responder's Host Identity from a trusted third party (manual,
+   DNSSEC, etc.) to avoid attacks against its HIT and IP address
+   mapping on behalf of the responder.  Further, a rendezvous server
+   will permit two mobile systems to use HIP without any extraneous
+   infrastructure, including DNSSEC if they have a method other than a
+   DNS query to get each other's HI and HIT.
+
+
+8. HIP and NATs
+
+   With HIP, the Transport is bound to the LSI; thus a connection
+   between two hosts can traverse many addressing realm boundaries,
+   typically implemented with Network Address Translation (NAT)
+   technology.  For a HIP based flow, the NAT needs only track the
+   mapping of the HIT or SPI to an IP address.  Many HITs can map to a
+   single IP address on a NAT, simplifying connections on address poor
+   NAT interfaces.  The NAT can gain much of its knowledge from the HIP
+   packets themselves, however some NAT configuration MAY be necessary.
+
+   The NAT systems CANNOT touch the datagrams within the ESP envelope,
+   thus application specific address translation MUST be done in the
+   end systems.  HIP provides for 'Distributed NAT', and uses the LSI
+   as a place holder for embedded IP addresses.  See the HIP
+   Implementation document [HIPIMPL] for details.
+
+
+8.1. HIP and TCP Checksum
+
+   A HIP implementation CANNOT trust the TCP checksum.  There is no way
+   for a host to know if any of the IP addresses in the IP header are
+   the addresses used to calculate the TCP Checksum.  Thus ALL HIP
+
+Moskowitz                                                            9
+
+                  Host Identity Payload Architecture     February 2001
+
+
+   implementations MUST recalculate the TCP Checksum after removing the
+   ESP envelope.
+
+
+9. HIP Policies
+
+   There are a number of variables that will influence the HIP
+   exchanges that each host must support.  All HIP implementations MUST
+   support at least 2 HIs, one to publish in DNS and one for anonymous
+   usage.  Although anonymous HIs will be rarely used as responder HIs,
+   they will be common for initiators.  Support for multiple HIs is
+   recommended.
+
+   Many initiators would want to use a different HI for different
+   responders.  The implementations SHOULD provide for an ACL of
+   initiator HIT to responder HIT.  This Access Control List (ACL)
+   SHOULD also include preferred transform and local lifetimes.  For
+   HITs with HAAs, wildcarding SHOULD be supported.  Thus if a
+   Community of Interest, like Banking gets an RAA, a single ACL could
+   be used. A global wildcard would represent the general policy to be
+   used.  Policy selection would be from most specific to most general.
+
+   Responders would need a similar ACL, representing which hosts they
+   accept HIP exchanges, and the preferred transform and local
+   lifetimes.  Wildcarding SHOULD be support supported for this ACL
+   also.
+
+
+10. Benefits of HIP
+
+   In the beginning, the network (i.e. IP) layer had the following four
+   "classic" invariants:
+
+        Non-mutable:  The NLP sent is the NLP received (ignoring such
+        things as hop count fields---actually the only interesting
+        things are the two addresses).
+
+        Non-mobile:  The NLP doesn't change during the course of an
+        "association".
+
+        Reversible:  A return NLP can always be formed by reversing the
+        source and destination addresses.
+
+        Omniscient:  Each host knows what NLP a partner host can use to
+        send packets to it.
+
+   Actually, the fourth can be inferred from 1 and 3, but it is worth
+   mentioning for reasons that will be obvious soon if not already.
+
+   In the current "post-classic" world, we are trying intentionally to
+   get rid of the second invariant (both for mobility and for
+   multihoming), and we have been forced to give up the first and the
+   fourth.  RSIP [RSIP] is an attempt to reinstate the fourth invariant
+
+Moskowitz                                                           10
+
+                  Host Identity Payload Architecture     February 2001
+
+
+   without the first invariant.  IPv6 is an attempt to reinstate the
+   first invariant.
+
+   Few systems on the Internet have DNS names, or more specifically,
+   Fully Qualified Domain Names (FQDN).  FQDN names (and their
+   extensions as email names) are Application Layer names; more
+   frequently naming processes than a particular system.  This is why
+   most systems on the internet are not registered in DNS; they do not
+   have processes of interest to other Internet hosts.
+
+   DNS names are indirect references to IP addresses.  This only
+   demonstrates the interrelationship of the networking and application
+   layers.  DNS, as the Internet's only deployed, distributed, database
+   is also the repository of other namespaces, due in part to DNSSEC
+   and KEY records.  Although each namespace can be stretched (IP with
+   v6, DNS with KEY records), neither can adequately provide for host
+   authentication or act as a separation between Internetworking and
+   Transport layers.
+
+   The Host Identity (HI) namespace fills an important gap between the
+   IP and DNS namespaces. An interesting thing about the HI is that it
+   actually allows one to give-up all but the 3rd Network Layer
+   invariant.  That is to say, as long as the Network Layer Protocol
+   (NLP) is reversible, then things work ok because HIP takes care of
+   host identification, and reversibility allows one to get a packet
+   back to one's partner host.  You don't care if the NLP changes in
+   transit (mutable) and you don't care what NLP the partner is using
+   (non-omniscient).
+
+   Since all systems can have a Host Identity, every system can have an
+   entry in the DNS.  The mobility features in HIP make it attractive
+   to trusted 3rd parties to offer rendezvous servers.
+
+
+11. Security Considerations
+
+   HIP takes advantage of the new Host Identity paradigm to provide
+   secure authentication of hosts and provide a fast key exchange for
+   IPsec ESP.  HIP also attempts to limit the exposure of the host to
+   various denial-of-service (DOS) and man-in-the-middle (MITH)
+   attacks.  In so doing, HIP itself is subject to its own DOS and MITM
+   attacks that potentially could be more damaging to a host's ability
+   to conduct business as usual.
+
+   The Security Association for ESP is indexed by the SPI and HIT, not
+   the SPI and IP address.  HIP enabled ESP is IP address independent.
+   This might seem to make it easier for an attacker, but ESP with
+   replay protection is already as well protected as possible, and the
+   removal of the IP address as a check should not increase the
+   exposure of ESP to DOS attacks.
+
+   Denial-of-service attacks take advantage of the cost of start of
+   state for a protocol on the responder compared to the 'cheapness' on
+
+Moskowitz                                                           11
+
+                  Host Identity Payload Architecture     February 2001
+
+
+   the initiator.  HIP makes no attempt to increase the cost of the
+   start of state on the initiator, but makes an effort to reduce the
+   cost to the responder.  This is done by having the responder start
+   the 3-way cookie exchange instead of the initiator, making the HIP
+   protocol 4 packets long.  There are more details on this process in
+   the HIP protocol document [HIP].
+
+   HIP optionally supports opportunistic negotiation.  That is, if a
+   host receives a start of transport without a HIP negotiation, it can
+   attempt to force a HIP exchange before accepting the connection.
+   This has the potential for DOS attacks against both hosts.  If the
+   method to force the start of HIP is expensive on either host, the
+   attacker need only spoof a TCP SYN.  This would put both systems
+   into the expensive operations.  HIP avoids this attack by having the
+   responder send a simple HIP packet that it can build at HI selection
+   time.  Since this packet is fixed and easily spoofed the initiator
+   only reacts to it if it has just started a connection to the
+   responder.
+
+   Man-in-the-middle attacks are difficult to defend against, without
+   third-party authentication.  A skillful MITM could easily handle all
+   parts of HIP; but HIP indirectly provides the following protection
+   from a MITM attack.  If the responder's HI is retrieved from a
+   signed DNS zone by the initiator, the initiator can use this to
+   validate the signed HIP packets.
+
+   Likewise, if the initiator's HI is in a secure DNS zone, the
+   responder can retrieve it and validate the signed HIP packets.
+   However, since an initiator may choose to use an anonymous HI, it
+   knowingly risks a MITM attack.  The responder may choose not to
+   accept a HIP exchange with an anonymous initiator.
+
+   Since not all hosts will ever support HIP, ICMP 'Destination
+   Protocol Unreachable' are to be expected and present a DOS attack.
+   Against an initiator, the attack would look like the responder does
+   not support HIP, but shortly after receiving the ICMP message, the
+   initiator would receive a valid HIP packet.  Thus to protect against
+   this attack, an initiator should not react to an ICMP message until
+   a reasonable delta time to get the real responder's HIP packet.  A
+   similar attack against the responder is more involved.
+
+   Another MITM attack is simulating a responder's rejection of a HIP
+   initiation.  This is a simple ICMP Host Unreachable,
+   Administratively Prohibited message.  A HIP packet was not used
+   because it would either have to have unique content, and thus
+   difficult to generate, resulting in yet another DOS attack, or just
+   as spoofable as the ICMP message.  The defense against this MITM
+   attack is for the responder to wait a reasonable time period to get
+   a valid HIP packet.  If one does not come, then the Initiator has to
+   assume that the ICMP message is valid.  Since this is the only point
+   in the HIP exchange where this ICMP message is appropriate, it can
+   be ignored at any other point in the exchange.
+
+
+Moskowitz                                                           12
+
+                  Host Identity Payload Architecture     February 2001
+
+
+
+11.1. HITs used in ACLs
+
+   It is expected that HITs will be used in ACLs.  Firewalls will use
+   HITs to control egress and ingress to networks, with an assurance
+   difficult to achieve today.
+
+   [add here wildcarding]
+
+   There has been considerable bad experience with distributed ACLs
+   that contain public key related material, for example with SSH.  If
+   the owner of the key needs to revoke it for any reason, the task of
+   finding all locations where the key is held in an ACL may be
+   impossible.  If the reason for the revocation is due to private key
+   theft, this could be a serious issue.
+
+   A host can keep track of all of its partners that might use its HIT
+   in an ACL by logging all remote HITs.  It should only be necessary
+   to log responder hosts.  With this information, the host can notify
+   the various hosts about the change to the HIT.  There has been no
+   attempt here to develop a secure method (like in CMP and CMC) to
+   issue the HIT revocation notice.
+
+   NATs, however, are transparent to the HIP aware systems by design.
+   Thus the host many find it difficult to notify any NAT that is using
+   a HIT in an ACL.  Since most systems will know of the NATs for their
+   network, there should be a process by which they can notify these
+   NATs of the change of the HIT.  This is MANDITORY for systems that
+   function as responders behind a NAT.  In a similar vein, if a host
+   is notified of a change in a HIT of an initiator, it should notify
+   its NAT of the change.  In this manner, NATs will get updated with
+   the HIT change.
+
+
+11.2. Non-security Considerations
+
+   The definition of the Host Identity states that the HI need not be a
+   public key.  That the HI could be any value; for example an FQDN.
+   This document does not describe how to support a non-cryptographic
+   HI.  Such a HI would still offer the services of the LSI for NAT
+   traversal.  It would carry the LSIs in an ESP that had neither
+   privacy nor authentication (ESP EMPTY).  Since this mode of HIP
+   would offer so little additional functionality for so much addition
+   to the IP kernel, it has not been defined in this document.  Given
+   how little public key cryptography HIP requires, HIP SHOULD only be
+   implemented using public key Host Identities.
+
+
+12. IANA Considerations
+
+   The IANA considerations for HIP are covered in the Host Identity
+   payload document [HIP].
+
+
+Moskowitz                                                           13
+
+                  Host Identity Payload Architecture     February 2001
+
+
+
+13. ICANN Considerations
+
+   ICANN will need to set up the HIT.int zone and accredit the
+   registered assigning authorities (RAA) for HAA field.  With 21 bits,
+   ICANN can allocate just over 2M registries.
+
+
+14. References
+
+   [RFC-2119], Bradner, S., "Key words for use in RFCs to Indicate
+   Requirement Levels", RFC 2119, March 1997.
+
+   [HIP], Moskowitz, R., "Host Identity Payload", draft-ietf-moskowitz-
+   hip-02.txt, January 2001.
+
+   [ESP], Kent, S., and Atkinson, R.,  "IP Encapsulating Security
+   Payload", RFC 2406, November 1998.
+
+   [RSIP],
+
+   [FIPS-180-1], NIST, FIPS PUB 180-1: Secure Hash Standard, April
+   1995.           http://csrc.nist.gov/fips/fip180-1.txt (ascii)
+                   http://csrc.nist.gov/fips/fip180-1.ps  (postscript)
+
+   [DNSBIN], Crawford, M., "Binary Labels in the Domain Name System",
+   RFC 2673, August 1999.
+
+   [IKE], Harkins, D., and Carrel, D., "The Internet Key Exchange", RFC
+   2409, November 1998.
+
+   [ISAKMP], Maughan, D., Schertler, M., Schneider, M., and Turner, J.,
+   "Internet Security Association and Key Management Protocol", RFC
+   2408, November 1998.
+
+   [HIPIMPL], Moskowitz, R., "Host Identity Payload Implementation",
+   draft-ietf-moskowitz-hip-impl-01.txt, January 2001.
+
+
+15. Acknowledgments
+
+   The drive to create HIP came to being after attending the MALLOC
+   meeting at IETF 43.  It has matured considerably since the early
+   drafts thanks to extensive input from IETFers.  Most importantly,
+   its design goals are articulated and are different from other
+   efforts in this direction.  Particular mention goes to the members
+   of the NameSpace Research Group of the IRTF.  Noel Chiappa provided
+   the framework for LSIs and Kieth Moore the impetuous to provide
+   resolvability.  Steve Deering provided encouragement to keep
+   working, as a solid proposal can act as a proof of ideas for a
+   research group.  Paul Francis provided much of the layering
+   architectural text.  Many others contributed; extensive security
+   tips were provided by Steve Bellovin.  Rob Austein kept the DNS
+
+Moskowitz                                                           14
+
+                  Host Identity Payload Architecture     February 2001
+
+
+   parts on track.  Rodney Thayer and Hugh Daniels provide extensive
+   feedback.  John Gilmore kept me challenged to provide something of
+   value.  I hope I have.
+
+
+16. Author's Address
+
+   Robert Moskowitz
+   ICSA Labs
+   1200 Walnut Bottom Rd.
+   Carlisle, PA  17013
+   Email: rgm@icsa.net
+
+
+17. Copyright Statement
+
+   Copyright (c) The Internet Society (2001). All Rights Reserved.
+   This document and translations of it may be copied and furnished to
+   others, and derivative works that comment on or otherwise explain it
+   or assist in its implementation may be prepared, copied, published
+   and distributed, in whole or in part, without restriction of any
+   kind, provided that the above copyright notice and this paragraph
+   are included on all such copies and derivative works.  However, this
+   document itself may not be modified in any way, such as by removing
+   the copyright notice or references to the Internet Society or other
+   Internet organizations, except as needed for the purpose of
+   developing Internet standards in which case the procedures for
+   copyrights defined in the Internet Standards process must be
+   followed, or as required to translate it into languages other than
+   English.
+
+   The limited permissions granted above are perpetual and will not be
+   revoked by the Internet Society or its successors or assigns.
+
+   This document and the information contained herein is provided on an
+   "AS IS" basis and THE INTERNET SOCIETY AND THE INTERNET ENGINEERING
+   TASK FORCE DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING
+   BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION
+   HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF
+   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Moskowitz                                                           15

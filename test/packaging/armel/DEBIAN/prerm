@@ -1,0 +1,5 @@
+#!/bin/sh
+
+invoke-rc.d --force --quiet hipd stop 
+
+

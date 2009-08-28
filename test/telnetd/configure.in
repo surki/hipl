@@ -1,0 +1,24 @@
+AC_INIT(telnetd.c)
+AC_PREFIX_DEFAULT(/usr/local/v6)
+
+AC_PROG_CC
+AC_PROG_CPP
+AC_PROG_INSTALL
+INSTALL_LIB="\${INSTALL_DATA}"
+AC_SUBST(INSTALL_LIB)
+INSTALL_DIR="\${INSTALL} -d"
+AC_SUBST(INSTALL_DIR)
+AC_PROG_LN_S
+
+AC_CHECK_LIB(ncurses, main)
+AC_CHECK_LIB(termcap, main)
+AC_CHECK_FUNCS(forkpty,,AC_SEARCH_LIBS(forkpty, util bsd))
+AC_CHECK_FUNCS(logwtmp,,AC_SEARCH_LIBS(logwtmp, util bsd))
+
+AC_CHECK_HEADERS(curses.h)
+AC_CHECK_HEADERS(termcap.h)
+
+CFLAGS="$CFLAGS -I../../tools -I../../libinet6/include -I../.. -I../../libhiptool -DUSE_HIP -g"
+LIBS="-L../../libinet6/.libs -linet6 -L../../libhiptool -lhiptool -lcrypto $LIBS"
+
+AC_OUTPUT(Makefile)

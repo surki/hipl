@@ -1,0 +1,546 @@
+diff -urN linux-2.6.13.1/Documentation/networking/README.BEET beet-trunk/linux/Documentation/networking/README.BEET
+--- linux-2.6.13.1/Documentation/networking/README.BEET	1970-01-01 02:00:00.000000000 +0200
++++ beet-trunk/linux/Documentation/networking/README.BEET	2005-09-26 16:10:15.000000000 +0300
+@@ -0,0 +1,150 @@
++Linux BEET-mode patch
++
++Authors:	Abhinav Pathak <abpathak@iitk.ac.in>
++		Diego Beltrami <diego.beltrami@gmail.com>
++		Miika Komu <miika@iki.fi>
++		Kristian Slavov <kristian.slavov@nomadiclab.com>
++		Jeff Ahrenholz <jeffrey.m.ahrenholz@boeing.com>
++
++
++Changelog:	May 25, 2005 this document created
++
++
++Description
++-----------
++This patch extends the native Linux 2.6 kernel IPsec to support 
++Bound-End-to-End-Tunnel (BEET) mode:
++
++Abstract
++
++   This document specifies a new mode, called Bound End-to-End Tunnel
++   (BEET) mode, for IPsec ESP.  The new mode augments the existing ESP
++   tunnel and transport modes.  For end-to-end tunnels, the new mode
++   provides limited tunnel mode semantics without the regular tunnel
++   mode overhead.  The mode is intended to support new uses of ESP,
++   including mobility and multi-address multi-homing.
++
++http://www.ietf.org/internet-drafts/draft-nikander-esp-beet-mode-03.txt
++
++Data Structures
++---------------
++
++* policy = inner = selector.family
++* SA = outer = props.family
++
++About protocol support
++----------------------
++
++The BEET mode supports both ESP and AH (IPComp is not meant to work alone with
++BEET because there is lack of information of xfrm_state: IPComp does not
++compress packets whose size is less than a certain threshold -see RFC 2394-).
++
++This patch allows only for plain family transform, meaning the inner and outer 
++families are the same.
++A second patch which deals with different family will be created.
++
++
++Packet en/decapsulation
++-----------------------
++
++Note: the family of the xfrm function in the input side is
++different. For example, in the inner=4, outer=6 case, xfrm4_output is
++called (because the socket is IPv4 socket) on the output side, and
++xfrm6_rcv_encap() is called on the input side (because the packet
++received is an IPv6 packet).
++
++
++****** OUTPUT ******
++
++When entering xfrm[4-6]_output() the packet is:
++
++	---------------------
++	|IP Hdr|     |      |
++	|INNER | TCP | Data |
++	---------------------
++		  |
++		  |
++	    xfrm[4-6]_encap()
++		  |
++		  |
++		  V
++	------------------------------
++	|IP Hdr|        |     |      |
++	|INNER |        | TCP | Data |
++	------------------------------
++		  |
++		  |
++       changing the IP hdr inner->outer
++		  |
++		  |
++		  V
++	------------------------------
++	|IP Hdr|        |     |      |
++	|OUTER |        | TCP | Data |
++	------------------------------
++		  |
++		  |
++		  |
++	   x->type->output()
++		  |
++		  |
++		  V
++	-------------------------------------------
++	|IP Hdr| ESP or |     |      | ESP   | ESP|
++	|INNER | AH hdr | TCP | Data |Trailer|Auth|
++	-------------------------------------------
++		  |                  |<---------->|
++		  |                    only if ESP is used
++		  |
++		  V
++	    packet to be sent
++
++
++
++****** INPUT ******
++
++The packet is received and the function xfrm[4-6]_rcv_encap() is invoked.
++The received packet is in the same format as it has been sent:
++
++	-------------------------------------------
++	|IP Hdr| ESP or |     |      | ESP   | ESP|
++	|OUTER | AH hdr | TCP | Data |Trailer|Auth|
++	-------------------------------------------
++		  |                  |<---------->|
++		  |                    only if ESP is used
++		  |
++       	      x->type->input()
++		  |
++		  |
++		  V
++	---------------------
++	|IP Hdr|     |      |
++	|OUTER | TCP | Data |
++	---------------------
++		  |
++		  |
++	 if mode==BEET the IP hdr is pushed
++	 (the length field is correctly readjusted and
++	  in case of IPv4 the checksum is properly set)
++		  |
++		  |
++		  V
++	------------------------------
++	|IP Hdr|        |     |      |
++	|INNER |        | TCP | Data |
++	------------------------------
++		  |
++		  |
++       	   Changing IPHdr outer->inner
++		  |
++		  |
++		  V
++	---------------------
++	|IP Hdr|     |      |
++	|INNER | TCP | Data |
++	---------------------
++		  |
++		  |
++		  |
++		  V
++	      netif_rx()
+diff -urN linux-2.6.13.1/include/linux/ipsec.h beet-trunk/linux/include/linux/ipsec.h
+--- linux-2.6.13.1/include/linux/ipsec.h	2005-09-10 05:42:58.000000000 +0300
++++ beet-trunk/linux/include/linux/ipsec.h	2005-09-26 16:09:06.000000000 +0300
+@@ -12,7 +12,8 @@
+ enum {
+ 	IPSEC_MODE_ANY		= 0,	/* We do not support this for SA */
+ 	IPSEC_MODE_TRANSPORT	= 1,
+-	IPSEC_MODE_TUNNEL	= 2
++	IPSEC_MODE_TUNNEL	= 2,
++	IPSEC_MODE_BEET         = 3
+ };
+ 
+ enum {
+diff -urN linux-2.6.13.1/include/linux/xfrm.h beet-trunk/linux/include/linux/xfrm.h
+--- linux-2.6.13.1/include/linux/xfrm.h	2005-09-10 05:42:58.000000000 +0300
++++ beet-trunk/linux/include/linux/xfrm.h	2005-09-26 16:09:02.000000000 +0300
+@@ -102,6 +102,13 @@
+ 	XFRM_SHARE_UNIQUE	/* Use once */
+ };
+ 
++enum
++{
++	XFRM_MODE_TRANSPORT = 0,
++	XFRM_MODE_TUNNEL,
++	XFRM_MODE_BEET
++};
++
+ /* Netlink configuration messages.  */
+ enum {
+ 	XFRM_MSG_BASE = 0x10,
+diff -urN linux-2.6.13.1/net/ipv4/ah4.c beet-trunk/linux/net/ipv4/ah4.c
+--- linux-2.6.13.1/net/ipv4/ah4.c	2005-09-10 05:42:58.000000000 +0300
++++ beet-trunk/linux/net/ipv4/ah4.c	2005-09-26 16:09:31.000000000 +0300
+@@ -255,7 +255,7 @@
+ 		goto error;
+ 	
+ 	x->props.header_len = XFRM_ALIGN8(sizeof(struct ip_auth_hdr) + ahp->icv_trunc_len);
+-	if (x->props.mode)
++	if (x->props.mode == XFRM_MODE_TUNNEL)
+ 		x->props.header_len += sizeof(struct iphdr);
+ 	x->data = ahp;
+ 
+diff -urN linux-2.6.13.1/net/ipv4/esp4.c beet-trunk/linux/net/ipv4/esp4.c
+--- linux-2.6.13.1/net/ipv4/esp4.c	2005-09-10 05:42:58.000000000 +0300
++++ beet-trunk/linux/net/ipv4/esp4.c	2005-09-26 16:09:32.000000000 +0300
+@@ -306,7 +306,7 @@
+ 	struct esp_data *esp = x->data;
+ 	u32 blksize = crypto_tfm_alg_blocksize(esp->conf.tfm);
+ 
+-	if (x->props.mode) {
++	if (x->props.mode == XFRM_MODE_TUNNEL) {
+ 		mtu = (mtu + 2 + blksize-1)&~(blksize-1);
+ 	} else {
+ 		/* The worst case. */
+@@ -428,7 +428,7 @@
+ 	if (crypto_cipher_setkey(esp->conf.tfm, esp->conf.key, esp->conf.key_len))
+ 		goto error;
+ 	x->props.header_len = sizeof(struct ip_esp_hdr) + esp->conf.ivlen;
+-	if (x->props.mode)
++	if (x->props.mode == XFRM_MODE_TUNNEL)
+ 		x->props.header_len += sizeof(struct iphdr);
+ 	if (x->encap) {
+ 		struct xfrm_encap_tmpl *encap = x->encap;
+diff -urN linux-2.6.13.1/net/ipv4/ipcomp.c beet-trunk/linux/net/ipv4/ipcomp.c
+--- linux-2.6.13.1/net/ipv4/ipcomp.c	2005-09-10 05:42:58.000000000 +0300
++++ beet-trunk/linux/net/ipv4/ipcomp.c	2005-09-26 16:09:32.000000000 +0300
+@@ -437,7 +437,7 @@
+ 
+ 	memset(ipcd, 0, sizeof(*ipcd));
+ 	x->props.header_len = 0;
+-	if (x->props.mode)
++	if (x->props.mode == XFRM_MODE_TUNNEL)
+ 		x->props.header_len += sizeof(struct iphdr);
+ 
+ 	down(&ipcomp_resource_sem);
+@@ -449,7 +449,7 @@
+ 		goto error;
+ 	up(&ipcomp_resource_sem);
+ 
+-	if (x->props.mode) {
++	if (x->props.mode == XFRM_MODE_TUNNEL) {
+ 		err = ipcomp_tunnel_attach(x);
+ 		if (err)
+ 			goto error_tunnel;
+diff -urN linux-2.6.13.1/net/ipv4/xfrm4_input.c beet-trunk/linux/net/ipv4/xfrm4_input.c
+--- linux-2.6.13.1/net/ipv4/xfrm4_input.c	2005-09-10 05:42:58.000000000 +0300
++++ beet-trunk/linux/net/ipv4/xfrm4_input.c	2005-09-26 16:09:32.000000000 +0300
+@@ -96,7 +96,7 @@
+ 
+ 		iph = skb->nh.iph;
+ 
+-		if (x->props.mode) {
++		if (x->props.mode == XFRM_MODE_TUNNEL) {
+ 			if (iph->protocol != IPPROTO_IPIP)
+ 				goto drop;
+ 			if (!pskb_may_pull(skb, sizeof(struct iphdr)))
+@@ -114,6 +114,29 @@
+ 			memset(&(IPCB(skb)->opt), 0, sizeof(struct ip_options));
+ 			decaps = 1;
+ 			break;
++		} else if (x->props.mode == XFRM_MODE_BEET) {
++			int size = sizeof(struct iphdr);
++			if (skb_cloned(skb) &&
++			    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
++				goto drop;
++
++			skb_push(skb, size);
++			memmove(skb->data, skb->nh.raw, size);
++			skb->nh.raw = skb->data;
++
++			if (x->sel.family == AF_INET) {
++				struct iphdr *iph = skb->nh.iph;
++				iph = skb->nh.iph;
++				iph->tot_len = htons(skb->len);
++				iph->daddr = x->sel.daddr.a4;
++				iph->saddr = x->sel.saddr.a4;
++				iph->check = 0;
++				iph->check = ip_fast_csum((unsigned char *)iph, iph->ihl);
++				skb->protocol = htons(ETH_P_IP);
++			} else
++				BUG_ON(1);
++			decaps = 1;
++			break;
+ 		}
+ 
+ 		if ((err = xfrm_parse_spi(skb, skb->nh.iph->protocol, &spi, &seq)) < 0)
+diff -urN linux-2.6.13.1/net/ipv4/xfrm4_output.c beet-trunk/linux/net/ipv4/xfrm4_output.c
+--- linux-2.6.13.1/net/ipv4/xfrm4_output.c	2005-09-10 05:42:58.000000000 +0300
++++ beet-trunk/linux/net/ipv4/xfrm4_output.c	2005-09-26 16:09:31.000000000 +0300
+@@ -41,34 +41,37 @@
+ 	skb->nh.raw = skb_push(skb, x->props.header_len);
+ 	top_iph = skb->nh.iph;
+ 
+-	if (!x->props.mode) {
++	if (x->props.mode == XFRM_MODE_TRANSPORT ||
++	    x->props.mode == XFRM_MODE_BEET) {
+ 		skb->h.raw += iph->ihl*4;
+ 		memmove(top_iph, iph, iph->ihl*4);
+-		return;
++		if (!x->props.mode)
++			return;
+ 	}
+ 
+-	top_iph->ihl = 5;
+-	top_iph->version = 4;
++	if (x->props.mode == XFRM_MODE_TUNNEL) {
++		top_iph->ihl = 5;
++		top_iph->version = 4;
++
++		/* DS disclosed */
++		top_iph->tos = INET_ECN_encapsulate(iph->tos, iph->tos);
++
++		flags = x->props.flags;
++		if (flags & XFRM_STATE_NOECN)
++			IP_ECN_clear(top_iph);
++
++		top_iph->frag_off = (flags & XFRM_STATE_NOPMTUDISC) ?
++			0 : (iph->frag_off & htons(IP_DF));
++		if (!top_iph->frag_off)
++			__ip_select_ident(top_iph, dst, 0);
+ 
+-	/* DS disclosed */
+-	top_iph->tos = INET_ECN_encapsulate(iph->tos, iph->tos);
+-
+-	flags = x->props.flags;
+-	if (flags & XFRM_STATE_NOECN)
+-		IP_ECN_clear(top_iph);
+-
+-	top_iph->frag_off = (flags & XFRM_STATE_NOPMTUDISC) ?
+-		0 : (iph->frag_off & htons(IP_DF));
+-	if (!top_iph->frag_off)
+-		__ip_select_ident(top_iph, dst, 0);
+-
+-	top_iph->ttl = dst_metric(dst->child, RTAX_HOPLIMIT);
++		top_iph->ttl = dst_metric(dst->child, RTAX_HOPLIMIT);
+ 
++		top_iph->protocol = IPPROTO_IPIP;
++		memset(&(IPCB(skb)->opt), 0, sizeof(struct ip_options));
++	}
+ 	top_iph->saddr = x->props.saddr.a4;
+ 	top_iph->daddr = x->id.daddr.a4;
+-	top_iph->protocol = IPPROTO_IPIP;
+-
+-	memset(&(IPCB(skb)->opt), 0, sizeof(struct ip_options));
+ }
+ 
+ static int xfrm4_tunnel_check_size(struct sk_buff *skb)
+@@ -107,7 +110,7 @@
+ 			goto error_nolock;
+ 	}
+ 
+-	if (x->props.mode) {
++	if (x->props.mode == XFRM_MODE_TUNNEL) {
+ 		err = xfrm4_tunnel_check_size(skb);
+ 		if (err)
+ 			goto error_nolock;
+diff -urN linux-2.6.13.1/net/ipv6/ah6.c beet-trunk/linux/net/ipv6/ah6.c
+--- linux-2.6.13.1/net/ipv6/ah6.c	2005-09-10 05:42:58.000000000 +0300
++++ beet-trunk/linux/net/ipv6/ah6.c	2005-09-26 16:09:33.000000000 +0300
+@@ -394,7 +394,7 @@
+ 		goto error;
+ 	
+ 	x->props.header_len = XFRM_ALIGN8(sizeof(struct ipv6_auth_hdr) + ahp->icv_trunc_len);
+-	if (x->props.mode)
++	if (x->props.mode == XFRM_MODE_TUNNEL)
+ 		x->props.header_len += sizeof(struct ipv6hdr);
+ 	x->data = ahp;
+ 
+diff -urN linux-2.6.13.1/net/ipv6/esp6.c beet-trunk/linux/net/ipv6/esp6.c
+--- linux-2.6.13.1/net/ipv6/esp6.c	2005-09-10 05:42:58.000000000 +0300
++++ beet-trunk/linux/net/ipv6/esp6.c	2005-09-26 16:09:34.000000000 +0300
+@@ -365,7 +365,7 @@
+ 	if (crypto_cipher_setkey(esp->conf.tfm, esp->conf.key, esp->conf.key_len))
+ 		goto error;
+ 	x->props.header_len = sizeof(struct ipv6_esp_hdr) + esp->conf.ivlen;
+-	if (x->props.mode)
++	if (x->props.mode == XFRM_MODE_TUNNEL)
+ 		x->props.header_len += sizeof(struct ipv6hdr);
+ 	x->data = esp;
+ 	return 0;
+diff -urN linux-2.6.13.1/net/ipv6/ipcomp6.c beet-trunk/linux/net/ipv6/ipcomp6.c
+--- linux-2.6.13.1/net/ipv6/ipcomp6.c	2005-09-10 05:42:58.000000000 +0300
++++ beet-trunk/linux/net/ipv6/ipcomp6.c	2005-09-26 16:09:34.000000000 +0300
+@@ -435,7 +435,7 @@
+ 
+ 	memset(ipcd, 0, sizeof(*ipcd));
+ 	x->props.header_len = 0;
+-	if (x->props.mode)
++	if (x->props.mode == XFRM_MODE_TUNNEL)
+ 		x->props.header_len += sizeof(struct ipv6hdr);
+ 	
+ 	down(&ipcomp6_resource_sem);
+@@ -447,7 +447,7 @@
+ 		goto error;
+ 	up(&ipcomp6_resource_sem);
+ 
+-	if (x->props.mode) {
++	if (x->props.mode == XFRM_MODE_TUNNEL) {
+ 		err = ipcomp6_tunnel_attach(x);
+ 		if (err)
+ 			goto error_tunnel;
+diff -urN linux-2.6.13.1/net/ipv6/xfrm6_input.c beet-trunk/linux/net/ipv6/xfrm6_input.c
+--- linux-2.6.13.1/net/ipv6/xfrm6_input.c	2005-09-10 05:42:58.000000000 +0300
++++ beet-trunk/linux/net/ipv6/xfrm6_input.c	2005-09-26 16:09:34.000000000 +0300
+@@ -80,7 +80,7 @@
+ 
+ 		xfrm_vec[xfrm_nr++].xvec = x;
+ 
+-		if (x->props.mode) { /* XXX */
++		if (x->props.mode == XFRM_MODE_TUNNEL) {
+ 			if (nexthdr != IPPROTO_IPV6)
+ 				goto drop;
+ 			if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
+@@ -97,6 +97,30 @@
+ 			skb->nh.raw = skb->data;
+ 			decaps = 1;
+ 			break;
++		} else if (x->props.mode == XFRM_MODE_BEET) {
++			int size = sizeof(struct ipv6hdr);
++			if (skb_cloned(skb) &&
++			    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
++				goto drop;
++
++			skb_push(skb, size);
++			memmove(skb->data, skb->nh.raw, size);
++			skb->nh.raw = skb->data;
++
++			skb->mac.raw = memmove(skb->data - skb->mac_len,
++					       skb->mac.raw, skb->mac_len);
++
++			if (x->sel.family == AF_INET6) {
++				struct ipv6hdr *ip6h = skb->nh.ipv6h;
++				ip6h = skb->nh.ipv6h;
++				ip6h->payload_len = htons(skb->len - size);
++				ipv6_addr_copy(&ip6h->daddr, (struct in6_addr *) &x->sel.daddr.a6);
++				ipv6_addr_copy(&ip6h->saddr, (struct in6_addr *) &x->sel.saddr.a6);
++			} else
++				BUG_ON(1);
++
++			decaps = 1;
++			break;
+ 		}
+ 
+ 		if ((err = xfrm_parse_spi(skb, nexthdr, &spi, &seq)) < 0)
+diff -urN linux-2.6.13.1/net/ipv6/xfrm6_output.c beet-trunk/linux/net/ipv6/xfrm6_output.c
+--- linux-2.6.13.1/net/ipv6/xfrm6_output.c	2005-09-10 05:42:58.000000000 +0300
++++ beet-trunk/linux/net/ipv6/xfrm6_output.c	2005-09-26 16:09:33.000000000 +0300
+@@ -16,6 +16,7 @@
+ #include <net/inet_ecn.h>
+ #include <net/ipv6.h>
+ #include <net/xfrm.h>
++#include <net/ip.h>
+ 
+ /* Add encapsulation header.
+  *
+@@ -42,7 +43,8 @@
+ 	skb_push(skb, x->props.header_len);
+ 	iph = skb->nh.ipv6h;
+ 
+-	if (!x->props.mode) {
++	if (x->props.mode == XFRM_MODE_TRANSPORT ||
++	    x->props.mode == XFRM_MODE_BEET) {
+ 		u8 *prevhdr;
+ 		int hdr_len;
+ 
+@@ -50,26 +52,28 @@
+ 		skb->nh.raw = prevhdr - x->props.header_len;
+ 		skb->h.raw = skb->data + hdr_len;
+ 		memmove(skb->data, iph, hdr_len);
+-		return;
++		if (!x->props.mode)
++			return;
+ 	}
+ 
+ 	skb->nh.raw = skb->data;
+ 	top_iph = skb->nh.ipv6h;
+ 	skb->nh.raw = &top_iph->nexthdr;
+ 	skb->h.ipv6h = top_iph + 1;
+-
+-	top_iph->version = 6;
+-	top_iph->priority = iph->priority;
+-	top_iph->flow_lbl[0] = iph->flow_lbl[0];
+-	top_iph->flow_lbl[1] = iph->flow_lbl[1];
+-	top_iph->flow_lbl[2] = iph->flow_lbl[2];
+-	dsfield = ipv6_get_dsfield(top_iph);
+-	dsfield = INET_ECN_encapsulate(dsfield, dsfield);
+-	if (x->props.flags & XFRM_STATE_NOECN)
+-		dsfield &= ~INET_ECN_MASK;
+-	ipv6_change_dsfield(top_iph, 0, dsfield);
+-	top_iph->nexthdr = IPPROTO_IPV6; 
+-	top_iph->hop_limit = dst_metric(dst->child, RTAX_HOPLIMIT);
++	if(x->props.mode == XFRM_MODE_TUNNEL) {
++		top_iph->version = 6;
++		top_iph->priority = iph->priority;
++		top_iph->flow_lbl[0] = iph->flow_lbl[0];
++		top_iph->flow_lbl[1] = iph->flow_lbl[1];
++		top_iph->flow_lbl[2] = iph->flow_lbl[2];
++		dsfield = ipv6_get_dsfield(top_iph);
++		dsfield = INET_ECN_encapsulate(dsfield, dsfield);
++		if (x->props.flags & XFRM_STATE_NOECN)
++			dsfield &= ~INET_ECN_MASK;
++		ipv6_change_dsfield(top_iph, 0, dsfield);
++		top_iph->nexthdr = IPPROTO_IPV6; 
++		top_iph->hop_limit = dst_metric(dst->child, RTAX_HOPLIMIT);
++	}
+ 	ipv6_addr_copy(&top_iph->saddr, (struct in6_addr *)&x->props.saddr);
+ 	ipv6_addr_copy(&top_iph->daddr, (struct in6_addr *)&x->id.daddr);
+ }
+@@ -104,7 +108,7 @@
+ 			goto error_nolock;
+ 	}
+ 
+-	if (x->props.mode) {
++	if (x->props.mode == XFRM_MODE_TUNNEL) {
+ 		err = xfrm6_tunnel_check_size(skb);
+ 		if (err)
+ 			goto error_nolock;
+diff -urN linux-2.6.13.1/net/key/af_key.c beet-trunk/linux/net/key/af_key.c
+--- linux-2.6.13.1/net/key/af_key.c	2005-09-10 05:42:58.000000000 +0300
++++ beet-trunk/linux/net/key/af_key.c	2005-09-26 16:09:34.000000000 +0300
+@@ -1075,6 +1075,8 @@
+ 		x->sel.family = pfkey_sadb_addr2xfrm_addr(addr, &x->sel.saddr);
+ 		x->sel.prefixlen_s = addr->sadb_address_prefixlen;
+ 	}
++	else
++		x->sel.family = x->props.family; /* Conservative */
+ 
+ 	if (ext_hdrs[SADB_X_EXT_NAT_T_TYPE-1]) {
+ 		struct sadb_x_nat_t_type* n_type;
+diff -urN linux-2.6.13.1/net/xfrm/xfrm_user.c beet-trunk/linux/net/xfrm/xfrm_user.c
+--- linux-2.6.13.1/net/xfrm/xfrm_user.c	2005-09-10 05:42:58.000000000 +0300
++++ beet-trunk/linux/net/xfrm/xfrm_user.c	2005-09-26 16:09:36.000000000 +0300
+@@ -148,8 +148,9 @@
+ 
+ 	err = -EINVAL;
+ 	switch (p->mode) {
+-	case 0:
+-	case 1:
++	case XFRM_MODE_TRANSPORT:
++	case XFRM_MODE_TUNNEL:
++	case XFRM_MODE_BEET:
+ 		break;
+ 
+ 	default:
+@@ -609,6 +610,7 @@
+ 	int i;
+ 
+ 	xp->xfrm_nr = nr;
++	xp->family = ut->family;
+ 	for (i = 0; i < nr; i++, ut++) {
+ 		struct xfrm_tmpl *t = &xp->xfrm_vec[i];
+ 

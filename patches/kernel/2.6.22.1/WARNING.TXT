@@ -1,0 +1,4 @@
+14.8.2007: These patches are uninteroperable! Only for BEET developers!
+           Please use the 2.6.21 patches instead!!! -miika
+
+(Joakim, please baz delete this file when beet works again - thx)

@@ -1,0 +1,5 @@
+#!/bin/sh
+
+killall python
+
+rm /var/tmp/ViewArchCache/hipl-dev\@freelists.org--hipl/*/LOCK

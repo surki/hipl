@@ -1,0 +1,94 @@
+$Date: 2002/09/29 12:56:18 $
+$Revision: 1.22 $
+
+
+
+Kernel:
+
+- puzzle-create             (luo uuden puzzlen)
+- I2:ssa salattu identity, mutta sen voi hoitaa kokonaan
+  kernelin sisällä
+
+User-space:
+
+i = initiator, r = responder
+
+Seuraava koskee nimenomaan pfkey-rajapintaa ja siinä on oletettu, että
+avaimet lähetetään kern->us samalla, kun tehdään pyyntö:
+
+- dsa-create-key            (luo uuden dsa-avainparin)
+  - { i_pubkey_dsa, i_privkey_dsa, i_params } = generate_key(type=dsa);
+- dsa_sign                  (allekirjoittaa dataa DSA-avaimella)
+  - { signature } = sign(type=dsa, i_pubkey, i_privkey, data)
+- dsa_verify_signature      (tarkistaa DSA-allekirjoituksen)
+  - { ok } = verify(type=dsa, i_pubkey, r_pubkey, data)
+- dh-create-key             (luo uuden DH-avainparin)
+  - { i_pubkey_dh, i_privkey_dh  } = generate_key(type=dh)
+- dh-generate-common-secret (laskee yhteisen salaisuuden vastapuolen
+                             julkisesta- ja omasta salaisesta avaimesta)
+  - { symmetric_xx? } = generate_common_secret(i_privkey_xx?, r_pubkey_xx?);
+- puzzle-solve              (ratkaisee puzzlen)
+  - { hash_target } = solve_puzzle(i,j,k)
+  - hash_target=8byte
+
+Kommunikointi user-space<->kernel:
+
+struct hipd_msg; ks. hip_ioctl.h
+
+hipd: ioctl("/dev/hip", DAEMON_INPUT_READY, &hipd_msg input)
+kern: copy_to_user(input, hipd_msg request, input->len)
+hipd: ioctl("/dev/hip", DAEMON_OUTPUT_READY, &hipd_msg output)
+kern: copy_from_user(hipd_msg response, output, output->len) x 2
+
+
+Refaktorointi user-space kutsuille:
+
+---original---
+
+1. hip_handle_r1():
+	kmalloc(ctx)
+	fill(ctx)
+	hipd_r1_start(ctx, hip_handle_r1_finish)
+
+2. hipd_r1_start():
+	ctx->callback = finish_callback (= hip_handle_r1_finish)
+	fill(ctx->msg_exchange)
+	up()
+
+// hipd laskee
+
+3. hipd_r1_finish():
+	if (ctx->hipd_msg_error)
+	   kfree(ctx)
+	else
+	   ctx->callback() (= hip_handle_r1_finish)
+
+4. hip_handle_r1_finish():
+	use(ctx)
+	kfree(ctx)
+
+---refactored---
+
+1. hip_handle_r1():
+	kmalloc(ctx)
+	fill(ctx)
+	ctx->callback = finish_callback (= hip_handle_r1_finish)
+	fill(ctx->msg_exchange)
+	hipd_start(ctx)
+
+2. hipd_start():
+	up()
+
+3. hipd_finish():
+	if (!ctx->hipd_msg_error)
+	   ctx->callback() (= hip_handle_r1_finish)
+	else
+	  kfree(ctx)
+
+4. hip_handle_r1_finish():
+	 use(ctx)
+         kfree(ctx)
+
+---------
+
+

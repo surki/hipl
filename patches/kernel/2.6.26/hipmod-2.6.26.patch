@@ -1,0 +1,29 @@
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index 3c6aafb..ec96224 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -239,7 +239,7 @@ out_rcu_unlock:
+ 	rcu_read_unlock();
+ 	goto out;
+ }
+-
++EXPORT_SYMBOL(inet6_create);
+ 
+ /* bind for INET6 API */
+ int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+@@ -498,6 +498,7 @@ const struct proto_ops inet6_stream_ops = {
+ 	.compat_getsockopt = compat_sock_common_getsockopt,
+ #endif
+ };
++EXPORT_SYMBOL(inet6_stream_ops);
+ 
+ const struct proto_ops inet6_dgram_ops = {
+ 	.family		   = PF_INET6,
+@@ -523,6 +524,7 @@ const struct proto_ops inet6_dgram_ops = {
+ 	.compat_getsockopt = compat_sock_common_getsockopt,
+ #endif
+ };
++EXPORT_SYMBOL(inet6_dgram_ops);
+ 
+ static struct net_proto_family inet6_family_ops = {
+ 	.family = PF_INET6,

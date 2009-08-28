@@ -1,0 +1,13 @@
+#!/bin/sh
+
+#if invoke-rc.d --quiet hipdnsproxy status
+#then
+#    invoke-rc.d --force --quiet hipdnsproxy stop 
+#fi
+
+if test -x /etc/init.d/hipdnsproxy
+then
+    update-rc.d -f hipdnsproxy remove 
+fi
+
+exit 0 

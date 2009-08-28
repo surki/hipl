@@ -1,0 +1,1904 @@
+
+
+Network Working Group                                        P. Nikander
+Internet-Draft                                                  J. Arkko
+Expires: December 16, 2003                                     P. Jokela
+                                           Ericsson Research Nomadic Lab
+                                                           June 17, 2003
+
+
+     End-Host Mobility and Multi-Homing with Host Identity Protocol
+                         draft-nikander-hip-mm-00.txt
+
+Status of this Memo
+
+   This document is an Internet-Draft and is in full conformance with
+   all provisions of Section 10 of RFC2026.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF), its areas, and its working groups. Note that other
+   groups may also distribute working documents as Internet-Drafts.
+
+   Internet-Drafts are draft documents valid for a maximum of six months
+   and may be updated, replaced, or obsoleted by other documents at any
+   time. It is inappropriate to use Internet-Drafts as reference
+   material or to cite them other than as "work in progress."
+
+   The list of current Internet-Drafts can be accessed at http://
+   www.ietf.org/ietf/1id-abstracts.txt.
+
+   The list of Internet-Draft Shadow Directories can be accessed at
+   http://www.ietf.org/shadow.html.
+
+   This Internet-Draft will expire on December 16, 2003.
+
+Copyright Notice
+
+   Copyright (C) The Internet Society (2003). All Rights Reserved.
+
+Abstract
+
+   This document specifies end-host mobility and multi-homing mechanisms
+   for the Host Identity Protocol.
+
+
+
+
+
+
+
+
+
+
+
+
+Nikander, et al.       Expires December 16, 2003                [Page 1]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+Table of Contents
+
+   1.    Introduction . . . . . . . . . . . . . . . . . . . . . . . .  4
+   2.    Conventions used in this document  . . . . . . . . . . . . .  6
+   3.    Usage scenarios  . . . . . . . . . . . . . . . . . . . . . .  7
+   3.1   End-host mobility  . . . . . . . . . . . . . . . . . . . . .  7
+   3.2   Location privacy . . . . . . . . . . . . . . . . . . . . . .  7
+   3.3   End-host multi-homing  . . . . . . . . . . . . . . . . . . .  7
+   3.4   Site multi-homing  . . . . . . . . . . . . . . . . . . . . .  8
+   3.5   Combined mobility and multi-homing . . . . . . . . . . . . .  8
+   3.6   Network renumbering  . . . . . . . . . . . . . . . . . . . .  8
+   3.7   Combined all . . . . . . . . . . . . . . . . . . . . . . . .  8
+   4.    Overview of HIP mobility and multi-homing functionality  . .  9
+   4.1   IP addresses assigned to a node  . . . . . . . . . . . . . .  9
+   4.2   Informing the peer about multiple or changed address(es) . .  9
+   4.3   Address verification . . . . . . . . . . . . . . . . . . . . 10
+   4.4   Forwarding Agents  . . . . . . . . . . . . . . . . . . . . . 10
+   4.4.1 Address leases from an Forwarding Agent  . . . . . . . . . . 11
+   4.4.2 Recovering from forwarding agent crashes . . . . . . . . . . 12
+   4.5   Security Associations  . . . . . . . . . . . . . . . . . . . 12
+   5.    Protocol overview  . . . . . . . . . . . . . . . . . . . . . 13
+   5.1   Acquiring an address lease from a Forwarding Agent . . . . . 13
+   5.2   Renewing an address lease  . . . . . . . . . . . . . . . . . 14
+   5.3   Readdressing and address status  . . . . . . . . . . . . . . 14
+   6.    Protocol definition  . . . . . . . . . . . . . . . . . . . . 16
+   6.1   Packet formats . . . . . . . . . . . . . . . . . . . . . . . 16
+   6.1.1 REA - the HIP readdress packet . . . . . . . . . . . . . . . 16
+   6.1.2 AC and ACR - the HIP Address Check and Address Check
+         Reply  . . . . . . . . . . . . . . . . . . . . . . . . . . . 19
+   6.1.3 FAQ, FAA, FAD - the HIP Forwarding Agent packets . . . . . . 20
+   6.2   Requesting Address Leases  . . . . . . . . . . . . . . . . . 21
+   6.3   Providing address Leases . . . . . . . . . . . . . . . . . . 21
+   6.4   Sending REAs . . . . . . . . . . . . . . . . . . . . . . . . 21
+   6.5   Handling received REAs at end hosts  . . . . . . . . . . . . 22
+   7.    Policy considerations  . . . . . . . . . . . . . . . . . . . 23
+   8.    Security Considerations  . . . . . . . . . . . . . . . . . . 24
+   8.1   Why does the foreign agent may require a puzzle solution?  . 24
+   8.2   Attacker masquerading as a FA  . . . . . . . . . . . . . . . 24
+   8.3   Location privacy . . . . . . . . . . . . . . . . . . . . . . 25
+   9.    IANA Considerations  . . . . . . . . . . . . . . . . . . . . 26
+   10.   Acknowledgments  . . . . . . . . . . . . . . . . . . . . . . 27
+         Normative references . . . . . . . . . . . . . . . . . . . . 28
+         Informative references . . . . . . . . . . . . . . . . . . . 29
+         Authors' Addresses . . . . . . . . . . . . . . . . . . . . . 29
+   A.    Site multi-homing  . . . . . . . . . . . . . . . . . . . . . 31
+   A.1   A host connected to a multi-homed site . . . . . . . . . . . 31
+   A.2   Transit providers with NATs  . . . . . . . . . . . . . . . . 31
+   B.    Implementation experiences . . . . . . . . . . . . . . . . . 32
+
+
+
+Nikander, et al.       Expires December 16, 2003                [Page 2]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+         Intellectual Property and Copyright Statements . . . . . . . 33
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Nikander, et al.       Expires December 16, 2003                [Page 3]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+1. Introduction
+
+   This document specifies how the Host Identity Protocol [3] (HIP)
+   provides simple and efficient means for nodes to communicate while
+   being multi-homed, mobile, or simultanously mobile and multi-homed.
+   Additionally, HIP allows communications even when the multi-homing or
+   mobility causes a change in the IP version that is available in the
+   network.
+
+   More specifically, the Host Identity Protocol [3] (HIP) defines a
+   mechanism that decouples the transport layer from the internetworking
+   layer, and introduces a new Host Identity namespace.  When a host
+   uses HIP, the transport layer sockets and IPsec Security Associations
+   are not bound to IP addresses but to Host Identifiers.  This document
+   specifies how the mapping from Host Identifiers to IP addresses can
+   be extended from a static one-to-one mapping into a dynamic
+   one-to-many mapping.  This enables end-host mobility and
+   multi-homing.  Additionally, this document introduces the concept of
+   Forwarding Agents.  A Forwarding Agents provides Mobile IP Home Agent
+   like functionality for HIP enabled mobility.
+
+   In practice, the HIP base exchange creates a pair of IPsec Security
+   Associations (SA) between any communicating pair of HIP enabled
+   nodes.  These SAs are not bound to IP addresses but to Host
+   Identifiers (public keys).  However, the hosts must also know at
+   least one IP address where their peers are reachable.  Initially this
+   IP address is the one used during the HIP base exchange.
+
+   Since the SAs are not bound to IP addresses, the nodes are able to
+   receive IPsec protected HIP packets from any address.  Thus, a node
+   can change its IP address and continue to send packets to its peers.
+   However, the peers are not able to send replies before they can
+   reliably and securely update the sending node's address(es).
+
+   This document specifies a mechanism that allow a HIP node to update
+   its address(es) to its peers.  The address update is implemented with
+   a new HIP packet type, the HIP Readdress (REA) packet.  Due to the
+   danger of flooding attacks (see [4]), the peer must always check the
+   reachability of the node before it can use the new addresses.  The
+   reachability check is implemented with a pair of new HIP packet
+   types, HIP Address Check (AC) and HIP Address Check Reply (ACR).  In
+   addition to initiating and reachbility check, an AC packet may also
+   act as an acknowledgement for a preceding REA packet.
+
+   There are a number of situations where the simple end-to-end
+   readdressing functionality is not sufficient.  These include the
+   initial reachability of a mobile node, location privacy, end-host and
+   site multi-homing with legacy hosts, and NAT traversal.  In these
+
+
+
+Nikander, et al.       Expires December 16, 2003                [Page 4]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+   situations there is a need for some helper functionality in the
+   network.  In this document we describe mechanisms for initial
+   reachability, multi-homing, recovering from simultaneous movements,
+   and combining mobility and multi-homing.  Some of these functions
+   require an additional node in the network, which has been given the
+   name of Forwarding Agent.  As a special case, a Forwarding Agent can
+   act as a lightweight Rendezvous server as defined in [3].
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Nikander, et al.       Expires December 16, 2003                [Page 5]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+2. Conventions used in this document
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED",  "MAY", and "OPTIONAL" in this
+   document are to be interpreted as described in RFC2119 [1].
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Nikander, et al.       Expires December 16, 2003                [Page 6]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+3. Usage scenarios
+
+   In this section we briefly introduce a number of usage scenarios
+   where the HIP mobility and multi-homing facility is useful.  To
+   understand these usage scenarios, the reader should be at least
+   minimally familiar with the HIP protocol specification [3].  However,
+   for the (relatively) uninitiated reader it is most important to keep
+   in mind that in HIP the actual payload traffic is protected with ESP,
+   and that the ESP SPI acts as an index to the right host-to-host
+   context.
+
+3.1 End-host mobility
+
+   A mobile IP host must change its IP address according to
+   connectivity.  The change of an IP address might be needed due to a
+   change in the advertised IPv6 prefixes on the link, a reconnected PPP
+   link, a new DHCP lease, or an actual movement to another subnet.  In
+   order to maintain its communication context, the host must inform its
+   peers about the new IP address.
+
+   Although HIP enables ESP and the upper layer to be independent of the
+   internetworking layer, there still needs to be a mapping of the
+   pseudo-IP addresses used in the upper stack (LSI and HIT) to a real
+   IP address.  Thus, from the functional point of view, it is
+   sufficient that the peer nodes learn the new IP address.  The upper
+   layer protocols need to know about the address and connectivity
+   change only for QoS and similar purposes.  In most cases, they need
+   not to know.
+
+3.2 Location privacy
+
+   To protect its privacy, an IP host may want to keep its actual IP
+   address private.  Since HIP insulates the upper layer from the IP
+   address, this can be accomplished by simple address rewriting at an
+   privacy protecting node.
+
+   Note that a mobile node may want to keep its location private. In
+   that case, it informs its real address to the privacy protecting node
+   and not to the actual peers.
+
+   Full location privacy falls beyond this document.
+
+3.3 End-host multi-homing
+
+   A host may have multiple interfaces, and it is desired that it can
+   stay reachable through all of the currently available interfaces.  It
+   is expected that the set of available interfaces may change
+   dynamically, and that there may be policies associated with the usage
+
+
+
+Nikander, et al.       Expires December 16, 2003                [Page 7]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+   of the different interfaces. For instance, the host may have a fast
+   but low range wireless interface and a slow high range interface.
+   The host may generally prefer to use the fast interface, but it may
+   be available only some of the time.
+
+   Note that a host may be multi-homed and mobile simultaneously, and
+   that a multi-homed host may want to protect the location of some of
+   its interface while revealing the IP address of some others.
+
+3.4 Site multi-homing
+
+   A host may have an interface that has multiple globally reachable IP
+   addresses.  Such a situation may be a result of the site having
+   multiple upper Internet Service Providers, or just because the site
+   provides all nodes with both IPv4 and IPv6 addresses.   It is
+   desirable that the host can stay reachable with all currently
+   available globally routable addresses, independent on how they are
+   provided.
+
+   Note that a single interface may experience site multi-homing while
+   the host itself may have multiple interfaces.
+
+3.5 Combined mobility and multi-homing
+
+   It looks likely that in the future many of the mobile nodes will be
+   simultaneously mobile and multi-homing, i.e., have multiple mobile
+   interfaces.  Furthermore, if the interfaces use different access
+   technology, it is fairly likely that one of the interfaces may appear
+   stable (retain its current IP address) while some other(s) may
+   experience mobility (undergo IP address change).
+
+3.6 Network renumbering
+
+   It is expected that IPv6 networks will be renumbered much more often
+   than most IPv4 networks are.  From an end-host point of view, network
+   renumber is similar to mobility.
+
+3.7 Combined all
+
+   It is desirable that a host may simultaneously have multiple active
+   interfaces, be mobile (on any or all of its interfaces), utilize
+   multiple globally reachable addresses (on any or all of its
+   interfaces), and protect its location privacy (on any or all of its
+   interfaces).
+
+
+
+
+
+
+
+Nikander, et al.       Expires December 16, 2003                [Page 8]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+4. Overview of HIP mobility and multi-homing functionality
+
+   HIP mobility and multi-homing is fundamentally based on the HIP
+   architecture [4], where the transport and internetworking layers are
+   insulated from each other with the new host identity layer.  In the
+   HIP architecure, the transport layer sockets are bound to the Host
+   Identifiers (through HIT or LSI in the case of legacy APIs), and the
+   Host Identifiers are translated to the actual IP address.
+
+   In the base HIP protocol specification [3], it is defined how two
+   hosts exchange their Host Identifiers and establish a pair of ESP
+   Security Associations (SA).  The ESP SAs are then used to carry the
+   actual payload data between the two hosts, by wrapping TCP, UDP, and
+   other upper layer headers into transport mode ESP payloads.  The IP
+   header, carrying the ESP header, uses actual IP addresses in the
+   network.
+
+   In the base specification, hosts use the same IP addresses for nodes
+   that were used during the base HIP exchange. This specification
+   defines the way how IP addresses can be changed during the
+   communication.
+
+4.1 IP addresses assigned to a node
+
+   A host can have multiple IP addresses. It may have many interfaces
+   that are assigned IP addresses or it may have multiple addresses
+   assigned to one interface. There may also be multiple IP addresses in
+   function of time: the node may changes its topological location in
+   the network, or its network may change addresses.
+
+   The interfaces are logical objects.  A host may claim to have any
+   number of interfaces, as long as a single IP address does not appear
+   to be bound to more than one interface.  The purpose of the
+   interfaces is to group the addresses into collections that are likely
+   to experience fate sharing.  For example, if the host needs to change
+   its addresses on interface2, it is likely that both address21 and
+   address22 will simultaneously become obsolete.
+
+4.2 Informing the peer about multiple or changed address(es)
+
+   To be able to use effectively multiple addresses assigned to the host
+   and update addresses that change during the communication with
+   another node, a HIP protocol packet, the REA packet (see Section
+   6.1.1), is specified. The logical structure created with REA packets
+   has three levels:  hosts, interfaces, and addresses.  This is
+   illustrated in Figure 1.
+
+                            address11
+
+
+
+Nikander, et al.       Expires December 16, 2003                [Page 9]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+                          /
+               interface1 - address12
+             /
+            /               address21
+       host -- interface2 <
+            \               address22
+             \
+               interface3 - address31
+                          \
+                            address32
+
+                                Figure 1
+
+   A single REA payload handles only one interface.  To signal
+   simultaneously changes on several interfaces, it is necessary to send
+   several consequtive REA payloads.  The packet structure supports
+   this.
+
+4.3 Address verification
+
+   When a HIP host receives a group of IP addresses from another HIP
+   host in a REA, it does not necessarily know for sure whether the
+   other host is actually reachable at the claimed addresses.  In fact,
+   if the other HIP host is not fully trusted, it may be giving a bogus
+   address with the intention of causing packet flood towards the given
+   address [8].  Thus, before the HIP host can actually use a new
+   address, it must first check that the peer is reachable at the new
+   address.  This is implemented with the HIP Address Check (AC) and
+   Address Check Reply (ACR) packets.
+
+   To acknowledge that it has received the REA, and to initiate an
+   address check, the HIP host receiving a REA immediately sends an AC
+   to all addresses mentioned in the REA.
+
+   In a typical implementation, an address consists of the actual
+   bitpattern used in the IP source and destination fields, a lifetime,
+   and a status.  The status is used to track the reachability of the
+   address.
+
+4.4 Forwarding Agents
+
+   For nodes that are mobile, an IP address from where it can be reached
+   is necessary if the node wants to be reachable by other nodes. The
+   Forwarding Agent provides one possible solution to this. The
+   reachability of the HIP node may require usage of both IPv6 and IPv4.
+   If the HIP node itself is behind a network that supports only one of
+   the IP protocol versions, the HIP node may use the FA for acting as a
+   gateway when the peer node wants to use a IP protocol version that
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 10]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+   the HIP node behind the FA does not directly support.
+
+   The HIP node can "lease" IP address(es) from the FA if it needs an
+   address from where it can be reached.  This can be the case, for
+   example, when a mobile node needs a contact address for peer nodes.
+   The HIP node contacts the FA, requests for an IP address (and SPI
+   range), and start announcing the IP address (and some SPI) to its
+   peers. The SPI is required if the IP address leased from the FA is
+   not unique, i.e. it does not map one-to-one to the HIT of the HIP
+   node. Further ESP protected data packets arriving to the FA can thus
+   be identified using the SPI value and verifying to which HIP node
+   that particular SPI has been reserved.
+
+   As long as the "lease" is valid, the FA will forward any packets sent
+   to the IP address (and an SPI within the range) to the HIP host. The
+   basic operational model is depicted in Figure 2. Without mobility
+   (REA), using a FA results in triangular routing, as shown.
+
+    +----------+                             +--------------+
+    | HIP host |---------------------------->| Another host |
+    +----------+                             +--------------+
+         ^ real IP address                           |
+         |                                           |
+         |                                           |
+    +----------+ leased IP address                   |
+    |    FA    |<------------------------------------+
+    +----------+
+
+                                Figure 2
+
+   The actual method of discovering FAs is beyond the scope of this
+   document, and will be specified elsewhere.
+
+4.4.1 Address leases from an Forwarding Agent
+
+   To acquire an address lease from a given FA, the HIP host sends a
+   Forwarding Agent Query (FAQ) packet to it.  In some cases, the FAQ
+   may be sent as a broadcast or multicast packet; the details of such
+   practice will be specified elsewhere.  The HIP host may use any
+   identity it wishes; however, the identity may be subject to local
+   access control by the FA.  That is, some FAs may be willing to serve
+   only some HIP hosts.
+
+   If the FA is willing to serve an address to the HIP host, it replies
+   to the FAQ with a Forwarding Agent Advice (FAA) packet.  A FAA
+   establishes an address lease to the HIP host.  The HIP host can rely
+   on the FA to keep forwarding packets to the HIP host until the
+   address lease expires.  If the FA is not willing to serve the HIP
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 11]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+   host, it responds with a Forwarding Agent Denied (FAD) packet,
+   specifying the reason for denial.
+
+   Each address lease has a lifetime.  The HIP host may renew the
+   address lease at any time before it the lease expires.  Subject to
+   its policy, the FA should renew and extend the lease, but it MAY
+   refuse any extensions.  In any case, it must not reduce the lease
+   lifetime making it to expire prior to the initial expiration time.
+
+   The HIP host may abandon the lease at any time, either by failing to
+   renew it or by sending an Forwarding Agent Query that specifies a
+   zero lifetime.  If an address lease expires without having been
+   renewed, the FA simply discards the forwarding state and any
+   resources associated with it.
+
+4.4.2 Recovering from forwarding agent crashes
+
+   If a FA crashes, it looses its state.  Consequently, it cannot
+   forward packets sent to it, since it does not know the IP address
+   associated with the leased address (and the SPI).  The only thing the
+   forwarding agent could do would be to simulate lost state by the
+   actual HIP host that is leasing the address.  However, since the
+   crashed FA does not know the HIT of the host, it cannot do that.
+   Effectively, the forwarding agent becomes a black hole until the HIP
+   host recognizes the situation and ackquires a new lease.
+
+   It is currently an open problem whether a crashed FA should send some
+   kind of error message to the hosts sending ESP packets to it.
+
+4.5 Security Associations
+
+   The security associations between the nodes are not any longer
+   directly connected to the IP address of the node. The SA is
+   associated with the HIT and there may be either one SA between the
+   nodes, or multiple SAs when the interface capabilities require such
+   an arrangement.
+
+   All addresses on a single interface share an SA.  Multiple interfaces
+   may share a single SA, but each interface may also have its own SA.
+   In practice, multiple interfaces may share an SA if the experienced
+   latency is fairly similar, in which case the packets are received
+   within the IPsec reordering window.  However, the latencies between
+   two interfaces are considerably different, it becomes more likely
+   that some of the packets would be discarded due to appearing to have
+   been received outside of the ESP reordering window.  Thus, in that
+   case it is necessary to use different SAs for different interfaces.
+
+
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 12]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+5. Protocol overview
+
+   The HIP mobility and multi-homing functionality consist of the
+   following subprotocols:
+
+      Acquiring an address lease from a Forwarding Agent
+
+      Renewing an address lease
+
+      Informing peers about multiple addresses or address changes, and
+      verifying the reachability of addresses
+
+
+5.1 Acquiring an address lease from a Forwarding Agent
+
+     HIP host                         Forwarding Agent
+               Forwarding Agent Query
+        ----------------------------------->
+
+                        R1
+        <-----------------------------------
+
+               Forwarding Agent Query
+        ----------------------------------->
+
+               Forwarding Agent Advice
+        <-----------------------------------
+
+   To acquire an address lease, the HIP host sends an FAQ, requesting
+   for an address lease.  The host may specify the type of address it
+   wants to have (IPv4, IPv6, either), the number of SPIs requested, and
+   the desired lifetime.  Any of these fields may be left empty, as
+   well.  The FAQ is always signed.
+
+   If the Forwarding agent does not trust the HIP host, it may answer
+   with an R1, basically asking the HIP host to solve a puzzle before
+   the Forwarding Agent is even willing to consider the request.  Once
+   the HIP host has solved the puzzle, it may send the FAQ again, this
+   time including an answer to the puzzle.
+
+   XXX: Is it OK that the FA answers with a normal R1, or should we use
+   some other packet type, e.g., Forwarding Agent R1 (FAR1)?
+
+   If the FA is willing to serve the HIP host, it answers with an FAA,
+   specifying the leased IP address, its lifetime, and if the address is
+   an IPv4 address, a range of SPIs that has been reserved for the HIP
+   host.
+
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 13]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+5.2 Renewing an address lease
+
+   Once an address lease is about to expire, the HIP host may want to
+   renew it.
+
+     HIP host                         Forwarding Agent
+
+               Forwarding Agent Query
+        ----------------------------------->
+
+               Forwarding Agent Advice
+        <-----------------------------------
+
+   To renew a lease, the HIP host simply sends a FAQ specifying an
+   existing lease, together with the desired extended lease time, and
+   the FA replies with an FAA.
+
+5.3 Readdressing and address status
+
+     HIP host                         Another host
+
+                       REA
+        ----------------------------------->
+
+                       AC
+        <-----------------------------------
+
+                       ACR
+        ----------------------------------->
+
+   When the host changes its IP address, gets more addresses or loses an
+   address, it may want to tell this change to peer nodes.  The address
+   changing host sends the readdress packet (REA) to the peer where it
+   tells all available addresses. The address update packet is signed
+   providing proof about the sending party.
+
+   As the node receiving a REA packet cannot be sure if all the received
+   addresses are valid even the signature is correct, it sends the
+   Address Check (AC) packet to each of the new addresses received.  If
+   the host receiving an AC message has sent the REA message that
+   matches the received AC message, it MUST send an Address Check Reply
+   (ACR) packet back to the peer for confirmation.  New addresses
+   received in the REA packet are ready to be used after the ACR packet
+   has been received.
+
+   If a node receives an AC packet that does not match to any REA packet
+   that is has sent out, it MUST drop the packet.  Such a packet may be
+   an indication that someone else is on purpose or on mistake sending a
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 14]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+   false address to its peer.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 15]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+6. Protocol definition
+
+   The location information update procedure in the HIP consists of the
+   readdress packet telling the current set of addresses that the node
+   is using, address check and address check replies. With this set of
+   messages the IP addresses can be updated to the peer and the peer is
+   able to verify that the addresses are valid.
+
+   In addition to the actual address update, the HIP node is provided a
+   possibility to get leased addresses from the FA. The FA can provide
+   address(es) (and a range of SPIs) for the HIP node and the HIP node
+   can use this towards other nodes. The FA thus forwards packets to the
+   HIP node when it receives packets sent to the leased address.
+
+6.1 Packet formats
+
+6.1.1 REA - the HIP readdress packet
+
+   A HIP readressing packet consists of one or more of REA_INFO
+   payloads, followed by a signature (HIP_SIGNATURE) and a HMAC. The
+   purpose of the signature is to allow middleboxes to verify the
+   integrity of the packet.  The HMAC allows the peer node to verify the
+   packet very fast.
+
+   Intermediate systems that use the SPI will have to inspect ALL HIP
+   packets for a REA packet.  This is a potential DoS attack against the
+   Intermediate system, as the signature processing may be relatively
+   expensive.  A further step against attack for the Intermediate
+   systems is to implement ESP's replay protection of windowing the
+   sequence number.  This requires the intermediate system to track ALL
+   ESP packets to follow the Sequence Number.
+
+   Optionally, the message may contain an ESP protected datagram. This
+   datagram is processed as if it had arrived separately.  The purpose
+   of allowing datagrams to be embedded inside the REA packet is to
+   increase the efficiency of transmitting the first data packet, as
+   only one IPv6 header is required.
+
+   XXX Note (by Jari Arkko): I don't believe that this is a significant
+   function. In fact, header compression on links is probably more
+   efficient than this (the effect could be negative), and there might
+   be some problems that this causes. I don't think it causes the same
+   type of problems that piggybacking caused in Mobile IPv6, however,
+   because the packet is always encrypted, hence it could not receive
+   different treatment at the firewalls etc. But I'm not 100% sure that
+   there are no other problems.
+
+
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 16]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+6.1.1.1 REA_INFO payload
+
+   Note that the REA_INFO payload is a kind of "expanded" NES.
+
+   XXX (Pekka): Note that I have, for the time being, removed the old
+   ESP sequence number.  Firstly, it may be hard to acquire reliably in
+   some implemtations (ours included).  Secondly, we now have a REA ID
+   field, which is basically a REA sequence number.
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |             Type              |             Length            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                         Interface ID                          |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                 Current SPI in reverse direction              |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                          Current SPI                          |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                            New SPI                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |       Keymaterial index       |             REA ID            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                       Address Lifetime                        |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                           Reserved                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                            Address                            |
+   |                                                               |
+   |                                                               |
+   |                                                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   .                                                               .
+   .                                                               .
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                       Address Lifetime                        |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                           Reserved                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                            Address                            |
+   |                                                               |
+   |                                                               |
+   |                                                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 17]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+      Type               128
+      Length             Length in octets, excluding Type and Length
+                         fields
+      Interface ID       Interface ID, as defined by the sending host
+      Current SPI rev.   The current SPI used in the reverse direction
+      Current SPI        The current SPI used for receiving ESP on this
+                         interface
+      New SPI            The new SPI used for receiving ESP on this
+                         interface
+      Keymaterial index  A bit index to the KEYMAT, where to pick up
+                         the keying material for the new SA.
+      REA ID             A 16-bit sequence number of nonce, used to
+                         match the REA packet to the corresponding AC
+                         packet.
+      Address Lifetime   Address lifetime
+      Reserved           Zero when sent, ignored when received
+      Address            An IPv6 address or an IPv4-in-IPv6 format
+                         IPv4 address
+   [2]
+
+   The Interface ID field identifies the (logical) interface that this
+   packet applies to.  It is implicitly qualified by the Host Identity
+   of the sending host.  The Interface ID groups a set of addresses to
+   an interface.  The purpose of the Interface ID is to allow a
+   knowledgeable peer to interact with the sender.  For example, the
+   sender could be informing its peer that that an interface has both an
+   IPv4 address and one or more IPv6 addresses.
+
+   The sending host is free to introduce interface IDs at will. That is,
+   if a received REA has a new interface ID, it means that all the old
+   addresses, assigned to other interface IDs, are also supposed to
+   still work, while the new addresses in the REA are supposed to be
+   associated with a new interface.  On the other hand, if a received
+   REA has an interface ID that the receiver already knows about, it
+   would replace (all) the address(es) currently associated with the
+   interface with the new one(s).
+
+   If the SA is changed, and if the SA is not used at any other
+   interface any more, it MUST NOT be deleted until all ESP packets with
+   a lower Sequence Number have been received and processed, or a
+   reasonable time has elapsed (to account for lost packets).
+
+6.1.1.2 HMAC
+
+   The HMAC SHA-1 is used to verify a received packet.
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 18]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |             Type              |             Length            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   /                           HMAC data                           /
+   /                                                               /
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+
+      Type         65532
+      Length       Length in octets, excluding Type and Length fields
+      HMAC data    20 bytes of HMAC SHA-1 data
+
+
+6.1.2 AC and ACR - the HIP Address Check and Address Check Reply
+
+   The HIP Address Check (AC) and Address Check Reply (ACR) packets
+   contain an AC_INFO payload, followed by a HMAC.
+
+   In addition to acting as an address probe, the Address Check packet
+   may also acts as an implicit acknowledgement to a REA packet.
+
+6.1.2.1 AC_INFO payload
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |             Type              |             Length            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |             AC ID             |            REA ID             |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                        RTT timestamp                          |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                           Reserved                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+      Type           129
+      Length         Length in octets, excluding Type and Length
+                     fields
+      AC ID          A 16-bit sequence number of nonce, used to match
+                     the AC packet to the corresponding ACR packet.
+      REA ID         A 16-bit sequence number of nonce, used to match
+                     the REA packet to the corresponding AC packet.
+      RTT timestamp  A timestamp field which may be used for RTT
+                     estimation
+      Reserved       Zero when sent, ignored when received
+
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 19]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+6.1.3 FAQ, FAA, FAD - the HIP Forwarding Agent packets
+
+   The HIP FAQ, FAA and FAD packets contain an FA_INFO payload, and
+   possibly other payloads.  If a forwarding agent sends an R1 in
+   response to FAQ, the second FAQ must also contain an BIRTHDAY_COOKIE
+   payload, containing the cookie response.  The FAA, and FAD packets
+   MUST contain a HOST_ID or HOST_ID_FQDN payload. The FAA packet MAY
+   contain a HOST_ID or HOST_ID_FQDN payload.
+
+6.1.3.1 FA_INFO payload
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |             Type              |             Length            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |          Request ID           |            Lease ID           |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                        Lease duration                         |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                      Reserved                 |   Addr type   |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+   IPv4 address:
+
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                            Min SPI                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                            Max SPI                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                         IPv4 address                          |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                           Reserved                            |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+   IPv6 address:
+
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                                                               |
+   |                      IPv6 address (128 bits)                  |
+   |                                                               |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+
+
+      Type            130
+      Length          Length in octets, excluding Type and Length
+                      fields
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 20]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+      Request ID      A 16-bit sequence number of nonce, used to
+                      match the FAQ packet to the corresponding
+                      FAA/FAD packet.
+      Lease ID        A 16-bit number XXX
+      Lease duration  Duration of the lease
+      Reserved        Zero when sent, ignored when received
+      Addr type       Address type: 4 for IPv4 and 6 for IPv6 (TBD)
+
+
+6.2 Requesting Address Leases
+
+   To request address leases from the FA, the HIP node sends an FAQ
+   packet to the FA.  The FAQ packet consists of the HIP header, FA_INFO
+   payload and a HIP_SIGNATURE. If the FAQ packet is the second one sent
+   from the HIP node to the FA, i.e. the FA responded to the first FAQ
+   with an R1 packet, a BIRTHDAY_COOKIE payload containing the cookie
+   response must be included in the packet.
+
+6.3 Providing address Leases
+
+   When the FA receives an FAQ packet from a HIP node, it may verify the
+   signature in the packet. If the FA does not trust on the requesting
+   node, it may generate an R1 packet containing a puzzle for the
+   requesting HIP node.
+
+   If the FA trusts to the requesting HIP node, or the HIP node
+   responded to the R1 packet with a new FAQ with a solved puzzle, the
+   FA can allocate address(es) and possibly SPIs for the requesting
+   node. The FA_INFO payload may contain information about the requested
+   addresses or the requested SPI ranges. If these requests can be met,
+   the FA may allocate address(es) and possible SPIs for the requesting
+   node.
+
+   If the allocation request was accepted and a successfull reservation
+   of data was performed, the FA responds to the requesting node with a
+   FAA packet. The FAA consists of an FA_INFO payload describing the
+   address(es) and possible SPIs that are reserved for the requesting
+   node.
+
+   However, if the FA was not able to allocate address(es), SPIs or the
+   request was malformed, the FA responds with a FAD packet.
+
+6.4 Sending REAs
+
+   The HIP node may want to send address information to the peer node
+   whenever there are updates in the addresses that are assigned to it.
+   The leased addresses can be considered also to be possible addresses
+   and they must be assigned to a logical interface.
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 21]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+   The REA packet contains the HIP header, one or more REA_INFO,
+   HIP_SIGNATURE and HMAC TLVs. The REA_INFO describes all the addresses
+   that are associated with that particular interface identifier. If a
+   previously associated address is not included in the list, the peer
+   considers it as a lost address and removes it from the address
+   associations.
+
+6.5 Handling received REAs at end hosts
+
+   When a HIP node receives a REA packet, it verifies the signature in
+   it. If the packet was valid, it may initiate an address check
+   procedure. The address check (AC) packet is sent to all addresses
+   that were listed in the REA_INFO payload. The HIP node receiving the
+   REA packet from a node that it trusts, may accept all addresses
+   without making any address check for them. If ACs are sent, the
+   addresses in the REA_INFO must not be used until corresponding ACR
+   packet is received from the peer node.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 22]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+7. Policy considerations
+
+   TBD
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 23]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+8. Security Considerations
+
+   (Initial text by Jari Arkko): If not controlled in some manner,
+   messaging related to address changes would create the following types
+   of vulnerabilities:
+
+      Revealing the contents of the (cleartext) communications
+
+      Hijacking communications and man-in-the-middle attacks
+
+      Denial of service for the involved nodes, by disabling their
+      ability to receive the desired communications
+
+      Denial of service for third parties, by redirecting a large amount
+      of traffic to them
+
+      Revealing the location of the nodes to other parties
+
+   In HIP, communications are bound to the public keys of the end-points
+   and not to IP addresses. The REA message is signed with the sender's
+   private key, and hence it becomes impossible to hijack the
+   communications of another node through the use of the REA message.
+   Similarly, since only the node itself can sign messages to move its
+   traffic flows to a new IP address, denial of service attacks through
+   REA can not cause the traffic flows to be sent to an IP address that
+   the node did not wish to use. Finally, In HIP all communications are
+   encrypted with ESP, so a hijack attempt would also be unable to
+   reveal the contents of the communications.
+
+   Malicous nodes that use HIP can, however, try to cause a denial of
+   service attack by establishing a high-volume traffic flow, such as a
+   video stream, and then redirecting it to a victim.  However, the
+   return routability check provides some assurance that the given
+   address is willing to accept the new traffic.  Only attackers who are
+   on the path between the peer and the new address could respond to the
+   test.
+
+8.1 Why does the foreign agent may require a puzzle solution?
+
+   In Section 5.1 it is stated that a foreign agent may pass a puzzle,
+   in an R1, to the HIP host if it does not trust the HIP host.  This
+   protects the foreing agent from CPU consuming DoS attacks.  If this
+   protection were not used, an attacker could send a stream of bogus
+   FAQ packets to the foreign agent, making it to spend all of its CPU
+   to verify signatures that might be full garbage.
+
+8.2 Attacker masquerading as a FA
+
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 24]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+   The ability for an attacker to masquerade as a forwarding agent
+   depends on how the HIP host locates forwarding agents.  That, in
+   turn, falls beyond the scope of this document.  However, if the HIP
+   host accepts services from unknown or untrusted forwarding agents, it
+   is taking a risk of getting a black hole or eavesdropped address.
+   The resulting attack is usually not very serious, though, since all
+   actual data traffic is protected with ESP, and the HIP packets are
+   signed.  Thus, the worst an untrustworthy forwarding agent can do is
+   to blackhole the packets.
+
+8.3 Location privacy
+
+   TBD
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 25]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+9. IANA Considerations
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 26]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+10. Acknowledgments
+
+   Thanks to Kimmo Nieminen.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 27]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+Normative references
+
+   [1]  Bradner, S., "Key words for use in RFCs to Indicate Requirement
+        Levels", BCP 14, RFC 2119, March 1997.
+
+   [2]  Hinden, R. and S. Deering, "IP Version 6 Addressing
+        Architecture", RFC 2373, July 1998.
+
+   [3]  Nikander, P. and R. Moskowitz, "Host Identity Protocol",
+        draft-moskowitz-hip-06 (work in progress), May 2003.
+
+   [4]  Moskowitz, R., "Host Identity Protocol Architecture",
+        draft-moskowitz-hip-arch-03 (work in progress), May 2003.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 28]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+Informative references
+
+   [5]  Bellovin, S., "EIDs, IPsec, and HostNAT", IETF 41th, March 1998.
+
+   [6]  Nikander, P., Ylitalo, J. and J. Wall, "Integrating Security,
+        Mobility, and Multi-Homing in  a HIP Way", Network and
+        Distributed Systems Security Symposium (NDSS'03),  February 6-7,
+        2003,  San Diego, CA, pages 87-99,  Internet Society, February
+        2003.
+
+   [7]  Rescorla, E. and B. Korver, "Guidelines for Writing RFC Text on
+        Security Considerations", draft-iab-sec-cons-03 (work in
+        progress), February 2003.
+
+   [8]  Nikander, P., Aura, T., Arkko, J., Montenegro, G. and E.
+        Nordmark, "Mobile IP version 6 Route Optimization Security
+        Design Background", draft-nikander-mobileip-v6-ro-sec-00 (work
+        in progress), April 2003.
+
+
+Authors' Addresses
+
+   Pekka Nikander
+   Ericsson Research Nomadic Lab
+
+   JORVAS  FIN-02420
+   FINLAND
+
+   Phone: +358 9 299 1
+   EMail: pekka.nikander@nomadiclab.com
+
+
+   Jari Arkko
+   Ericsson Research Nomadic Lab
+
+   JORVAS  FIN-02420
+   FINLAND
+
+   Phone: +358 9 299 1
+   EMail: jari.arkko@nomadiclab.com
+
+
+
+
+
+
+
+
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 29]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+   Petri Jokela
+   Ericsson Research Nomadic Lab
+
+   JORVAS  FIN-02420
+   FINLAND
+
+   Phone: +358 9 299 1
+   EMail: petri.jokela@nomadiclab.com
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 30]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+Appendix A. Site multi-homing
+
+   A site, connected to multiple transit providers, is considered to be
+   multi-homed. There is a possibility to send traffic using any of the
+   transit provider networks. A node, connected to a multi-homed site,
+   can experience this multi-homing from the received IP addresses.
+
+A.1 A host connected to a multi-homed site
+
+   When a node connects to a multi-homed network, it may receive
+   multiple IP addresses on this connected interface. These addresses
+   can be either local IP addresses (behind a NAT) or public addresses.
+
+   A traditional node setting up a connection, selects one of the
+   available local addresses for this particular connection. This
+   address cannot be changed for the existing connection.
+
+   A HIP node experiencing similar site multi-homing is not limited to
+   the one source address selected during the connection set up. The
+   node has multiple IP addresses on one interface and the mapping
+   between the Host Identity - Interface - IP addresses is a mapping
+   from one to one to many. The used IP address can be changed while the
+   connection exists.
+
+   When configured multiple addresses to one interface, the node can
+   update this list of addresses to peer nodes. Thus, the different
+   transit providers can be used according to policies defined in the
+   node. The policies can be defined locally or they can be received by
+   other methods. (see policies, TBD)
+
+A.2 Transit providers with NATs
+
+   A transit provider may have NAT boxes in the network.  The HIP node
+   connected to a site that is further connected to a transit provider
+   using NATs, must get the knowledge about the NAT box between itself
+   and the peer node. The address that the HIP node sends to the peer
+   node must be a public one, thus NATted address is not valid.
+
+   The NAT box on the path must support address (and SPI) leasing for
+   the HIP node. When the HIP node finds out that there is a NAT box,
+   the host must get a leased address (or a set of addresses) from the
+   NAT. These addresses are routable at the other side of the NAT. They
+   still need not to be globally routable as there may be another NAT
+   box on the path.
+
+
+
+
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 31]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+Appendix B. Implementation experiences
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 32]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+Intellectual Property Statement
+
+   The IETF takes no position regarding the validity or scope of any
+   intellectual property or other rights that might be claimed to
+   pertain to the implementation or use of the technology described in
+   this document or the extent to which any license under such rights
+   might or might not be available; neither does it represent that it
+   has made any effort to identify any such rights. Information on the
+   IETF's procedures with respect to rights in standards-track and
+   standards-related documentation can be found in BCP-11. Copies of
+   claims of rights made available for publication and any assurances of
+   licenses to be made available, or the result of an attempt made to
+   obtain a general license or permission for the use of such
+   proprietary rights by implementors or users of this specification can
+   be obtained from the IETF Secretariat.
+
+   The IETF invites any interested party to bring to its attention any
+   copyrights, patents or patent applications, or other proprietary
+   rights which may cover technology that may be required to practice
+   this standard. Please address the information to the IETF Executive
+   Director.
+
+
+Full Copyright Statement
+
+   Copyright (C) The Internet Society (2003). All Rights Reserved.
+
+   This document and translations of it may be copied and furnished to
+   others, and derivative works that comment on or otherwise explain it
+   or assist in its implementation may be prepared, copied, published
+   and distributed, in whole or in part, without restriction of any
+   kind, provided that the above copyright notice and this paragraph are
+   included on all such copies and derivative works. However, this
+   document itself may not be modified in any way, such as by removing
+   the copyright notice or references to the Internet Society or other
+   Internet organizations, except as needed for the purpose of
+   developing Internet standards in which case the procedures for
+   copyrights defined in the Internet Standards process must be
+   followed, or as required to translate it into languages other than
+   English.
+
+   The limited permissions granted above are perpetual and will not be
+   revoked by the Internet Society or its successors or assignees.
+
+   This document and the information contained herein is provided on an
+   "AS IS" basis and THE INTERNET SOCIETY AND THE INTERNET ENGINEERING
+   TASK FORCE DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING
+   BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 33]
+
+Internet-Draft       HIP Mobility and Multi-Homing             June 2003
+
+
+   HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF
+   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+
+
+Acknowledgement
+
+   Funding for the RFC Editor function is currently provided by the
+   Internet Society.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Nikander, et al.       Expires December 16, 2003               [Page 34]
+

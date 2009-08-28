@@ -1,0 +1,26 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<html>
+  <head>
+    <title>Java API for HIP (JIP)</title>
+  </head>
+
+  <body>
+    <p>
+      An API for Java applications using the HIP protocol.  This
+      package provides an API for HIP, the Host Identity Protocol.
+      Its functionality is comparable to that of the native API
+      accessible for C programs.
+    </p>
+    <p>
+      The JIP API is divided into two parts.  The simpler one is the
+      global API, the use of which makes all network communication in
+      a Java application use HIP.  The global API is implemented with
+      the extension mechanism of the {@link java.net} package.  The
+      other one is the per-connection API, where an application may
+      mix HIP sockets with normal sockets.  The per-connection API is
+      implemented with the extension mechanism of the {@link
+      javax.net} package.  For applications creating their own
+      sockets, the per-connection API is recommended.
+    </p>
+  </body>
+</html>

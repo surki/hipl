@@ -1,0 +1,4 @@
+Currently, kernel 2.6.25 is used for Broadcom(brcm47xx) target in the OpenWRT
+source tree. If you are trying to build hipl for the Atheros target,
+use patches in 2.6.26 directory.
+

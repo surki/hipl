@@ -1,0 +1,223 @@
+diff -Nru djbdns-1.05-orig/Makefile djbdns-1.05/Makefile
+--- djbdns-1.05-orig/Makefile	2001-02-11 23:11:45.000000000 +0200
++++ djbdns-1.05/Makefile	2008-05-21 13:35:59.000000000 +0300
+@@ -328,9 +328,9 @@
+ 
+ dnscache-conf: \
+ load dnscache-conf.o generic-conf.o auto_home.o libtai.a buffer.a \
+-unix.a byte.a
++unix.a byte.a alloc.a
+ 	./load dnscache-conf generic-conf.o auto_home.o libtai.a \
+-	buffer.a unix.a byte.a 
++	buffer.a unix.a byte.a alloc.a
+ 
+ dnscache-conf.o: \
+ compile dnscache-conf.c hasdevtcp.h strerr.h buffer.h uint32.h taia.h \
+diff -Nru djbdns-1.05-orig/dnscache-conf.c djbdns-1.05/dnscache-conf.c
+--- djbdns-1.05-orig/dnscache-conf.c	2001-02-11 23:11:45.000000000 +0200
++++ djbdns-1.05/dnscache-conf.c	2008-05-21 13:35:59.000000000 +0300
+@@ -16,6 +16,7 @@
+ #include "exit.h"
+ #include "auto_home.h"
+ #include "generic-conf.h"
++#include "stralloc.h"
+ 
+ #define FATAL "dnscache-conf: fatal: "
+ 
+@@ -37,6 +38,8 @@
+ uint32 seed[32];
+ int seedpos = 0;
+ 
++stralloc dnsrootname;
++
+ void seed_adduint32(uint32 u)
+ {
+   int i;
+@@ -89,13 +92,19 @@
+   if (chdir(auto_home) == -1)
+     strerr_die4sys(111,FATAL,"unable to switch to ",auto_home,": ");
+ 
+-  fdrootservers = open_read("/etc/dnsroots.local");
++  stralloc_copys(&dnsrootname,auto_home);
++  stralloc_cats(&dnsrootname,"/etc/dnsroots.local");
++  stralloc_catb(&dnsrootname,"",1);
++  fdrootservers = open_read(dnsrootname.s);
+   if (fdrootservers == -1) {
+     if (errno != error_noent)
+-      strerr_die2sys(111,FATAL,"unable to open /etc/dnsroots.local: ");
+-    fdrootservers = open_read("/etc/dnsroots.global");
++      strerr_die2sys(111,FATAL,"unable to open .../etc/dnsroots.local: ");
++    stralloc_copys(&dnsrootname,auto_home);
++    stralloc_cats(&dnsrootname,"/etc/dnsroots.global");
++    stralloc_catb(&dnsrootname,"",1);
++    fdrootservers = open_read(dnsrootname.s);
+     if (fdrootservers == -1)
+-      strerr_die2sys(111,FATAL,"unable to open /etc/dnsroots.global: ");
++      strerr_die2sys(111,FATAL,"unable to open .../etc/dnsroots.global: ");
+   }
+ 
+   init(dir,FATAL);
+diff -Nru djbdns-1.05-orig/dnsroots.global djbdns-1.05/dnsroots.global
+--- djbdns-1.05-orig/dnsroots.global	2001-02-11 23:11:45.000000000 +0200
++++ djbdns-1.05/dnsroots.global	2008-05-21 13:40:49.000000000 +0300
+@@ -1,5 +1,5 @@
+ 198.41.0.4
+-128.9.0.107
++192.228.79.201
+ 192.33.4.12
+ 128.8.10.90
+ 192.203.230.10
+@@ -7,7 +7,7 @@
+ 192.112.36.4
+ 128.63.2.53
+ 192.36.148.17
+-198.41.0.10
++192.58.128.30
+ 193.0.14.129
+-198.32.64.12
++199.7.83.42
+ 202.12.27.33
+diff -Nru djbdns-1.05-orig/dnsroots.global-old-1 djbdns-1.05/dnsroots.global-old-1
+--- djbdns-1.05-orig/dnsroots.global-old-1	1970-01-01 02:00:00.000000000 +0200
++++ djbdns-1.05/dnsroots.global-old-1	2001-02-11 23:11:45.000000000 +0200
+@@ -0,0 +1,13 @@
++198.41.0.4
++128.9.0.107
++192.33.4.12
++128.8.10.90
++192.203.230.10
++192.5.5.241
++192.112.36.4
++128.63.2.53
++192.36.148.17
++198.41.0.10
++193.0.14.129
++198.32.64.12
++202.12.27.33
+diff -Nru djbdns-1.05-orig/error.h djbdns-1.05/error.h
+--- djbdns-1.05-orig/error.h	2001-02-11 23:11:45.000000000 +0200
++++ djbdns-1.05/error.h	2008-05-21 13:35:59.000000000 +0300
+@@ -1,6 +1,8 @@
+ #ifndef ERROR_H
+ #define ERROR_H
+ 
++#include <errno.h>
++
+ extern int errno;
+ 
+ extern int error_intr;
+diff -Nru djbdns-1.05-orig/get-dnsroots.py djbdns-1.05/get-dnsroots.py
+--- djbdns-1.05-orig/get-dnsroots.py	1970-01-01 02:00:00.000000000 +0200
++++ djbdns-1.05/get-dnsroots.py	2008-05-21 13:52:10.000000000 +0300
+@@ -0,0 +1,51 @@
++#! /usr/bin/env python
++
++import sys
++import getopt
++import os
++import urllib2
++import re
++
++def usage(utyp, *msg):
++    sys.stderr.write('Usage: %s\n' % os.path.split(sys.argv[0])[1])
++    if msg:
++        sys.stderr.write('Error: %s\n' % `msg`)
++    sys.exit(1)
++
++class Global:
++    re_a1 = re.compile(r'^[A-Z]\.ROOT-SERVERS\.NET\.\s+\d+\s+A\s+([0-9\.]+)\s*$',re.I)
++    def __init__(gp):
++        return
++    def doit(gp,args):
++	url1 = 'http://www.internic.net/zones/named.root'
++	u1 = urllib2.urlopen(url1)
++	a = u1.readlines()
++	a = [gp.re_a1.match(i) for i in a]
++	a = ['%s\n' % (r1.group(1),) for r1 in a if r1]
++	sys.stdout.writelines(a)
++        return
++
++def main(argv):
++    gp = Global()
++    try:
++        opts, args = getopt.getopt(argv[1:],
++                                   'hf:c:',
++                                   ['help',
++                                    'file=',
++                                    'count=',
++                                    ])
++    except getopt.error, msg:
++        usage(1, msg)
++
++    for opt, arg in opts:
++        if opt in ('-h', '--help'):
++            usage(0)
++        elif opt in ('-f', '--file'):
++            gp.tarfilename = arg
++        elif opt in ('-c', '--count'):
++            gp.fetchcount = int(arg)
++
++    gp.doit(args)
++        
++if __name__ == '__main__':
++    main(sys.argv)
+diff -Nru djbdns-1.05-orig/hier.c djbdns-1.05/hier.c
+--- djbdns-1.05-orig/hier.c	2001-02-11 23:11:45.000000000 +0200
++++ djbdns-1.05/hier.c	2008-05-21 13:35:59.000000000 +0300
+@@ -2,11 +2,12 @@
+ 
+ void hier()
+ {
+-  c("/","etc","dnsroots.global",-1,-1,0644);
+-
+   h(auto_home,-1,-1,02755);
+   d(auto_home,"bin",-1,-1,02755);
+ 
++  d(auto_home,"etc",-1,-1,02755);
++  c(auto_home,"etc","dnsroots.global",-1,-1,0644);
++
+   c(auto_home,"bin","dnscache-conf",-1,-1,0755);
+   c(auto_home,"bin","tinydns-conf",-1,-1,0755);
+   c(auto_home,"bin","walldns-conf",-1,-1,0755);
+--- djbdns-1.05-orig/server.c	2001-02-11 23:11:45.000000000 +0200
++++ djbdns-1.05/server.c	2008-05-23 14:28:01.000000000 +0300
+@@ -11,6 +11,7 @@
+ #include "qlog.h"
+ #include "response.h"
+ #include "dns.h"
++#include "scan.h"
+ 
+ extern char *fatal;
+ extern char *starting;
+@@ -83,6 +84,7 @@
+ {
+   char *x;
+   int udp53;
++  uint16 listenport;
+ 
+   x = env_get("IP");
+   if (!x)
+@@ -90,10 +92,22 @@
+   if (!ip4_scan(x,ip))
+     strerr_die3x(111,fatal,"unable to parse IP address ",x);
+ 
++  x = env_get("PORT");
++  if (x) {
++    unsigned long u;
++    int	pos;
++    pos = scan_ulong(x,&u);
++    if (pos == 0)
++      strerr_die2x(111,fatal,"Invalid $PORT");
++    listenport = u;
++  } else {
++    listenport = 53;
++  }
++
+   udp53 = socket_udp();
+   if (udp53 == -1)
+     strerr_die2sys(111,fatal,"unable to create UDP socket: ");
+-  if (socket_bind4_reuse(udp53,ip,53) == -1)
++  if (socket_bind4_reuse(udp53,ip,listenport) == -1)
+     strerr_die2sys(111,fatal,"unable to bind UDP socket: ");
+ 
+   droproot(fatal);

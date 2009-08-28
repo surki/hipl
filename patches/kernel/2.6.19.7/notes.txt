@@ -1,0 +1,58 @@
+2.6.19.7 BEET patch notes
+==========================
+
+This patch adds interfamily support (ability to translate IPv6 
+application connections to IPv4 networking and vice versa) for BEET and 
+TUNNEL mode to 2.6.19.7.
+
+Kernel Compilation Incompatibilities
+------------------------------------
+
+The current hipd is not compatible with the mobile IPv6 extensions 
+introduced in 2.6.19.7:
+
+# CONFIG_XFRM_SUB_POLICY is not set
+# CONFIG_SECURITY_NETWORK_XFRM is not set
+# CONFIG_INET6_XFRM_MODE_ROUTEOPTIMIZATION is not set
+
+See https://infrahip.hiit.fi/bugzilla/show_bug.cgi?id=330
+
+Disable them before compiling the kernel!
+
+Test report
+-----------
+
+The current hipd has some options in hip_set_os_dep_variables() that 
+handle dynamically some kernel API changes without breaking backwards 
+compatibility with 2.6.17.14 (tested and works).
+
+Test matrix:
+
+           | outer ipv4 | outer ipv6
+-----------+------------+-----------
+inner ipv4 | works      | works   
+inner ipv6 | works      | works   
+
+Joakim Koskela fixed ESP sending that was not working for some pair of 
+HTIs (bug id 175). Joakim Koskela solved also a problem with multiple 
+simultaneous IPsec  connections on 2.6.18.0 in the latest hipd version 
+(bug id 305).
+
+Untested Features
+-----------------
+
+* Did not test TUNNEL mode at all.
+* Testing with LSIs is TBD.
+* The sleep patch is based on this patch rather than our previous 
+  version:
+  * http://git.kernel.org/?p=linux/kernel/git/davem/net-2.6.git;a=commitdiff;h=8eb9086f21c73b38b5ca27558db4c91d62d0e70b;hp=ba7808eac17360dda459f82222859b0e3879854b
+  * Haven't done extensive testing yet on the new sleep patch.
+
+Bugs
+----
+
+* Also applied ipsec loopback patch from here but it still oopses the 
+  kernel in __xfrm6_bundle_create after calling xfrm_dst_lookup:
+  http://www.mail-archive.com/netdev@vger.kernel.org/msg36083.html
+
+-Miika

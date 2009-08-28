@@ -1,0 +1,68 @@
+set terminal fig color
+
+set ylabel "time in seconds"
+set xlabel "test number"
+
+set output "tc1.fig"
+#plot "testcase1-hip-connect100" title "testcase 1" with linespoints
+plot "testcase1-hip-connect100-0209" title "testcase 1" with linespoints
+
+set output "tc2.fig"
+#plot "testcase2-hip-connect100" title "testcase 2" with linespoints
+plot "testcase2-hip-connect100-0209" title "testcase 2" with linespoints
+
+set output "tc3.fig"
+plot "testcase3-iked-connect100" title "testcase 3" with linespoints
+
+set output "tc4.fig"
+#plot "testcase4-eihip-connect100" title "testcase 4" with linespoints
+plot "testcase4-eihip-connect100-0209" title "testcase 4" with linespoints
+
+set output "tc2,4.fig"
+#plot "testcase2-hip-connect100" title "testcase 2" with linespoints,
+# "testcase4-eihip-connect100" title "testcase 4" with linespoints
+plot "testcase2-hip-connect100-0209" title "testcase 2" with linespoints,\
+ "testcase4-eihip-connect100-0209" title "testcase 4" with linespoints
+
+set output "tc1,3.fig"
+#plot "testcase1-hip-connect100" title "testcase 1" with linespoints,
+plot "testcase1-hip-connect100-0209" title "testcase 1" with linespoints,\
+ "testcase3-iked-connect100" title "testcase 3" with linespoints
+
+set output "tc3,10.fig"
+plot "testcase3-hip-be100" title "testcase 3a" with linespoints,\
+ "testcase3b-k1-be100" title "testcase 3b" with linespoints,\
+ "testcase10-ike-ke100" title "testcase 10" with linespoints
+
+set output "tc1,11.fig"
+#plot "testcase1-hip-connect100" title "testcase 1" with linespoints,
+plot "testcase1-hip-connect100-0209" title "testcase 1" with linespoints,\
+ "testcase11-hip-connect100" title "testcase 11" with linespoints
+
+# to generate testcaseN-data files:
+# grep "real seconds" testcase5-hip-ttcp100|cut -d" " -f9|c -n|cut -c4- >testcase5-hip-ttcp100-data
+# grep "real seconds" testcase6-iked-ttcp100|cut -d" " -f9|c -n|cut -c4- >testcase6-iked-ttcp100-data
+# grep "real seconds" testcase7-eihip-ttcp100|cut -d" " -f9|c -n|cut -c4- >testcase7-eihip-ttcp100-data
+
+set ylabel "TCP throughput KB/sec"
+
+set output "tc5.fig"
+plot "testcase5-hip-ttcp100-data" title "testcase 5" with linespoints
+
+set output "tc6.fig"
+plot "testcase6-iked-ttcp100-data" title "testcase 6" with linespoints
+
+set output "tc7.fig"
+plot "testcase7-eihip-ttcp100-data" title "testcase 7" with linespoints
+
+set output "tc5-7.fig"
+plot "testcase5-hip-ttcp100-data" title "testcase 5" with linespoints, \
+ "testcase6-iked-ttcp100-data" title "testcase 6" with linespoints, \
+ "testcase7-eihip-ttcp100-data" title "testcase 7" with linespoints
+
+#set output "tc10.fig"
+#plot "testcase10-hip-handover-ttcp100-data" title "testcase 10" with linespoints
+
+#set output "tc5,10.fig"
+#plot "testcase5-hip-ttcp100-data" title "testcase 5" with linespoints, \
+# "testcase10-hip-handover-ttcp100-data" title "testcase 10" with linespoints

@@ -1,0 +1,427 @@
+diff -Nuar iperf/src/Listener.cpp iperf-1.7.0/src/Listener.cpp
+--- iperf/src/Listener.cpp	2008-04-03 14:25:17.000000000 +0300
++++ iperf-1.7.0/src/Listener.cpp	2003-03-05 00:47:32.000000000 +0200
+@@ -150,9 +150,6 @@
+                     continue;
+                 }
+             }
+-            
+-            sockaddr_storage * localhost = udpMsg->getDest();
+-            
+ #ifdef HAVE_THREAD
+             clients_mutex.Lock(); 
+             exist = Iperf_present( &peer, clients); 
+@@ -168,15 +165,7 @@
+                                   (((struct sockaddr*)&peer)->sa_family == AF_INET ? 
+                                    sizeof(sockaddr_in) : sizeof(sockaddr_in6)));
+ #endif // IPV6
+-                FAIL_errno( rc == SOCKET_ERROR, "connect UDP" ); 
+-                //fprintf(stderr, "Binding to address that was recieved with the first UDP Packet");
+-                rc = bind (mSock, (struct sockaddr*) localhost, 
+-#ifndef IPV6
+-                                  sizeof(sockaddr_in));
+-#else
+-                                  (((struct sockaddr*)&peer)->sa_family == AF_INET ? 
+-                                   sizeof(sockaddr_in) : sizeof(sockaddr_in6)));
+-#endif // IPV6
++                FAIL_errno( rc == SOCKET_ERROR, "connect UDP" );       
+ #ifndef WIN32
+                 listtemp = new Iperf_ListEntry;
+                 memcpy(listtemp, &peer, sizeof(peer));
+@@ -261,14 +250,6 @@
+                                    sizeof(sockaddr_in) : sizeof(sockaddr_in6)));
+ #endif // IPV6
+                 FAIL_errno( rc == SOCKET_ERROR, "connect UDP" );       
+-                //fprintf(stderr, "Binding to address that was recieved with the first UDP Packet");
+-                rc = bind (mSock, (struct sockaddr*) localhost, 
+-#ifndef IPV6
+-                                  sizeof(sockaddr_in));
+-#else
+-                                  (((struct sockaddr*)&peer)->sa_family == AF_INET ? 
+-                                   sizeof(sockaddr_in) : sizeof(sockaddr_in6)));
+-#endif // IPV6
+                 if ( !mSettings->mCompat ) {
+                     Settings::GenerateSpeakerSettings( mSettings, &tempSettings, 
+                                                         hdr, (sockaddr*) &peer );
+diff -Nuar iperf/src/PerfSocket.cpp iperf-1.7.0/src/PerfSocket.cpp
+--- iperf/src/PerfSocket.cpp	2008-04-03 13:28:45.000000000 +0300
++++ iperf-1.7.0/src/PerfSocket.cpp	2003-03-12 20:54:52.000000000 +0200
+@@ -97,8 +97,8 @@
+ PerfSocket::PerfSocket( ext_Settings *inSettings,
+                         Notify* toNotify )
+ : Socket( inSettings->mPort, (inSettings->mUDPRate > 0) ) {
++
+     mSettings = inSettings;
+-    udpMsg = new UDPMessage(mSettings->mDomain);
+     ptr_parent = toNotify;
+     mBuf = NULL;
+     extractor = NULL;
+@@ -106,12 +106,6 @@
+     // initialize buffer
+     mBuf = new char[ mSettings->mBufLen ];
+     pattern( mBuf, mSettings->mBufLen );
+-    
+-    iovec iov;
+-    iov.iov_base 	= mBuf;
+-    iov.iov_len 	= mSettings->mBufLen;
+-    udpMsg->setIOVector(iov);
+-    
+     sReportCount = 0;
+     if ( mSettings->mServerMode == kMode_Client ) {
+         if ( mSettings->mFileInput ) {
+@@ -559,17 +553,6 @@
+             FAIL_errno( rc == SOCKET_ERROR, "setsockopt TCP_NODELAY" );
+         }
+ #endif
+-    } else {
+-    	printf("Setting UDP option \n");
+-    	int err = 0, on = 1;
+-    	if (mSettings->mDomain) {
+-    		err = setsockopt(mSock, IPPROTO_IPV6,
+-    				DSTADDRV6_SOCKOPT, &on, sizeof(on));
+-    	} else {
+-    		err = setsockopt(mSock, IPPROTO_IP,
+-    				DSTADDRV4_SOCKOPT, &on, sizeof(on));
+-    	}
+-    	FAIL_errno( err != 0, "setsockopt IP_PKTINFIO" );
+     }
+ }
+ // end SetSocketOptions
+diff -Nuar iperf/src/PerfSocket.hpp iperf-1.7.0/src/PerfSocket.hpp
+--- iperf/src/PerfSocket.hpp	2008-04-03 13:28:45.000000000 +0300
++++ iperf-1.7.0/src/PerfSocket.hpp	2003-02-27 23:59:05.000000000 +0200
+@@ -62,7 +62,6 @@
+ #include "Extractor.hpp"
+ #include "Notify.hpp"
+ #include "Settings.hpp"
+-#include "UDPMessage.h"
+ 
+ 
+ class Notify;
+@@ -91,7 +90,7 @@
+     void write_UDP_AckFIN( max_size_t mTotalLen, Timestamp mEndTime,
+                            Timestamp mStartTime, int errorCnt,
+                            int outofOrder, int32_t datagramID );
+-    
++
+     // TCP, in PerfSocket_TCP.cpp
+     void Send_TCP( void );
+     void Recv_TCP( void );
+@@ -140,8 +139,6 @@
+ 
+     // buffer to do reads/writes
+     char *mBuf;
+-    
+-    UDPMessage * udpMsg;
+ 
+     // individual and cummulative bytes written
+     max_size_t mTotalLen;
+diff -Nuar iperf/src/PerfSocket_UDP.cpp iperf-1.7.0/src/PerfSocket_UDP.cpp
+--- iperf/src/PerfSocket_UDP.cpp	2008-04-03 13:28:45.000000000 +0300
++++ iperf-1.7.0/src/PerfSocket_UDP.cpp	2003-03-05 22:30:50.000000000 +0200
+@@ -87,7 +87,6 @@
+  * ------------------------------------------------------------------- */ 
+ 
+ void PerfSocket::Send_UDP( void ) {
+-	SetSocketOptions();
+     long currLen; 
+     int32_t datagramID = 0; 
+     struct UDP_datagram* mBuf_UDP = (struct UDP_datagram*) mBuf; 
+@@ -119,7 +118,7 @@
+ 
+     Timestamp lastPacketTime; 
+     InitTransfer(); 
+-    // Indicates if the stream is readtype filter textable 
++    // Indicates if the stream is readable 
+     bool canRead; 
+ 
+     // Due to the UDP timestamps etc, included 
+@@ -234,7 +233,6 @@
+  * ------------------------------------------------------------------- */ 
+ 
+ void PerfSocket::Recv_UDP( void ) {
+-	SetSocketOptions();
+     bool going = true; 
+     long currLen; 
+     int32_t datagramID     = 0; 
+@@ -259,22 +257,7 @@
+     InitTransfer(); 
+     do {
+         // perform read 
+-        //currLen = read( mSock, mBuf, mSettings->mBufLen );
+-        
+-        Socklen_t peerlen; 
+-        int rc; 
+-
+-        peerlen = sizeof(peer); 
+-        
+-        iovec iov;
+-        iov.iov_base 	= mBuf;
+-        iov.iov_len 	= mSettings->mBufLen;
+-        udpMsg->setIOVector(iov);
+-        udpMsg->setPeer((struct sockaddr*) &peer, peerlen);
+-        
+-        currLen = recvmsg(mSock, 
+-        			 udpMsg->getMsgHdr(),
+-        			 MSG_WAITALL);
++        currLen = read( mSock, mBuf, mSettings->mBufLen ); 
+ 
+         mPacketTime.setnow(); 
+ 
+@@ -285,7 +268,6 @@
+ 
+         // read the datagram ID and sentTime out of the buffer 
+         datagramID = ntohl( mBuf_UDP->id ); 
+-       
+         sentTime.set( ntohl( mBuf_UDP->tv_sec  ), 
+                       ntohl( mBuf_UDP->tv_usec )); 
+ 
+@@ -351,29 +333,15 @@
+  * ------------------------------------------------------------------- */ 
+ 
+ iperf_sockaddr PerfSocket::Accept_UDP( void ) {
+-	
+-	SetSocketOptions();
+-	
+     iperf_sockaddr peer; 
+ 
+     Socklen_t peerlen; 
+     int rc; 
+ 
+     peerlen = sizeof(peer); 
+-    
+-    iovec iov;
+-    iov.iov_base 	= mBuf;
+-    iov.iov_len 	= mSettings->mBufLen;
+-    udpMsg->setIOVector(iov);
+-    udpMsg->setPeer((struct sockaddr*) &peer, peerlen);
+-    
+-    
+-    rc = recvmsg(mSock, 
+-    			 udpMsg->getMsgHdr(),
+-    			 MSG_WAITALL);
+-    
+-    sockaddr_storage * dsthost = udpMsg->getDest();
+-    
++    rc = recvfrom( mSock, mBuf, mSettings->mBufLen, 0, 
++                   (struct sockaddr*) &peer, &peerlen ); 
++
+     FAIL_errno( rc == SOCKET_ERROR, "recvfrom" );       
+     return peer; 
+ } 
+@@ -394,14 +362,7 @@
+         count++; 
+ 
+         // write data 
+-        iovec iov;
+-        iov.iov_base 	= mBuf;
+-        iov.iov_len 	= mSettings->mBufLen;
+-        udpMsg->setIOVector(iov);
+-        
+-        //write( mSock, mBuf, mSettings->mBufLen );
+-        
+-        sendmsg(mSock, udpMsg->getMsgHdr(), 0);
++        write( mSock, mBuf, mSettings->mBufLen ); 
+ 
+         // wait until the socket is readable, or our timeout expires 
+         FD_ZERO( &readSet ); 
+@@ -417,21 +378,7 @@
+             continue; 
+         } else {
+             // socket ready to read 
+-            //rc = read( mSock, mBuf, mSettings->mBufLen ); 
+-            iperf_sockaddr peer; 
+-
+-            Socklen_t peerlen; 
+-            peerlen = sizeof(peer); 
+-            iovec iov;
+-            iov.iov_base 	= mBuf;
+-            iov.iov_len 	= mSettings->mBufLen;
+-            udpMsg->setIOVector(iov);
+-            udpMsg->setPeer((struct sockaddr*) &peer, peerlen);
+-            
+-            rc = recvmsg(mSock, 
+-            			 udpMsg->getMsgHdr(),
+-            			 MSG_WAITALL);
+-            
++            rc = read( mSock, mBuf, mSettings->mBufLen ); 
+             FAIL_errno( rc < 0, "read" );
+             if ( rc >= (int) (sizeof(UDP_datagram) + sizeof(server_hdr)) ) {
+                 UDP_datagram *UDP_Hdr;
+@@ -478,6 +425,7 @@
+                                    int outofOrder, int32_t datagramID ) {
+ 
+     int rc; 
++
+     fd_set readSet; 
+     FD_ZERO( &readSet ); 
+ 
+@@ -512,14 +460,7 @@
+         }
+ 
+         // write data 
+-        iovec iov;
+-        iov.iov_base 	= mBuf;
+-        iov.iov_len 	= mSettings->mBufLen;
+-        udpMsg->setIOVector(iov);
+-                
+-        //write( mSock, mBuf, mSettings->mBufLen );
+-                
+-        sendmsg(mSock, udpMsg->getMsgHdr(), 0);
++        write( mSock, mBuf, mSettings->mBufLen ); 
+ 
+         // wait until the socket is readable, or our timeout expires 
+         FD_SET( mSock, &readSet ); 
+@@ -534,20 +475,7 @@
+             return; 
+         } else {
+             // socket ready to read 
+-            //rc = read( mSock, mBuf, mSettings->mBufLen ); 
+-        	iperf_sockaddr peer; 
+-        	Socklen_t peerlen; 
+-        	peerlen = sizeof(peer);
+-            iovec iov;
+-            iov.iov_base 	= mBuf;
+-            iov.iov_len 	= mSettings->mBufLen;
+-            udpMsg->setIOVector(iov);
+-            udpMsg->setPeer((struct sockaddr*) &peer, peerlen);
+-            
+-            
+-            rc = recvmsg(mSock, 
+-            			 udpMsg->getMsgHdr(),
+-            			 MSG_WAITALL);
++            rc = read( mSock, mBuf, mSettings->mBufLen ); 
+             WARN_errno( rc < 0, "read" ); 
+             continue; 
+         } 
+diff -Nuar iperf/src/UDPMessage.h iperf-1.7.0/src/UDPMessage.h
+--- iperf/src/UDPMessage.h	2008-04-03 14:27:46.000000000 +0300
++++ iperf-1.7.0/src/UDPMessage.h	1970-01-01 02:00:00.000000000 +0200
+@@ -1,127 +0,0 @@
+-#ifndef UDPMESSAGE_H_
+-#define UDPMESSAGE_H_
+-
+-#if defined IP_RECVDSTADDR
+-#define DSTADDRV4_SOCKOPT IP_RECVDSTADDR
+-#define DSTADDRV4_SOCKOPT IP_RECVDSTADDR
+-#define DSTADDR_DATASIZE (CMSG_SPACE(sizeof(struct in_addr)))
+-#define dstaddr(x) (CMSG_DATA(x))
+-#elif defined IP_PKTINFO
+-#define DSTADDRV4_SOCKOPT IP_PKTINFO
+-#define DSTADDRV6_SOCKOPT IPV6_2292PKTINFO
+-#define DSTADDR_DATASIZE (CMSG_SPACE(sizeof(struct in_pktinfo)))
+-#define dstaddr(x) (&(((struct in_pktinfo *)(CMSG_DATA(x)))->ipi_addr))
+-#define dstaddr6(x) (&(((struct in6_pktinfo *)(CMSG_DATA(x)))->ipi6_addr))
+-#else
+-#error "can't determine socket option"
+-#endif 
+-
+-#include <sys/types.h>
+-#include <sys/socket.h>
+-#include <sys/uio.h>
+-
+-#include <netinet/in.h>
+-#include <arpa/inet.h> 
+-
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-
+-union control_data {
+-    struct cmsghdr  cmsg;
+-    u_char          data[DSTADDR_DATASIZE];
+-
+-}; 
+-
+-class UDPMessage
+-{
+-private:
+-	msghdr udpMessage;
+-	bool _isIPV6;
+-public:
+-	UDPMessage(bool isIPV6) {
+-		memset(&udpMessage, 0, sizeof (udpMessage));
+-		union control_data  cmsg;	
+-		udpMessage.msg_flags 		= 0;
+-		udpMessage.msg_control 		= &cmsg;
+-		_isIPV6 					= isIPV6;
+-	}
+-
+-	
+-	UDPMessage(iovec iov, 
+-		   	   sockaddr_storage * addr, 
+-		   	   socklen_t addrlen,
+-		   	   bool isIPV6) {
+-	
+-		memset(&udpMessage, 0, sizeof (udpMessage)); 
+-	
+-		union control_data  cmsg;
+-	
+-		udpMessage.msg_flags 		= 0;
+-		udpMessage.msg_control 		= &cmsg;
+-		udpMessage.msg_controllen 	= sizeof(cmsg);
+-		udpMessage.msg_iov 			= &iov;
+-		udpMessage.msg_iovlen 		= 1;
+-		udpMessage.msg_name 		= (sockaddr *) addr;
+-		udpMessage.msg_namelen 		= addrlen;
+-		_isIPV6 					= isIPV6;
+-	}
+-
+-	virtual 					~UDPMessage() {
+-		
+-	}
+-	
+-	bool isIPv6(void) {
+-		return _isIPV6;
+-	}
+-
+-	void setIOVector(iovec & iov) {
+-		udpMessage.msg_iov      = &iov;
+-		udpMessage.msg_iovlen   = 1;
+-	}
+-
+-	iovec * getIOVector() {
+-		return udpMessage.msg_iov;
+-	}
+-
+-	void setPeer(struct sockaddr * addr, socklen_t len) {
+-		udpMessage.msg_name 		= addr;
+-		udpMessage.msg_namelen 		= len;
+-	}
+-
+-	struct sockaddr_storage * getDest() {
+-		struct cmsghdr     *cmsgptr = NULL; 
+-		struct sockaddr_storage * generic;
+-		
+-		for (cmsgptr = CMSG_FIRSTHDR(&udpMessage);
+-				cmsgptr != NULL;
+-		        cmsgptr = CMSG_NXTHDR(&udpMessage, cmsgptr)) {
+-			fprintf(stderr, "UDP HEADER FOUND \n");
+-			if (!_isIPV6) {
+-				if (cmsgptr->cmsg_level == IPPROTO_IP &&
+-					cmsgptr->cmsg_type == DSTADDRV4_SOCKOPT) {
+-					in_addr * addr = (struct in_addr *)dstaddr(cmsgptr);
+-					generic = (struct sockaddr_storage *)addr;
+-		            		//fprintf(stderr, "to %s", inet_ntoa(*(struct in_addr *)dstaddr(cmsgptr)));
+-				}
+-			} else {
+-				if (cmsgptr->cmsg_level == IPPROTO_IPV6 &&
+-					cmsgptr->cmsg_type == DSTADDRV6_SOCKOPT) {
+-					in6_addr * addr = (struct in6_addr *)dstaddr6(cmsgptr);
+-					generic = (struct sockaddr_storage *)addr;
+-					fprintf(stderr, "dst host ip found");
+-					//printf("to %s", inet6_ntoa(*(struct in6_addr *)dstaddr6(cmsgptr)));
+-				}
+-			}
+-		}
+-		return generic;
+-	}
+-
+-	struct msghdr * getMsgHdr() {
+-		return &udpMessage;
+-	}
+-	
+-	
+-};
+-
+-#endif /*UDPMESSAGE_H_*/

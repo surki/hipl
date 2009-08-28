@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet href="chrome://hipext/content/hipext.css" type="text/css"?> 
+<overlay id="hipext-overlay"
+         xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+
+  <script src="hipext.js"/>
+
+</overlay>

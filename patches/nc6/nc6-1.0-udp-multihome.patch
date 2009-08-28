@@ -1,0 +1,335 @@
+diff -Naur nc6-1.0/src/afindep.c nc6-vanilla/src/afindep.c
+--- nc6-1.0/src/afindep.c	2008-04-04 16:35:04.000000000 +0300
++++ nc6-vanilla/src/afindep.c	2006-01-20 00:46:23.000000000 +0200
+@@ -253,7 +253,6 @@
+ #ifdef ENABLE_IPV6
+ 	bool set_ipv6_only = false;
+ 	bool bound_ipv6_any = false;
+-	bool set_ipv6_pktinfo = false;
+ #endif
+ 	bound_socket_t *bound_sockets = NULL;
+ 	fd_set accept_fdset;
+@@ -350,14 +349,6 @@
+ 				warning("error with sockopt IPV6_V6ONLY");
+ 			else
+ 				set_ipv6_only = true;
+-			
+-			err = setsockopt(fd, IPPROTO_IPV6, IPV6_2292PKTINFO,
+-							 &on, sizeof(on));
+-			
+-			if (err < 0)
+-				warning("error with sockopt IPV6_2292PKTINFO");
+-			else
+-				set_ipv6_pktinfo = true;
+ 		}
+ #endif 
+ 
+@@ -465,7 +456,7 @@
+ 			return -1;
+ 		}
+ 		
+-		/* find ready file descriptor */
++		/* find the ready filedescriptor */
+ 		for (fd = 0; fd <= maxfd && !FD_ISSET(fd, &tmp_ap_fdset); ++fd)
+ 			;
+ 
+@@ -491,15 +482,8 @@
+ 			/* this is checked when binding listen sockets */
+ 			assert(socktype == SOCK_DGRAM);
+ 
+-			/*err = recvfrom(fd, NULL, 0, MSG_PEEK,
++			err = recvfrom(fd, NULL, 0, MSG_PEEK,
+ 			               (struct sockaddr *)&dest, &destlen);
+-			 */
+-			
+-			/*TODO
+-			 * read the destination address here
+-			 * and report it!!!
+-			 */
+-			
+ 			if (err < 0) {
+ 				warning("recvfrom failed: %s", strerror(errno));
+ 				free_bound_sockets(bound_sockets);
+@@ -520,9 +504,7 @@
+ 			socklen_t srclen = sizeof(src);
+ 
+ 			/* find out what address the connection was to */
+-						
+ 			err = getsockname(ns, (struct sockaddr *)&src, &srclen);
+-						
+ 			if (err < 0) {
+ 				warning("getsockname failed: %s",
+ 				        strerror(errno));
+@@ -530,19 +512,14 @@
+ 				return -1;
+ 			}
+ 
+-			/* get the numeric name for this source 
+-			 * fill this data in from the udp header
+-			 * don't do that in multihoming clients
+-			 */
++			/* get the numeric name for this source */
+ 			getnameinfo_ex((struct sockaddr *)&src, srclen,
+ 			               name_buf, sizeof(name_buf), true);
+ 
+ 			/* get the name for this client */
+-			
+ 			getnameinfo_ex((struct sockaddr *)&dest, destlen,
+ 			               c_name_buf, sizeof(c_name_buf),
+ 				       (hints->ai_flags & AI_NUMERICHOST));
+-			
+ 		}
+ 
+ 		/* check if connections from this client are allowed */
+diff -Naur nc6-1.0/src/circ_buf.c nc6-vanilla/src/circ_buf.c
+--- nc6-1.0/src/circ_buf.c	2008-04-07 12:16:46.000000000 +0300
++++ nc6-vanilla/src/circ_buf.c	2006-01-20 00:46:23.000000000 +0200
+@@ -29,10 +29,6 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include <sys/uio.h>
+-#include <sys/types.h>
+-#include <arpa/inet.h>
+-#include <netinet/in.h>
+-#include <netinet/ip.h>
+ 
+ RCSID("@(#) $Header: /ds6/cvs/nc6/src/circ_buf.c,v 1.26 2006/01/19 22:46:23 chris Exp $");
+ 
+@@ -174,12 +170,10 @@
+ 
+ 
+ ssize_t cb_recv(circ_buf_t *cb, int fd, size_t nbytes,
+-                struct sockaddr *from, size_t *fromlen, 
+-                struct sockaddr *to, size_t *tolen)
++                struct sockaddr *from, size_t *fromlen)
+ {
+ 	ssize_t rr;
+ 	int count;
+-	char pktbuf[CMSG_SPACE(sizeof(struct in6_pktinfo))];
+ 	struct iovec iov[2];
+ 	struct msghdr msg;
+ 	size_t len;
+@@ -225,12 +219,10 @@
+ 
+ 	/* setup msg structure */
+ 	memset(&msg, 0, sizeof(msg));
+-	msg.msg_name       = (void *)from;
+-	msg.msg_namelen    = (from != NULL && fromlen != 0)? *fromlen : 0;
+-	msg.msg_iov        = iov;
+-	msg.msg_iovlen     = count;
+-	msg.msg_control    = (void *)pktbuf;
+-	msg.msg_controllen = sizeof(pktbuf);
++	msg.msg_name    = (void *)from;
++	msg.msg_namelen = (from != NULL && fromlen != 0)? *fromlen : 0;
++	msg.msg_iov     = iov;
++	msg.msg_iovlen  = count;
+ 
+ 	/* do the actual recv */
+ 	do {
+@@ -240,8 +232,6 @@
+ 		/* copy out updated namelen */
+ 		if (from != NULL && fromlen != 0) 
+ 			*fromlen = msg.msg_namelen;
+-		if (msg.msg_controllen != 0) 
+-			udphelper_ancillary_read(&msg, to);
+ 	} while (errno == EINTR);
+ 
+ 	/* if rr < 0 an error has occured,
+@@ -393,8 +383,7 @@
+ 
+ 
+ ssize_t cb_send(circ_buf_t *cb, int fd, size_t nbytes,
+-                struct sockaddr *dest, size_t destlen,
+-                struct sockaddr *src, size_t srclen)
++                struct sockaddr *dest, size_t destlen)
+ {
+ 	ssize_t rr;
+ 	int count;
+@@ -436,22 +425,16 @@
+ 	}		
+ 	
+ 	/* setup msg structure */
+-	
+ 	memset(&msg, 0, sizeof(msg));
+-	
+ 	msg.msg_name    = (void *)dest;
+ 	msg.msg_namelen = destlen;
+ 	msg.msg_iov     = iov;
+ 	msg.msg_iovlen  = count;
+-	
++
+ 	/* do the actual send */
+ 	do { 
+ 		errno = 0;
+-		//rr = sendmsg(fd, &msg, 0);
+-		rr = cb_xsend(fd, iov[0].iov_base, 
+-					  iov[0].iov_len, 0, 
+-					  dest, destlen, 
+-					  src, srclen);
++		rr = sendmsg(fd, &msg, 0);
+ 	} while (errno == EINTR);
+ 
+ 	/* if rr < 0 an error has occured, 
+@@ -552,76 +535,3 @@
+ 	cb->ptr = cb->buf;
+ 	cb->data_size = 0;
+ }
+-
+-/* this function is similar to standard sendto(), but it has an extra
+-parameter (last) to specify source address for the operation. It will be
+-set as ancillary data to call of sendto() function */
+-ssize_t cb_xsend(int _sock, void *buf, size_t _buf_len, int _flags,
+-				 struct sockaddr *to, socklen_t tolen,
+-				 struct sockaddr *from, socklen_t fromlen)
+-{
+-	struct msghdr msg;
+-	char pktbuf[CMSG_SPACE(sizeof(struct in6_pktinfo))];
+-	struct cmsghdr *cmptr;
+-	struct iovec iov[1];
+-	ssize_t n;
+-	struct in6_pktinfo *pktinfo_tmp;
+-	
+-	msg.msg_name = to;
+-	msg.msg_namelen = tolen;
+-	iov[0].iov_base = buf;
+-	iov[0].iov_len = _buf_len;
+-	msg.msg_iov = iov;
+-	msg.msg_iovlen = 1;
+-	msg.msg_flags = 0;
+-	msg.msg_control = pktbuf;
+-	msg.msg_controllen = sizeof(pktbuf);
+-	
+-	cmptr = CMSG_FIRSTHDR(&msg);
+-	cmptr->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
+-	cmptr->cmsg_level = IPPROTO_IPV6;
+-	cmptr->cmsg_type = IPV6_PKTINFO;
+-	pktinfo_tmp = (struct in6_pktinfo *) CMSG_DATA(cmptr);
+-	memcpy((void *)&pktinfo_tmp->ipi6_addr, (void *)from, fromlen);
+-
+-	/* call sendmsg() to send data from specified source address */
+-	if ((n=sendmsg(_sock, &msg, _flags)) < 0)
+-	{
+-		perror("sendmsg() failed");
+-		return n;
+-	}
+-	return n;
+-}
+-
+-
+-/* Reads the ancillary data buffer for the given msghdr and extracts the packet
+-   destination address which is copied to the `get_addr' struct.
+-   Returns 0 on success, a negative value otherwise. */
+-
+-int udphelper_ancillary_read(struct msghdr *msg,
+-			     			 struct sockaddr_in6 *get_addr)
+-{
+-  /* let's hope that there is some ancillary data! */
+-  if (msg->msg_controllen > 0) {
+-    struct cmsghdr *get_cmsg;
+-
+-    /* We don't know which is the order of the ancillary messages and we don't
+-       know how many are there.  So I simply parse all of them until we find
+-       the right one, checking the index type. */
+-	for (get_cmsg = CMSG_FIRSTHDR(msg); get_cmsg;
+-		 get_cmsg = CMSG_NXTHDR(msg, get_cmsg)) {
+-		if ((get_cmsg->cmsg_level == IPPROTO_IPV6) && 
+-		    (get_cmsg->cmsg_type == IPV6_2292PKTINFO ||
+-		     get_cmsg->cmsg_type == IPV6_PKTINFO)) {
+-			struct in6_pktinfo *get_pktinfo;
+-			/* fetch the data and run away, we don't need to parse everything */
+-			get_pktinfo = (struct in6_pktinfo *) CMSG_DATA(get_cmsg);
+-			memcpy(&get_addr->sin6_addr, &get_pktinfo->ipi6_addr,
+-				       sizeof(get_addr->sin6_addr));
+-				       
+-			return 1;
+-		}
+-	  }
+-	}
+-	return 0;
+-}
+diff -Naur nc6-1.0/src/circ_buf.h nc6-vanilla/src/circ_buf.h
+--- nc6-1.0/src/circ_buf.h	2008-04-07 12:05:36.000000000 +0300
++++ nc6-vanilla/src/circ_buf.h	2006-01-20 00:46:23.000000000 +0200
+@@ -23,7 +23,6 @@
+ #define CIRC_BUF_H
+ 
+ #include "misc.h"
+-
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #ifdef HAVE_STDINT_H
+@@ -53,24 +52,15 @@
+ 
+ ssize_t cb_read(circ_buf_t *cb, int fd, size_t nbytes);
+ ssize_t cb_recv(circ_buf_t *cb, int fd, size_t nbytes,
+-                struct sockaddr *from, size_t *fromlen,
+-                struct sockaddr *to, size_t *tolen);
++                struct sockaddr *from, size_t *fromlen);
+ 
+ ssize_t cb_write(circ_buf_t *cb, int fd, size_t nbytes);
+ ssize_t cb_send(circ_buf_t *cb, int fd, size_t nbytes,
+-                struct sockaddr *dest, size_t destlen,
+-                struct sockaddr *src, size_t srclen);
+-
+-ssize_t cb_xsend(int _sock, void *buf, size_t _buf_len, int _flags,
+-				 struct sockaddr *to, socklen_t tolen,
+-				 struct sockaddr *from, socklen_t fromlen);
++                struct sockaddr *dest, size_t destlen);
+ 
+ ssize_t cb_append(circ_buf_t *cb, const uint8_t *buf, size_t len);
+ ssize_t cb_extract(circ_buf_t *cb, uint8_t *buf, size_t len);
+ 
+ void cb_clear(circ_buf_t *cb);
+ 
+-//int udphelper_ancillary_read(struct msghdr *msg,
+-//			     			 struct sockaddr_in6 *get_addr);
+-
+ #endif/*CIRC_BUF_H*/
+diff -Naur nc6-1.0/src/io_stream.c nc6-vanilla/src/io_stream.c
+--- nc6-1.0/src/io_stream.c	2008-04-07 12:24:11.000000000 +0300
++++ nc6-vanilla/src/io_stream.c	2006-01-20 00:46:23.000000000 +0200
+@@ -265,9 +265,7 @@
+ 
+ 	/* read as much as possible */
+ 	if (ios->socktype == SOCK_DGRAM)
+-		rr = cb_recv(ios->buf_in, ios->fd_in, 0, 
+-					 (struct sockaddr *)ios->src, &ios->srclen, 
+-					 (struct sockaddr *)ios->dst, &ios->dstlen);
++		rr = cb_recv(ios->buf_in, ios->fd_in, 0, NULL, 0);
+ 	else
+ 		rr = cb_read(ios->buf_in, ios->fd_in, 0);
+ 
+@@ -320,10 +318,10 @@
+ 	/* should only be called if ios_schedule_write returned a true result */
+ 	assert(ios->fd_out >= 0);
+ 	assert(!cb_is_empty(ios->buf_out));
+-	
++
+ 	/* write as much as the mtu allows */
+ 	if (ios->socktype == SOCK_DGRAM)
+-		rr = cb_send(ios->buf_out, ios->fd_out, ios->mtu, NULL, 0, ios->src, ios->srclen);
++		rr = cb_send(ios->buf_out, ios->fd_out, ios->mtu, NULL, 0);
+ 	else
+ 		rr = cb_write(ios->buf_out, ios->fd_out, ios->mtu);
+ 
+diff -Naur nc6-1.0/src/io_stream.h nc6-vanilla/src/io_stream.h
+--- nc6-1.0/src/io_stream.h	2008-04-04 17:30:49.000000000 +0300
++++ nc6-vanilla/src/io_stream.h	2006-01-20 00:46:23.000000000 +0200
+@@ -51,17 +51,6 @@
+ 	char *name;        /* the name of this io stream (for logging) */
+ 	size_t rcvd;       /* bytes received */
+ 	size_t sent;       /* bytes sent */
+-	
+-	union {
+-		struct sockaddr_in6 * src;
+-		ssize_t        srclen;
+-	};
+-	
+-	union {
+-		struct sockaddr_in6 * dst;
+-		ssize_t        dstlen;
+-	};
+-	
+ } io_stream_t;
+ 
+ /* status flags */

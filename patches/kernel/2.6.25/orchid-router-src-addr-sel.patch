@@ -1,0 +1,57 @@
+diff -urpN linux-2.6.25.1/include/net/ipv6.h linux-2.6.25.orchid-fix/include/net/ipv6.h
+--- linux-2.6.25.1/include/net/ipv6.h	2008-05-02 00:45:25.000000000 +0300
++++ linux-2.6.25.orchid-fix/include/net/ipv6.h	2008-05-05 12:04:29.000000000 +0300
+@@ -384,6 +384,16 @@ static inline int ipv6_addr_v4mapped(con
+ }
+ 
+ /*
++ * Check for a RFC 4843 ORCHID address
++ * (Overlay Routable Cryptographic Hash Identifiers)
++ */
++static inline int ipv6_addr_orchid(const struct in6_addr *a)
++{
++	return ((a->s6_addr32[0] & htonl(0xfffffff0))
++		== htonl(0x20010010));
++}
++
++/*
+  * find the first different bit between two addresses
+  * length of address must be a multiple of 32bits
+  */
+diff -urpN linux-2.6.25.1/net/ipv6/addrconf.c linux-2.6.25.orchid-fix/net/ipv6/addrconf.c
+--- linux-2.6.25.1/net/ipv6/addrconf.c	2008-05-02 00:45:25.000000000 +0300
++++ linux-2.6.25.orchid-fix/net/ipv6/addrconf.c	2008-05-05 12:21:00.000000000 +0300
+@@ -1142,6 +1142,11 @@ int ipv6_dev_get_saddr(struct net_device
+ 			if (hiscore.rule < 7)
+ 				hiscore.rule++;
+ #endif
++
++			/* Rule 8-: Prefer ORCHID vs ORCHID or non-ORCHID vs non-ORCHID */
++			if (ipv6_addr_orchid(&ifa->addr) ^ ipv6_addr_orchid(daddr))
++				continue;
++
+ 			/* Rule 8: Use longest matching prefix */
+ 			if (hiscore.rule < 8) {
+ 				hiscore.matchlen = ipv6_addr_diff(&ifa_result->addr, daddr);
+diff -urpN linux-2.6.25.1/net/ipv6/addrlabel.c linux-2.6.25.orchid-fix/net/ipv6/addrlabel.c
+--- linux-2.6.25.1/net/ipv6/addrlabel.c	2008-05-02 00:45:25.000000000 +0300
++++ linux-2.6.25.orchid-fix/net/ipv6/addrlabel.c	2008-05-05 12:08:44.000000000 +0300
+@@ -58,6 +58,7 @@ static struct ip6addrlbl_table
+  * ::ffff:0:0/96	V4MAPPED	4
+  * fc00::/7		N/A		5		ULA (RFC 4193)
+  * 2001::/32		N/A		6		Teredo (RFC 4380)
++ * 2001:10::/28		N/A		7		ORCHOD (RFC 4843)
+  *
+  * Note: 0xffffffff is used if we do not have any policies.
+  */
+@@ -85,6 +86,10 @@ static const __initdata struct ip6addrlb
+ 		.prefix = &(struct in6_addr){{{ 0x20, 0x01 }}},
+ 		.prefixlen = 32,
+ 		.label = 6,
++	},{	/* 2001:10::/28 */
++		.prefix = &(struct in6_addr){{{ 0x20, 0x01, 0x00, 0x10 }}},
++		.prefixlen = 28,
++		.label = 7,
+ 	},{	/* ::ffff:0:0 */
+ 		.prefix = &(struct in6_addr){{{ [10] = 0xff, [11] = 0xff }}},
+ 		.prefixlen = 96,

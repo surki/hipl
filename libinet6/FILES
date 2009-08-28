@@ -1,0 +1,31 @@
+#
+# FILES
+#
+# $USAGI: FILES,v 1.11 2001/02/23 02:36:38 yoshfuji Exp $
+
+# source list of *.c and *.h files.
+cmsg_nxthdr.c			glibc22/sysdeps/unix/sysv/linux/cmsg_nxthdr.c	glibc21/sysdeps/unix/sysv/linux/cmsg_nxthdr.c
+getaddrinfo.c			glibc22/sysdeps/posix/getaddrinfo.c		glibc21/sysdeps/posix/getaddrinfo.c
+getnameinfo.c			glibc22/inet/getnameinfo.c			glibc21/inet/getnameinfo.c
+ifaddrs.c			glibc22/sysdeps/unix/sysv/linux/ifaddrs.c	glibc21/sysdeps/unix/sysv/linux/ifaddrs.c
+ifnames.c			glibc22/sysdeps/unix/sysv/linux/ifnames.c	glibc21/sysdeps/unix/sysv/linux/ifnames.c
+ip6opt.c			glibc22/inet/ip6opt.c				glibc21/inet/ip6opt.c
+libc-compat.h			***NEW:DO_NOT_PUT_INTO_GLIBC_TREE***
+rcmd.c				glibc22/inet/rcmd.c				glibc21/inet/rcmd.c
+rexec.c				glibc22/inet/rexec.c				glibc21/inet/rexec.c
+rthdr.c				glibc22/inet/rthdr.c				glibc21/inet/rthdr.c
+sa_len.c			glibc21/sysdeps/unix/sysv/linux/sa_len.c
+tempname.c			glibc22/sysdeps/posix/tempname.c		glibc21/sysdeps/posix/tempname.c
+include_glibc/bits/in.h		glibc22/sysdeps/unix/sysv/linux/bits/in.h
+include_glibc/netinet/icmp6.h	glibc22/inet/netinet/icmp6.h
+include_glibc/netinet/ip6.h	glibc22/inet/netinet/ip6.h
+include_glibc21/ifaddrs.h	glibc21/inet/ifaddrs.h
+include_glibc21/bits/socket.h	glibc21/sysdeps/unix/sysv/linux/bits/socket.h
+include_glibc21/net/if.h	glibc21/sysdeps/unix/sysv/linux/net/if.h
+include_glibc21/netdb.h		glibc21/resolv/netdb.h
+include_glibc21/netinet/in.h	glibc21/inet/netinet/in.h
+include_glibc22/ifaddrs.h	glibc22/inet/ifaddrs.h
+include_glibc22/bits/socket.h	glibc22/sysdeps/unix/sysv/linux/bits/socket.h
+include_glibc22/net/if.h	glibc22/sysdeps/gnu/net/if.h
+include_glibc22/netdb.h		glibc22/resolv/netdb.h
+include_glibc22/netinet/in.h	glibc22/inet/netinet/in.h

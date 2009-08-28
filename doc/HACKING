@@ -1,0 +1,1130 @@
+
+ABOUT
+=====
+
+This file contains developer information on policies in the HIPL
+project.
+
+TODO
+====
+
+- xx
+
+AUTOCONF AND AUTOMAKE
+=====================
+
+Autoconf and automake tools help developers to avoid from "include
+header dependency hell" so they are also used by HIPL in "tools" and
+"test" directories. Standard linux kernel supports only plain old
+Makefiles, so "linux" subdirectory is not controlled with
+autoconf/automake. The "doc" directory uses plain old Makefile because
+it uses the same documentation building system as "linux". Libinet6
+has been imported from the Usagi project and uses only automake (no
+autoconf).
+
+If you need to add or remove source/header files or modify build
+rules, edit "Makefile.am". If you need to modify dependencies, edit
+"configure.ac". After editing the files, run "autoreconf". Autoreconf
+may then update some files (config.h.in, config.sub, configure,
+Makefile, Makefile.in) and you need to commit them too into the CVS
+along with your new source and header files.
+
+If you need to share a file between userspace and kernelspace, place
+it in the kernelspace and modify userspace Makefile.am to create a
+link to it from userspace (CVS does not accept links). For example,
+"tools/Makefile.am" makes a local link to
+"hipl/linux/net/ipv6/builder.c" by the following rule:
+
+	builder.c:
+        	$(LN_S) ../linux/net/ipv6/hip/builder.c .
+
+CODING CONVENTIONS
+==================
+
+- Don't invent your own coding style. It will give the code an
+  ununified look. Especially, if you don't follow the memory deallocation
+  procedure below, you might even cause some memory leaks.
+
+- All code should follow the standard linux coding conventions
+  listed in <linux_root>/Documentation/CodingStyle. Particularly,
+  the indenting is eight spaces.
+
+- All code shared between userspace and kernel should follow kernel
+  coding style.
+
+- In emacs, you can set the Linux kernel indendation as default by adding
+  the following lines to your ".emacs" file located at your home directory:
+
+    (defun my-c-mode-common-hook ()
+      (c-set-style "linux"))
+    (add-hook 'c-mode-common-hook 'my-c-mode-common-hook)
+    (global-set-key [f5] 'indent-region)
+
+  Now, whenever you wish to indend a region,
+
+    1. Move the cursor to the beginning of the region to be indended and press
+       CTRL & SPACE (first control, hold it down and press space.)
+    2. Move the cursor to the end of the region to be indended, and press F5.   
+
+- HIPL code should use the prefix "hip_" in all function and global variable
+  definitions to avoid namespace pollution, especially in the
+  libraries. The prefix is not necessary in userspace code, but the same
+  naming conventions might be clearer to use anyway.
+
+- The width of one line should be limited to 80 characters in
+  userspace code. This rule may be relaxed in the kernel code because
+  the space is very limited due to the 8 character indentation.
+
+- All functions should return an error value instead of "ok" value. That, is
+  zero for success and non-zero for failure.
+
+- Use the HIP_IFE, HIP_IFEL macros to reduce the number of lines of code.
+
+- Do not make unreadable code by nesting code too much:
+
+  if (foo) {
+     if (bar) {
+        if(hello)
+        {
+           confuse_me();
+        }
+     }
+  }
+
+  Instead, join the conditional expressions (foo && bar && hello) or
+  use goto (goto skip;).
+
+- Declare variables right after beginning brace, not in the middle of the code:
+
+  int foo {
+    int i;  /* integers declared in the beginning of the function */
+    char c;
+
+    bar();
+
+    for (i = 0; i < 100; i++) {
+       int x; /* This is fine because it is after the beginning
+                 brace of loop */
+       hello(i, x);
+    }
+  }
+
+  hipsock shares code with the rest of the code and it requires ISO C90
+  style C code. Declare variables right after braces!
+
+- Memory (de)allocation procedure is as follows:
+ 
+	int f() {
+		char *mem = NULL;
+		HIP_IFEL(!(mem = HIP_ALLOC(256, 0)), -1, "alloc\n");
+
+	  out_err:
+		if (mem)
+			free(mem);
+		return err;
+	}
+
+QUICK-AND-DIRTY ARCH INSTRUCTIONS FOR DEVELOPERS
+================================================
+
+These instructions assume that you want to access the HIPL source code
+using ssh. Note: tla and bazaar (baz) provide the same functionality
+but bazaar was faster and more user friendly when this was
+written. Notice that HIP sources are NOT managed with bzr!
+
+# Register an account:
+#
+tla register-archive hipl-dev@freelists.org--hipl \
+       sftp://mkomu@hipl.hiit.fi/var/archive/hipl
+tla my-default-archive hipl-dev@freelists.org--hipl
+
+# Get a working copy from the main branch:
+#
+tla get hipl--main--2.6 hipl--main--2.6
+
+# Copy the tla hook if you want to get your commit logs to the mailing list:
+#
+cp hipl--main--2.6/test/tla-hook ~/.arch-params/hook
+
+# Different ways to commit code:
+#
+a) tla commit # Open's your default editor and commits.
+b) emacs `tla make-log`; tla commit
+c) tla commit -s "Explanation jaada jaada"
+
+# How to check what your have modified in the tree
+#
+tla changes
+
+# How to make a branch from the current version of the main branch
+#
+tla my-default archive # Make sure that you are accessing the HIPL archive
+tla archive-setup hipl--mybranch--2.6
+tla tag hipl--main--2.6 hipl--mybranch--2.6
+
+# Get the new branch
+#
+tla get hipl--mybranch--2.6 hipl--mybranch--2.6
+
+# How to synchronize branches... remember to make clean commits, i.e. do
+# NOT commit a merge and local modifications in the same commit!
+#
+cd hipl--mybranch--2.6
+tla changes # Check that the tree is unmodified
+tla star-merge hipl--main--2.6
+
+--- Optional ---
+
+Below are some instructions on using revision libraries. They speed-up
+tla/tla operations.
+
+# Make a revision library (otherwise e.g. commit and changes take up to
+# 15 mins!)
+#
+mkdir ~/.tla-rev-lib
+tla my-revision-library ~/.tla-rev-lib/
+tla library-config --greedy --sparse ~/.tla-rev-lib/
+
+# Get a working copy from the main branch using revision libraries:
+#
+tla get --link hipl--main--2.6 hipl--main--2.6
+
+Also, the tla usage is optimized using hard-linked revision
+libraries.
+
+# Run the command below in your working copy (e.g. monthly) if you
+# experience a serious slow-down in the commit speed or you want to enable
+# revision libraries in your local copy:
+#
+cd hipl--main--2.6
+tla changes --link
+
+ARCH POLICY
+===========
+
+*** Important: see that your umask is 0002 before you make any commits ***
+
+hipl--main--2.6 is the "stable" branch for HIPL code. Do not put any
+experimental code in there because other people are relying on that
+the code works! Commit only minor bugfixes directly to the stable
+branch, and use/create other branches to develop experimental
+code. When you have tested and are sure that code works, you can merge
+it into the stable branch.
+
+Some points in the branch quality assurance:
+
+- the code must compile as it is without errors
+- compiler warning messages must be taken seriously and must not be ignored
+  unless you really know what the message means. And we REALLY mean really.
+- the base exchange should be manually tested between two hosts
+- UPDATE packet exchange should work
+- the code should not leak memory or do bad locking
+- (all existing unit tests should be run without any errors (see TESTING))
+
+ECLIPSE 
+========
+
+Eclipse is an originally IDE developed for Java but there's also 
+CDT (C/C++ Development Tooling) extension that can be used while
+developing for HIPL. It has a nice IDE similar to Visual Studio
+but it also consumes resources more with compared to editors such
+as vi, emacs.
+
+First download Eclipse-CDT from the Eclipse site. It is more convenient
+than downloading from CDT because Eclipse site has it set up already.
+
+Then follow these steps for creating a project:
+
+1. Get the files to your local drive from the repository with tla.
+2. Select File/New/C Project
+3. Fill in the dialog appropriately. (For our purposes Empty Project
+project type and Linux GCC toolchains are OK)
+4. Right click the Project in the Project folder.
+5. Select New/Folder
+6. Press Advanced
+7. Click "link to folder in the file system"
+8. Browse and select the branch
+9. Right click arch related folders and select "Excluse from build".
+
+For debugging:
+
+1. Select Run/Debug Configurations
+2. Create one debug configuration for hipd, one for hipconf
+3. Use "Search Project" or "Browse" for finding the executable.
+4. Use the arguments tab to feed the arguments to the executables
+5. Notice that you can switch between Debug and Editor perspectives.
+
+If you face memory problems, append the following to the eclipse.ini:
+
+-Xms512m
+-Xmx1024m
+-XX:MaxPermSize=256m
+-XX:MaxPermSize=512M
+
+Modify the numbers depending on your hardware to suit your needs.
+
+UPGRADING THE KERNEL
+====================
+
+% <get the patch to ~/down>
+% cd hipl--fix--2.6/linux
+% patch -p1 <~/down/patch-2.6.7 2>&1| tee /tmp/PATCH_LOG
+% grep ^patching /tmp/PATCH_LOG|cut -d' ' -f3 >/tmp/CHANGES
+% for i in `cat /tmp/CHANGES`; do tla id $i 2>&1; done >/tmp/TLA_LOG
+% tla add `perl -ne 'print "$_" if ($n); $n=0; $n=1 if
+    (/id: untagged file/)' </tmp/TLA_LOG`
+% tla delete `perl -ne 'print "$_" if ($n); $n=0; $n=1 if
+  (/error finding file id \(2: No such file or directory\)/)' \
+    </tmp/TLA_LOG|cut -d' ' -f3`
+% find . -type d|grep -v .arch-ids >/tmp/LINUX_DIRS
+% for i in `cat /tmp/LINUX_DIRS`; do tla id $i 2>&1; done
+    >/tmp/TLA_DIR_LOG
+% tla add `perl -ne 'print "$_" if ($n); $n=0; $n=1 if
+    (/id: untagged file/)' </tmp/TLA_DIR_LOG`
+
+Check HUNK messages from PATCH_LOG manually.
+
+DEBUGGING
+=========
+
+Debugging the kernel with gdb is not possible unless you're running
+User Mode Linux and in such cases you may prefer manual debugging
+statements in the code. It may be also your personal favourite to
+prefer debugging statements over gdb in the userspace. HIPL provides a
+set of wrappers for adding debugging statements in a concise way:
+
+- HIP_DIE(arguments as for printk)
+- HIP_ERROR(arguments as for printk)
+- HIP_INFO(arguments as for printk) 
+- HIP_DEBUG(arguments as for printk) 
+
+The wrappers exists for many reasons. First, it is very convinient to
+have the same syntax for the debug statements indepently of whether
+you degugging in kernel or userspace.
+
+Second, an "ad hoc" debug statement mechanism would make it more
+difficult to adopt HIPL into production environment because it would
+be awkward to comment all the superfluous debug messages. The
+superfluous debug messages can be suppressed by a single switch to
+configure (CONFIG_HIP_DEBUG) if an unified interface for debugging is
+used.
+
+Third reason for the existance of wrappers is that a uniform
+importancy level of debug messages can be enforced. For example, error
+messages are more important than info messages and info messages are
+more important than debug messages. One benefit of the importancy of
+levels is that the debug messages can be cathegorized into two groups:
+the ones that are always included in a build and the ones that are
+included only in a development build. HIP_DEBUG belongs to the latter
+group and the other functions belong to the second group.
+
+The fourth reason for justifying the wrappers is that some programs
+cannot be run interactively on the screen in production
+environment. For example, the HIP daemon is preferred to be run as a
+background process in production environment by the end-users. The
+debug statements cannot be printed on the screen in such a case;
+instead, the statements have to passed via syslog. On the other hand,
+the developer wants to run the daemon interactively. The wrappers make
+it possible to please both of the groups easily.
+
+Debug statements should not be removed from code because someone may
+have use for the debug statement later on. The preferred way is to put a
+"_" in front of the debug function name to prevent the debug statement
+to ever to be shown (indepently of whether the build is a development
+or production build):
+
+- _HIP_DIE(..)
+- _HIP_ERROR(..)
+- _HIP_INFO(.. 
+- _HIP_DEBUG(..) 
+
+COMMENTING AND DOCUMENTING THE CODE
+===================================
+
+Doxygen is now used for documenting HIPL. Manual for how to use doxygen
+documentation, is found from here:
+http://www.stack.nl/~dimitri/doxygen/manual.html
+
+To create doxygen documentation in HTML format, execute "make doxygen".
+Doxygen will create documentation under doc/doxy/html.
+You can view the generated documentation with
+"firefox doc/doxy/html/index.html"
+
+The aforementioned Doxygen manual has detailed instructions on how to document
+the code. We go the basics through next.
+
+First of all, Doxygen supports different commenting styles. We use the JavaDoc
+style in this project. In this style, every Doxygen comment starts and ends with
+constant character sequence. To start a commenting block use "\**", and to end a
+commenting block use "*/". Example 1:
+
+/** The number of items in the list. */
+int count;
+
+In example 1 we have a variable named count to which we wish to add a Doxygen
+comment "The number of items in the list." As a general rule, a Doxygen comment
+is bound to the next item. So if in Example 1 we would have had "int count2"
+just after count, the Doxygen comment would have been bound only to "int count".
+
+If you wish to add a Doxygen comment on the same line that the variable is,
+you'll have to to put an additional "<" marker in the comment block. Example 2:
+
+int count; /**< The number of items in the list. */
+
+This has the same effect as Example 1. Remember that the comment with the "<"
+marker has to start from the same line as the variable. Using the special marker
+"<" one can comment also structure members. Example 3:
+
+/** A HIP FROM parameter. */
+struct hip_from {
+     hip_tlv_type_t type;  /**< Type code for the parameter. */
+     hip_tlv_len_t  length; /**< Length of the parameter contents in bytes. */
+     uint8_t address[16]; /**< IPv6 address */
+} __attribute__ ((packed));
+
+Here the whole structure gets Doxygen comment "A HIP FROM parameter", and the
+members get commented as illustrated. The structure members can also be
+commented using the plain /** ... */ comment block by placing the comment block
+on the line before the member, but the "<" marker saves some space. This does it
+for variable commenting, lets move onto function commenting. Example 4.
+
+/**
+ * Sets a type for a host association. Sets the type for a host association
+ * and validates the type number. If the type number is illegal, the @c entry
+ * is left untouched. 	
+ * 
+ * @param entry       a pointer to a host association entry. 
+ * @param type_number a type number to be set for @c entry.
+ * @return            zero on success, non-zero else.
+ * @note              the entry must not be NULL
+ * @see               hip_clear_type()
+ */
+int hip_set_type(hip_ha_t *entry, int type_number);
+
+Notice how that whole commenting is just before the function block. The
+function commenting block contains three elements, the brief description, the
+description and the special commands starting with "@". The brief description
+is the first comment line which ends at the first dot followed by a space or new
+line. Thus, in example 4 the brief description is "Sets a type for a host
+association." The description consists of the brief description and the rest of
+the lines following the brief description before the special commands.
+
+The special commands comment the function parameters and the return value.
+Furthermore an extra note is added to this comment with "@note" and a reference
+to a related function with "@see". Notice how we refer to the function
+parameters in the description text with the special command "@c" Including this
+special command is by no way obligatory. It only makes the next word to be
+rendered using Courier instead of the default font. However, be careful not to
+add your own special commands by accidentally typing something like @entry.
+
+Function comment blocks can be placed to the c-file or the header file. You 
+should prefer the header file because it saves space in the actual code file.
+Doxygen comment blocks have a tendency to bloat the code. Generally, if
+possible, place the doxygen comment in the header file instead of the c-file.
+This applies to all Doxygen comments, not just function comments.
+
+Doxygen includes a special tag for todo items. The todo tag is "@todo". The todo
+tag can be placed anywhere in the code. When placed inside of a function, the
+todo item becomes a todo item for the respective function. When placed outside
+of a function, the todo item becomes a todo item for the whole file. To create
+a todo item for a variable, insert a @todo inside the variable's Doxygen comment
+block.
+
+Example 5 is an example of an todo item placed inside a function, in the middle
+of the code. Hence, this becomes a todo item for the whole function. Doxygen
+maintains a list that contains all the todo items of the project. Example 5.
+
+HIP_DEBUG("outgoing UPDATE ID=%u\n", update_id_out);
+/** @todo Handle this case. */
+HIP_IFEL(!update_id_out, -EINVAL, "Outgoing UPDATE ID overflowed.\n");
+
+Entire files can be commented with the "@file" special tag as illustrated in
+Example 6. From example 6 we notice that Doxygen comments can also include
+simple HTML.
+
+/**@file
+ * This file defines various functions for handling HIP messages.
+ * 
+ * @author  John Doe
+ * @version 1.0
+ * @date    11.01.2008
+ * @note    Distributed under <a href="http://www.gnu.org/licenses/gpl.txt">GNU/GPL</a>.
+ */
+
+Sometimes you can find yourself in a situation where you have a large number of
+repetitive comments. Say that you have similar type definitions which are nicely
+aligned in a header file. You could, of course, insert a normal Doxygen comment
+berore (or after, using "<") every definition, but you just don't want to break
+the alignment for comments sake. libinet6/protodefs.h is a good example of
+that kind of file.
+
+To help in a situation like this, the HIPL project has a special file just for
+doxygen comments, i.e. it has no code whatsoever. The file is doc/doxygen.h.
+We can target comments from this file to another files using the "@file" special
+command. For example, to insert a Doxygen comment for the definition of 
+HIP_NTF_INVALID_SYNTAX located in libinet6/protodefs.h you can add the
+following comment block in doc/doxygen.h, example 7.
+
+/**
+ * @file libinet6/protodefs.h
+ * @def  HIP_NTF_INVALID_SYNTAX
+ *       Indicates that the HIP message received was invalid because...
+ */
+
+doc/doxygen.h is also a good place for declaring groups. Groups are declared
+with the "@defgroup" special tag. Example 8.
+
+/** @defgroup notification NOTIFICATION parameter values */
+
+To add members to a group, use the "@addtogroup" special tag together with the
+group name. Moreover, you need to use the special tag "@{" to start inclusion,
+and the special tag "@}" to stop the inclusion. example 9 illustrates how we can
+add members to the group declared in example 8.
+
+/** @addtogroup notification
+ * @{ 
+ */
+#define HIP_NTF_UNSUPPORTED_CRITICAL_PARAMETER_TYPE 1
+#define HIP_NTF_INVALID_SYNTAX                      7
+/* @} */
+
+The general JavaDoc style guide applies to HIPL project. This style guide is
+available at:
+http://java.sun.com/j2se/javadoc/writingdoccomments/index.html
+
+Remember that normal non-Doxygen comments are always valid. Thus if you need
+to comment something more specific to the code, use the regular
+
+/* comment here. */
+
+and
+
+// end of line comment here.
+
+commenting style.
+
+SUBMITTING PATCHES
+==================
+
+HIPL is still work in progress. The code is being constantly developed
+and it may be difficult to merge your contribution to the HIPL code.
+If you still want to submit patches to the HIPL project, build your
+patches against the main branch.  Please try the test matrix below at
+least partially before you contribute.
+
+
+CREATING A TARBALL OF THE SOURCE CODE
+=====================================
+
+There is a "make dist" target which builds a tarball of the hipl source   
+code. It includes only the files which are necessary. The included files  
+are specified in SOURCES and HEADER rules in */Makefile.am, but it is also
+possible to force some extra files in top most Makefile.am.
+
+
+PREBUILT BINARY PACKAGES
+========================
+
+Redhat
+------
+
+Note well: Currently the status of the packaging scripts is in release
+phase. 
+
+Two separate packages are planned to be provided by HIPL: one for user
+space software and the other for kernel and kernel modules. Currently only
+scripts for building user space packages exist.
+
+
+There are scripts in directory test/packaging that can be used to create
+binary packages. The aim for these packages is for easier testing of HIPL
+software. With the scripts, RPM (e.g. for Fedora Core) and DEB (for Debian)
+packages can be created. 
+
+To create the RPM package, type: "./autogen && ./configure && make bin".
+This will create a source tar.gz (in the same
+directory) which will be used when building the RPM file. After the
+script has run successfully, follow the instructions given by the
+script. That is, login as root and copy the source package (e.g.
+hipl-userspace-1.0-1.tgz) to directory /usr/src/redhat/SOURCES. Then
+issue the command "rpmbuild -ba
+<hiplroot>/test/packaging/hiplx.spec".  When everyting
+is finished successfully, there will be a binary RPM package
+"/usr/src/rpm/RPMS/i386/hipl-userspace-1.0-1.i386.rpm". The package
+can then be installed with rpm -i.
+
+Install hipl package by command yum:
+
+* sudo yum install hipl-lib hipl-hipfw hipl-daemon hipl-dnsproxy hipl-tools hipl-doc hipl-test
+
+For more info about rpm packaging, please see:
+
+http://www.redhat.com/docs/books/max-rpm/max-rpm-html/index.html
+http://fedoranews.org/tchung/htmldoc/htmldoc.spec
+http://fedoraproject.org/wiki/Packaging/Guidelines
+
+Debian
+------
+
+DEB package is created similarly: "./autogen && ./configure && make
+bin". Correspondingly, the binary packages are written to /usr/src/debian
+
+REPOSITORY MANAGEMENT FOR FEDORA AND UBUNTU
+===========================================
+
+This chapter describes how to manage (and add new servers) to
+semi-automatic HIPL binary package system and how to use the
+repositories at clients.
+
+
+Prequisites for Server Configuration
+------------------------------------
+
+For server configuration, you must first do the following things:
+* Make sure that you set up authorized keys for ssh as follows:
+  * @build.host: adduser hipl
+  * @build.host: su hipl and then ssh-keygen
+  * hipl@hipl.hiit.fi can login to hipl@build.host
+  * hipl@build.host can login to hipl@packages.infrahip.net
+* Add hipl to /etc/sudoers at build host: hipl ALL=(ALL) NOPASSWD: ALL
+* Comment out "Defaults    requiretty" from /etc/sudoers
+
+Updating Fedora Server Repository
+---------------------------------
+
+You must do the following things first at the server:
+* yum install <./autogen.sh --help>
+* yum install createrepo
+* ln -s /usr/src/redhat /home/hipl
+
+Install repository tool at the host where you are building packages:
+* yum -y install createrepo
+
+Remember update version number in hipl.spec before
+uploading any binaries!!!
+* make increl
+
+Create binaries and synchronise to repository:
+* make bin syncrepo
+
+Fedora Client-side Configuration
+--------------------------------
+
+To install the packages from the repo, modify /etc/yum.conf:
+
+[hipl]
+name=HIPL
+baseurl=http://packages.infrahip.net/fedora/base/$releasever/$basearch
+gpgcheck=0
+enabled=1
+
+Updating Ubuntu Server Repository
+---------------------------------
+
+You must do the following things first at the server:
+* apt-get install <./autogen.sh --help>
+* apt-get install pax
+
+Install the following tool to the host where building packages:
+* apt-get install dpkg-scanpackages
+
+Note: if you are doing a version upgrade, remember to update the
+version number in hipl-deb.spec!!!
+* make increl
+
+Build the binaries and synchronize to repository:
+* make bin syncrepo
+
+Packages are copied to hipl.hiit.fi:
+  * /var/www/html/ubuntu/dists/<release>/main/binary-<arch>
+
+The release is gutsy, intrepid etc and the arch is i386, amd64 or armel.
+
+Currently the scripting just "forgets" older versions of the
+software. I am not sure if we should do some rsyncing to preserve
+older versions. Also, source packages are not yet supported. -miika
+
+Ubuntu Client-side Configuration
+--------------------------------
+
+To configure apt-get for Debian modify sources.list 
+
+$ nano /etc/apt/sources.list
+
+deb http://packages.infrahip.net/ubuntu/ intrepid main
+
+- update and install hipl packages 
+
+$ apt-get update 
+$ apt-get install hipl-lib hipl-hipfw hipl-daemon hipl-dnsproxy hipl-tools hipl-doc hipl-test
+
+HOW TO CREATE KERNEL PACKAGES
+=============================
+
+Debian/Ubuntu
+-------------
+
+To create the package from vanilla sources for Debian distribution
+or any distributions based on Debian (e.g. Ubuntu Dapper Drake),
+follow the following instructions.
+
+* Download and extract the vanilla kernel source (I got it from
+(ftp://ftp.funet.fi/pub/linux/kernel/v2.6)
+I extract it to /usr/src and I added my username to src group
+by typing adduser my_username src
+* cd linux-2.6.xx
+* Patch the kernel with the hip patches you can find under hipl/patches directory
+* cp /boot/config-something .config
+
+In order to build the binary package type the following:
+* fakeroot make-kpkg --initrd --append-to-version=.hipl --revision=custom.1.0 kernel_image
+
+Instead, if you would like to produces  a  debianised  package  of  the  Linux kernel sources type the following:
+* fakeroot make-kpkg --initrd --append-to-version=.hipl --revision=custom.1.0 kernel_source kernel_headers
+
+After the kernel has been successfully compiled, you will find the
+debian packages in the top directory.
+
+To install it type:
+dpkg -i kernel-image-2.6.16.5.hipl_1.0_i386.deb
+and reboot. The debian package should already include the new 
+installed kernel for grub.
+If you need grub check this:
+http://newbiedoc.sourceforge.net/system/kernel-pkg.html#GRUB-KERNEL-PKG
+
+Main reference (.)
+http://newbiedoc.sourceforge.net/system/kernel-pkg.html
+
+
+Redhat notes
+------------
+
+The instructions below did not work anymore. Instead, I followed these
+instructions:
+
+http://grid-it.cnaf.infn.it/index.php?rpmbuild&type=1
+see: test/packaging/kernel-2.6.17.14.spec 
+
+To create the package from vanilla sources (preferred method) for
+Fedora, follow the instructions of this document:
+
+http://www.openvps.org/Plone/docs/developer/kernelrpm
+http://www.fedoraforum.org/forum/archive/index.php/t-28290.html
+
+In short:
+* download and extract kernel sources
+* cd linux-2.6.xx
+* apply hip patches
+* cp /boot/config-something .config
+* make rpm # or bin-rpm??
+
+To install, do this:
+* rpm -i /usr/src/redhat/RPMS/i386/kernel-2.6.xx.rpm
+* /sbin/new-kernel-pkg --mkinitrd --depmod --install --make-default 2.6.xx
+
+NEW-KERNEL-PKG IS NECESSARY AS THE RPM DOES NOT INCLUDE INITRD AND
+THE KERNEL IS NOT INCLUDED IN GRUB CONFIGURATION.
+
+That will create and install vanilla rpm. However, if you want to use
+the Fedora/Redhat patches to improve e.g. hardware support, use the
+instructions below.
+
+To create rpm for Fedora patched kernel, you need to download the
+kernel from somewhere from here:
+
+  http://download.fedora.redhat.com/pub/fedora/linux/core/updates/
+
+For RH/Enterprise, you need to have an account on rhn.redhat.com to
+get the latest packages. Browse/and search the channels list.
+
+I basically followed these instructions:
+
+  http://tqmcube.com/fc3_custom_kernel.htm
+
+This is what I did:
+
+  * rpm -ivh kernel-2.6.10-1.760_FC3.src.rpm
+  * I modified /usr/src/redhat/SPECS/kernel-2.6.spec to include the HIP
+    patches:
+
+     %define rhbsys .beet
+
+     # HIPL patches
+     Patch190: simple-beet-ph-patch-v1.0-2.6.16.5
+     Patch191: interfamily-beet-ph-patch-v1.0-2.6.16.5
+     Patch192: policy-sleep-2.6.16.5-v2.patch
+     Patch193: hipmod-2.6.16.5-v1.patch 
+     # HIP patches
+     %patch190 -p1
+     %patch191 -p1
+     %patch192 -p1
+     %patch193 -p1
+
+   * copied the patches to /usr/src/redhat/SOURCES
+   * rpmbuild --target i686 -ba --without kabichk /usr/src/redhat/SPECS/kernel-2.6.16.9.spec
+
+
+VALGRIND AND HIPD
+=================
+
+On some machines, valgrind does not work without the following:
+  
+  ./configure --disable-privsep && make clean all
+
+
+TEST MATRIX
+===========
+
+* platform: 32-bit bit, 64-bit, mixed (32-bit Initiator, 64-bit Resp,
+  or reversed)
+  * 64-bit AMD vs. Intel
+* OS: Fedora, Ubuntu
+* memory leaks; run hipd through valgrind in all tests
+
+1. Compilation
+--------------
+
+* Compilation on Ubuntu
+* Compilation on Fedora
+
+2. Applications
+---------------
+
+Test with conntest-server BOTH tcp and udp:
+
+* conntest-client-gai peer_host_name_that_maps_to_hit_in_hosts
+* conntest-client-gai peer_host_name_that_maps_to_hit_in_opendht
+* conntest-client-gai peer_hostname_without_hit_map
+* conntest-client-gai hit-in-hosts
+* conntest-client-gai hit-in-broadcast
+* conntest-client-gai hit-in-opendht
+* conntest-client-gai ipv6-addr
+* conntest-client ipv4-addr
+* conntest-client ipv6-addr
+* conntest-client ipv4_of_non_hip_host
+* conntest-client ipv6_of_non_hip_host
+* conntest-client peer_hit
+
+Applications:
+
+* ping6 HIT
+* hipconf run normal firefox
+* hipconf run normal firefox + use www proxy
+* hipconf run normal ssh peer_host_name_that_maps_to_hit
+* hipconf run opp firefox
+* hipconf run normal iperf -V hit
+* hipconf run opp iperf ipv4-addr
+* hipconf run opp iperf -V ipv6-addr
+
+* hi3 support?
+
+3. Base Exchange
+----------------
+
+* hipconf nat on
+* hipconf nat off
+* hipconf locator on
+* hipconf locator off
+* retransmissions
+
+4. Mobility Management
+----------------------
+
+Soft IPv4-Only Handover, no locators in base exchange
+
+* hipconf locator off
+* hipconf add map PEER_HIT PEER_IPV4
+* ping6 PEER_HIT
+* ip addr add NEW_LOCAL_IPV4
+* ip addr del OLD_LOCAL_IPV4
+* ping6 PEER_HIT
+
+Soft IPv6-Only Handover, no locators in base exchange
+
+* hipconf locator off
+* hipconf add map PEER_HIT PEER_IPV6
+* ping6 PEER_HIT
+* ip addr add NEW_LOCAL_IPV6
+* ip addr del OLD_LOCAL_IPV6
+* ping6 PEER_HIT
+
+Hard IPv4-Only Handover, no locators in base exchange
+
+* hipconf locator off
+* hipconf add map PEER_HIT PEER_IPV4
+* ping6 PEER_HIT
+* ip addr del OLD_LOCAL_IPV4
+* ip addr add NEW_LOCAL_IPV4
+* ping6 PEER_HIT
+
+Hard IPv6-Only Handover, no locators in base exchange
+
+* hipconf locator off
+* hipconf add map PEER_HIT PEER_IPV6
+* ping6 PEER_HIT
+* ip addr del OLD_LOCAL_IPV6
+* ip addr add NEW_LOCAL_IPV6
+* ping6 PEER_HIT
+
+Soft Interfamily Handover From IPv4 to IPv6, no locators in base exchange
+
+* hipconf locator off
+* hipconf add map PEER_HIT PEER_IPV4
+* ping6 PEER_HIT
+* ip addr add NEW_LOCAL_IPV6
+* ip addr del OLD_LOCAL_IPV4
+* ping6 PEER_HIT
+
+Soft Interfamily Handover From IPv6 to IPv4, no locators in base exchange
+
+* hipconf locator off
+* hipconf add map PEER_HIT PEER_IPV6
+* ping6 PEER_HIT
+* ip addr add NEW_LOCAL_IPV4
+* ip addr del OLD_LOCAL_IPV6
+* ping6 PEER_HIT
+
+Hard Interfamily Handover From IPv4 to IPv6, no locators in base exchange
+
+* hipconf locator off
+* hipconf add map PEER_HIT PEER_IPV4
+* ping6 PEER_HIT
+* ip addr del OLD_LOCAL_IPV4
+* ip addr add NEW_LOCAL_IPV6
+* ping6 PEER_HIT
+
+Hard Interfamily Handover From IPv6 to IPv4, no locators in base exchange
+
+* hipconf locator off
+* hipconf add map PEER_HIT PEER_IPV6
+* ping6 PEER_HIT
+* ip addr del OLD_LOCAL_IPV6
+* ip addr add NEW_LOCAL_IPV4
+* ping6 PEER_HIT
+
+Soft IPv4-Only Handover, locators present in base exchange
+
+* hipconf locator on
+* hipconf add map PEER_HIT PEER_IPV4
+* ping6 PEER_HIT
+* ip addr add NEW_LOCAL_IPV4
+* ip addr del OLD_LOCAL_IPV4
+* ping6 PEER_HIT
+
+Soft IPv6-Only Handover, locators present in base exchange
+
+* hipconf locator on
+* hipconf add map PEER_HIT PEER_IPV6
+* ping6 PEER_HIT
+* ip addr add NEW_LOCAL_IPV6
+* ip addr del OLD_LOCAL_IPV6
+* ping6 PEER_HIT
+
+Hard IPv4-Only Handover, locators present in base exchange
+
+* hipconf locator on
+* hipconf add map PEER_HIT PEER_IPV4
+* ping6 PEER_HIT
+* ip addr del OLD_LOCAL_IPV4
+* ip addr add NEW_LOCAL_IPV4
+* ping6 PEER_HIT
+
+Hard IPv6-Only Handover, locators present in base exchange
+
+* hipconf locator on
+* hipconf add map PEER_HIT PEER_IPV6
+* ping6 PEER_HIT
+* ip addr del OLD_LOCAL_IPV6
+* ip addr add NEW_LOCAL_IPV6
+* ping6 PEER_HIT
+
+Soft Interfamily Handover From IPv4 to IPv6, locators present in base exchange
+
+* hipconf locator on
+* hipconf add map PEER_HIT PEER_IPV4
+* ping6 PEER_HIT
+* ip addr add NEW_LOCAL_IPV6
+* ip addr del OLD_LOCAL_IPV4
+* ping6 PEER_HIT
+
+Soft Interfamily Handover From IPv6 to IPv4, locators present in base exchange
+
+* hipconf locator on
+* hipconf add map PEER_HIT PEER_IPV6
+* ping6 PEER_HIT
+* ip addr add NEW_LOCAL_IPV4
+* ip addr del OLD_LOCAL_IPV6
+* ping6 PEER_HIT
+
+Hard Interfamily Handover From IPv4 to IPv6, locators present in base exchange
+
+* hipconf locator on
+* hipconf add map PEER_HIT PEER_IPV4
+* ping6 PEER_HIT
+* ip addr del OLD_LOCAL_IPV4
+* ip addr add NEW_LOCAL_IPV6
+* ping6 PEER_HIT
+
+Hard Interfamily Handover From IPv6 to IPv4, locators present in base exchange
+
+* hipconf locator on
+* hipconf add map PEER_HIT PEER_IPV6
+* ping6 PEER_HIT
+* ip addr del OLD_LOCAL_IPV6
+* ip addr add NEW_LOCAL_IPV4
+* ping6 PEER_HIT
+
+Retransmissions in hard IPv4-Only Handover, no locators in base exchange
+
+* hipconf locator off
+* hipconf add map PEER_HIT PEER_IPV4
+* ping6 PEER_HIT
+* ip addr del OLD_LOCAL_IPV4
+* kill hipd from the other side
+* ip addr add NEW_LOCAL_IPV4
+* does it retransmit?
+
+NAT handover in hard IPv4-Only Handover, no locators in base exchange
+
+* hipconf locator off
+* hipconf nat on
+* hipconf add map PEER_HIT PEER_IPV4
+* ping6 PEER_HIT
+* ip addr del OLD_LOCAL_IPV4
+* ip addr add NEW_LOCAL_IPV4
+* ping6 PEER_HIT
+
+5. Rendezvous
+-------------
+
+* test rendezvous as instructed in the manual
+
+6. NAT Relay
+----------------
+
+* not supported officially yet
+
+7. Firewall
+-----------
+
+8. Agent
+--------
+
+* prompting
+* reject
+  * normal mode
+  * opp mode
+* test configuration gui
+
+9. Blind support
+----------------
+
+10. Closing of connections
+----------------------
+
+* tools/hipconf rst all
+
+
+UPGRADING THE KERNEL - DEPRACATED
+=================================
+
+# note: there is a perl script called "hashline" diff which is more
+# convinient to use in upgrading the kernel (to check for added/deleted
+# files)
+
+% <get the patch to ~/down>
+% cd hipl--fix--2.6/linux
+% patch -p1 <~/down/patch-2.6.7 2>&1| tee /tmp/PATCH_LOG
+% grep ^patching /tmp/PATCH_LOG|cut -d' ' -f3 >/tmp/CHANGES
+% for i in `cat /tmp/CHANGES`; do tla id $i 2>&1; done >/tmp/TLA_LOG
+% tla add `perl -ne 'print "$_" if ($n); $n=0; $n=1 if
+    (/id: untagged file/)' </tmp/TLA_LOG`
+% tla delete `perl -ne 'print "$_" if ($n); $n=0; $n=1 if
+  (/error finding file id \(2: No such file or directory\)/)' \
+    </tmp/TLA_LOG|cut -d' ' -f3`
+% find . -type d|grep -v .arch-ids >/tmp/LINUX_DIRS
+% for i in `cat /tmp/LINUX_DIRS`; do tla id $i 2>&1; done
+    >/tmp/TLA_DIR_LOG
+% tla add `perl -ne 'print "$_" if ($n); $n=0; $n=1 if
+    (/id: untagged file/)' </tmp/TLA_DIR_LOG`
+
+Check HUNK messages from PATCH_LOG manually.
+
+
+ADDING HIPCONF ACTIONS AND PARAMETERS
+=====================================
+
+If you want to add some actions and parameters for hipconf, do the following
+things carefully. Otherwise your codes could cause bugs not only for hipconf
+but also for hipd.
+
+Assume that you want to add an action named as 'NEWACT'.
+
+1.1. ACTION_NEWACT in libinet6/hipconf.h
+----------------------------------------
+Define a constant ACTION_NEWACT which has value between 0 and ACTION_MAX.
+Probably you also need to increase the value of ACTION_MAX.
+
+1.2. hip_conf_get_action() in libinet6/hipconf.c
+------------------------------------------------
+Add a proper sentence in the strcmp() series, like that:
+
+    ...
+    else if (!strcmp("newaction", text))
+        ret = ACTION_NEWACT;
+    ...
+
+1.3. hip_conf_check_action_argc() in libinet6/hipconf.c
+-------------------------------------------------------
+Add a case block for your ACTION_NEWACT constant in the switch(action) block.
+
+1.4. hip_conf_get_type_arg() in libinet6/hipconf.c
+--------------------------------------------------
+Add a case block for your ACTION_NEWACT constant in the switch(action) block.
+
+2.1. SO_HIP_NEWMODE in libinet6/icomm.h
+---------------------------------------
+Define a constant SO_HIP_NEWMODE which has value between 0 and
+HIP_SO_ROOT_MAX. Take also care of the value of HIP_SO_ROOT_MAX.
+
+2.2. hip_handle_user_msg() in hipd/user.c
+-----------------------------------------
+Add a case block for your SO_HIP_NEWMODE constant in the switch(msg_type) block.
+
+2.3. hip_message_type_name() in libinet6/builder.c
+--------------------------------------------------
+Add a case block for your SO_HIP_NEWMODE constant in the switch(msg_type) block.
+In this case, you just need to return the same string as the constant.
+
+3.1. action_handler[] in libinet6/hipconf.c
+-------------------------------------------
+Add a handler function for your new action in the action_handler[] array.
+NOTE: the location and the order of these handlers are important, because
+each entry of the handler array is to be accessed via type index.
+
+3.2. TYPE_NEWTYPE in libinet6/hipconf.h
+---------------------------------------
+Define a constant TYPE_NEWTYPE which has value between 0 and TYPE_MAX.
+Probably you also need to increase the value of TYPE_MAX.
+
+NOTE: TYPE_MAX must be exactly the largest value of all type variables:
+no more, no less. If that is set as a wrong value, the hip daemon can become
+incapable of communicating with any hipconf requests.
+
+NOTE: the value of TYPE_NEWTYPE must be a correct index for looking up
+each handler function in action_handler[], which you just added above
+at the step 3.1.
+
+3.3. hip_conf_handle_NEWACT() in libinet6/hipconf.c
+---------------------------------------------------
+Define a handler function added above at the step 3.1, somewhere in hipconf.c.
+
+3.4. hip_conf_handle_NEWACT() in libinet6/hipconf.h
+---------------------------------------------------
+Declare a prototype for your new handler function hip_conf_handle_NEWACT
+defined above at the step 3.1.
+
+4. hipconf_usage in libinet6/hipconf.c
+--------------------------------------
+Add a simple usage for your new action in the usage string.
+

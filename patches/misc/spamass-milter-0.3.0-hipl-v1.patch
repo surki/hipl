@@ -1,0 +1,104 @@
+diff -urN spamass-milter-0.3.0/spamass-milter.cpp spamass-milter-0.3.0-hipl/spamass-milter.cpp
+--- spamass-milter-0.3.0/spamass-milter.cpp	2005-02-05 09:03:22.000000000 +0200
++++ spamass-milter-0.3.0-hipl/spamass-milter.cpp	2006-03-13 18:48:47.000000000 +0200
+@@ -117,6 +117,16 @@
+ 
+ #include "spamass-milter.h"
+ 
++#ifdef PUNISH_WITH_HIP_COOKIE
++#  include <sys/socket.h>
++#  include <netdb.h>
++  /* Hardcoded path: change to empty string when needed */
++#  define HIPCONF_PATH "/home/mkomu/projects/hipl--spam--2.6/tools/"
++#  define SA2IP(x) (((struct sockaddr*)x)->sa_family==AF_INET) ? \
++        (void*)&((struct sockaddr_in*)x)->sin_addr : \
++        (void*)&((struct sockaddr_in6*)x)->sin6_addr
++#endif
++
+ #ifdef WITH_DMALLOC
+ #include "dmalloc.h"
+ #endif
+@@ -400,6 +410,59 @@
+ 	}
+ }
+ 
++#ifdef PUNISH_WITH_HIP_COOKIE
++/**
++ * return values: 0 for success, otherwise non-zero
++ *
++ */
++int hip_punisher(SpamAssassin* assassin) {
++  struct addrinfo *res = NULL;
++  char hit_str[INET6_ADDRSTRLEN];
++  string from = assassin->from(); /* e.g. <root@host> */
++  string hostname = from.substr(from.find_first_of('@') + 1,
++				from.find_last_of('>') -
++				from.find_first_of('@') - 1);
++  
++  syslog(LOG_MAIL, "Converting hostname (%s) to HIT\n", hostname.c_str());
++
++  /* Resolve hostname to HIT because hipconf does not support it */
++  if (getaddrinfo(hostname.c_str(), NULL, NULL, &res)) {
++    syslog(LOG_MAIL, "failed to resolve hostname (%s) to HIT\n",
++	   hostname.c_str());
++      freeaddrinfo(res);
++      return -1;
++  }
++  if (!inet_ntop(res->ai_family, SA2IP(res->ai_addr), hit_str,
++		 INET6_ADDRSTRLEN)) {
++    syslog(LOG_MAIL, "inet_ntop failed\n");
++    return -1;
++  }
++  freeaddrinfo(res);
++  
++  string path = HIPCONF_PATH;
++  string puzzle_cmd = path + "hipconf inc puzzle " + hit_str;
++  string rst_cmd = path + "hipconf hip rst " + hit_str;
++  
++  syslog(LOG_MAIL, "executing: %s\n", puzzle_cmd.c_str());
++  if (system(puzzle_cmd.c_str()) == 0) {
++    syslog(LOG_MAIL, "increased cookie\n");
++  } else {
++    syslog(LOG_MAIL, "failed to increase cookie\n");
++  }
++  
++  syslog(LOG_MAIL, "executing: %s\n", rst_cmd.c_str());
++  if (system(rst_cmd.c_str()) == 0) {
++    syslog(LOG_MAIL, "reset hip connection\n");
++  } else {
++    syslog(LOG_MAIL, "hip rst failed\n");
++    return -1;
++  }
++
++  syslog(LOG_MAIL, "HIP spam punishment successful\n");
++  return 0;
++}
++#endif /* PUNISH_WITH_HIP_COOKIE */
++
+ // {{{ Assassinate
+ 
+ //
+@@ -448,6 +511,11 @@
+ 				do_reject = true;
+ 		}
+ 	}
++#ifdef PUNISH_WITH_HIP_COOKIE
++	if (do_reject && !hip_punisher(assassin)) {
++	  do_reject = 0; /* Cookie is enough punishment >) */
++        }
++#endif /* PUNISH_WITH_HIP_COOKIE */
+ 	if (do_reject)
+ 	{
+ 		debug(D_MISC, "Rejecting");
+diff -urN spamass-milter-0.3.0/spamass-milter.h spamass-milter-0.3.0-hipl/spamass-milter.h
+--- spamass-milter-0.3.0/spamass-milter.h	2004-09-23 23:29:24.000000000 +0300
++++ spamass-milter-0.3.0-hipl/spamass-milter.h	2006-03-13 18:48:51.000000000 +0200
+@@ -37,6 +37,8 @@
+ 
+ #include <list>
+ 
++#define PUNISH_WITH_HIP_COOKIE 1 /* Set to 0 to disable HIP extensions */
++
+ using namespace std;
+ 
+ string retrieve_field(const string&, const string&);

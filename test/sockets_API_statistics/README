@@ -1,0 +1,94 @@
+#@file README file
+#Licence: GNU/GPL
+#Authors: 
+#Tao Wan<twan@cc.hut.fi>
+
+1. Introduction
+sockets API statistics is for counting how many socket API used in legacy applications.  
+The application uses sockets_analysis.conf file to keep the socket API (function calls
+and strutures) which needs to be counted and where to download applications. The applications are
+downloaded understand applications directory, the sockets analysis data (times of socket API call) is kept into database which is under the db directory. 
+
+
+2. Running Requirment
+
+Python >= 2.5
+apsw >= 3.3.5-r1
+SQLITE >= 3.4.2
+
+
+3. Code 
+
+
+run.py -----> run application file (python run.py)
+
+database_engine.py   ---> sqlite database engine for saving analysis socket APIs
+			  into database
+
+
+
+fetch_files.py   -----> download network applications source code from internet 
+			and decompress them based on names in the applications 
+					sections of sockets_analysis.conf config file.
+
+conf_reader.py    ------> read configuarion file (sockets_analysis.conf)
+
+
+file_input.py    --------> read c source code file and return code without 
+			comments line (parsing)
+
+string_token.py -------> string lexical token analysis
+
+directory_walking.py  -------> Directory walking
+
+
+sockets_analysis.conf ---> This configuration file is used to keep all sockets 
+			   networking API function calls and struct data types
+
+
+
+4. How to run application
+python run.py
+
+
+Notice: when to add application to download in the applications section from the sockets_analysis.conf 
+file, the application name should be unique, and application name should be part of download file name.
+   
+
+5.How to open database file and dump analysis database 
+
+It is easy to open database files with GUI applcaition called SQLITE Studio (check from 
+http://sqlitestudio.one.pl/)
+
+Converting An Entire Database To An ASCII Text File
+
+Use the ".dump" command to convert the entire contents of a database into a single ASCII text file. 
+This file can be converted back into a database by piping it back into sqlite3.
+
+A good way to make an archival copy of a database is this in our case:
+
+    $ echo '.dump' | sqlite3 socket_analysis_data_sos.db | gzip -c >socket_analysis_data_sos.db.dump.gz 
+
+This generates a file named ex1.dump.gz that contains everything you need to reconstruct the database 
+at a later time, or on another machine. To reconstruct the database, just type:
+
+    $ zcat socket_analysis_data_sos.db.dump.gz | sqlite3 socket_analysis_data_sos.db 
+
+The text format is pure SQL so you can also use the .dump command to export an SQLite database into 
+other popular SQL database engines. Like this:
+
+    $ createdb ex2
+    $ sqlite3 socket_analysis_data_sos.db .dump | psql ex2 
+
+
+
+
+6. what should be improved in next release
+1) Do not need delete all applications to download again when running application everytime
+2) how to update table efficiently, not to delete database and recreate it.
+
+
+
+
+
+

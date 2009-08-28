@@ -1,0 +1,1848 @@
+
+
+
+HIP Working Group                                             V. Schmitt
+Internet-Draft                                                       NEC
+Intended status: Standards Track                               A. Pathak
+Expires: December 14, 2006                                    IIT Kanpur
+                                                                 M. Komu
+                                                                    HIIT
+                                                               L. Eggert
+                                                          M. Stiemerling
+                                                                     NEC
+                                                           June 12, 2006
+
+
+    HIP Extensions for the Traversal of Network Address Translators
+                   draft-schmitt-hip-nat-traversal-01
+
+Status of this Memo
+
+   By submitting this Internet-Draft, each author represents that any
+   applicable patent or other IPR claims of which he or she is aware
+   have been or will be disclosed, and any of which he or she becomes
+   aware will be disclosed, in accordance with Section 6 of BCP 79.
+   This document may not be modified, and derivative works of it may not
+   be created, except to publish it as an RFC and to translate it into
+   languages other than English.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF), its areas, and its working groups.  Note that
+   other groups may also distribute working documents as Internet-
+   Drafts.
+
+   Internet-Drafts are draft documents valid for a maximum of six months
+   and may be updated, replaced, or obsoleted by other documents at any
+   time.  It is inappropriate to use Internet-Drafts as reference
+   material or to cite them other than as "work in progress."
+
+   The list of current Internet-Drafts can be accessed at
+   http://www.ietf.org/ietf/1id-abstracts.txt.
+
+   The list of Internet-Draft Shadow Directories can be accessed at
+   http://www.ietf.org/shadow.html.
+
+   This Internet-Draft will expire on December 14, 2006.
+
+Copyright Notice
+
+   Copyright (C) The Internet Society (2006).
+
+
+
+
+
+Schmitt, et al.         Expires December 14, 2006               [Page 1]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+Abstract
+
+   This document specifies extensions to Host Identity Protocol (HIP) to
+   support traversal of Network Address Translator (NAT) middleboxes.
+   The traversal mechanism tunnels HIP control and data traffic over UDP
+   and enables HIP initiators which MAY be behind NATs to contact HIP
+   responders which MAY be behind another NAT.
+
+
+Table of Contents
+
+   1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  3
+   2.  Detecting NATs . . . . . . . . . . . . . . . . . . . . . . . .  4
+   3.  HIP Across NATs  . . . . . . . . . . . . . . . . . . . . . . .  4
+     3.1.  Packet Formats . . . . . . . . . . . . . . . . . . . . . .  5
+       3.1.1.  Control Traffic  . . . . . . . . . . . . . . . . . . .  5
+       3.1.2.  Control Channel Keep-Alives  . . . . . . . . . . . . .  5
+       3.1.3.  Data Traffic . . . . . . . . . . . . . . . . . . . . .  6
+       3.1.4.  FROM_NAT Parameter . . . . . . . . . . . . . . . . . .  6
+       3.1.5.  VIA_RVS_NAT Parameter  . . . . . . . . . . . . . . . .  7
+     3.2.  UDP Encapsulation/Decapsulation of IPsec BEET-Mode ESP . .  7
+       3.2.1.  UDP Encapsulation of IPsec BEET-Mode ESP . . . . . . .  7
+       3.2.2.  UDP Decapsulation of IPsec BEET-Mode ESP . . . . . . .  8
+     3.3.  Initiator Behind NAT . . . . . . . . . . . . . . . . . . .  8
+       3.3.1.  NAT Traversal of HIP Control Traffic . . . . . . . . .  9
+       3.3.2.  NAT Traversal of HIP Data Traffic  . . . . . . . . . . 11
+       3.3.3.  Use of the Rendezvous Service when only the
+               Initiator Is Behind NAT  . . . . . . . . . . . . . . . 14
+     3.4.  Responder Behind NAT . . . . . . . . . . . . . . . . . . . 15
+       3.4.1.  Rendezvous Client Registration From Behind NAT . . . . 16
+       3.4.2.  NAT Traversal of HIP Control Traffic . . . . . . . . . 17
+       3.4.3.  NAT Traversal of HIP Data Traffic  . . . . . . . . . . 19
+     3.5.  Both Hosts Behind NAT  . . . . . . . . . . . . . . . . . . 21
+       3.5.1.  NAT Traversal of HIP Control Traffic . . . . . . . . . 21
+       3.5.2.  NAT Traversal of HIP Data Traffic  . . . . . . . . . . 24
+     3.6.  NAT Keep-Alives  . . . . . . . . . . . . . . . . . . . . . 25
+     3.7.  HIP Mobility . . . . . . . . . . . . . . . . . . . . . . . 26
+     3.8.  HIP Multihoming  . . . . . . . . . . . . . . . . . . . . . 27
+     3.9.  Firewall Traversal . . . . . . . . . . . . . . . . . . . . 28
+   4.  Security Considerations  . . . . . . . . . . . . . . . . . . . 28
+   5.  IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 29
+   6.  Acknowledgements . . . . . . . . . . . . . . . . . . . . . . . 29
+   7.  References . . . . . . . . . . . . . . . . . . . . . . . . . . 30
+     7.1.  Normative References . . . . . . . . . . . . . . . . . . . 30
+     7.2.  Informative References . . . . . . . . . . . . . . . . . . 30
+   Appendix A.  Document Revision History . . . . . . . . . . . . . . 31
+   Authors' Addresses . . . . . . . . . . . . . . . . . . . . . . . . 31
+   Intellectual Property and Copyright Statements . . . . . . . . . . 33
+
+
+
+Schmitt, et al.         Expires December 14, 2006               [Page 2]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+1.  Introduction
+
+   The Host Identity Protocol (HIP) describes a new communication
+   mechanism for Internet hosts [RFC4423].  It introduces a new
+   namespace and protocol layer between the network and transport layers
+   that decouples the identifier and locator roles to support e.g.
+   mobility and multihoming in the Internet architecture.
+
+   The HIP protocol [I-D.ietf-hip-base] cannot operate across Network
+   Address Translator (NAT) middleboxes, as described in
+   [I-D.irtf-hiprg-nat].  Several different flavors of NATs exist
+   [RFC2663].  This document describes HIP extensions for the traversal
+   of both Network Address Translator (NAT) and Network Address and Port
+   Translator (NAPT) middleboxes.  It generally uses the term NAT to
+   refer to both types of middleboxes, unless it needs to distinguish
+   between the two types.
+
+   Three basic cases exist for NAT traversal.  In the first case, only
+   the initiator of a HIP base exchange is located behind a NAT.  In the
+   second case, only the responder of a HIP base exchange is located
+   behind a NAT.  The respective peer host is assumed to be in the
+   public Internet in both cases.  In the third case, both parties are
+   located behind (different) NATs.  This document describes extensions
+   for the first case in Section 3.3, for the second case in Section 3.4
+   and in Section 3.5 for the third case.
+
+   The mechanisms described here also cover use of rendezvous server
+   from NATted environments.  The use rendezvous server is mandatory
+   especially when the responder is behind a NAT.  The limitation of the
+   described rendezvous mechanisms is that they do not work with
+   symmetric NATs.
+
+   The mechanisms described in this document are based on encapsulating
+   both the control and data traffic in UDP in order to traverse NAT(s).
+   The data traffic is assumed to be ESP.  Other types of data traffic
+   are out of scope.
+
+   The mobility and multihoming mechanisms of HIP [I-D.ietf-hip-mm],
+   allow HIP hosts to change network location during the lifetime of a
+   HIP association.  Consequently, hosts need to start using the
+   proposed NAT traversal mechanisms after a mobility event relocates
+   one or both peers behind a NAT.  They may also stop using the
+   proposed mechanisms if they both relocate to the public Internet.
+
+   Finally, the key words "MUST", "MUST NOT", "REQUIRED", "SHALL",
+   "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and
+   "OPTIONAL" in this document are to be interpreted as described in
+   [RFC2119].
+
+
+
+Schmitt, et al.         Expires December 14, 2006               [Page 3]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+2.  Detecting NATs
+
+   In order to know whether to use the NAT traversal mechanisms, HIP
+   hosts need to detect presence of NAT middleboxes between them.  This
+   document does not describe any NAT detection mechanism but rather
+   assumes the NAT is detected using some external mechanism.  Hence, no
+   special HIP parameters are required in HIP control messages to detect
+   NATs.  The NAT detection MUST occur prior to base exchange, or after
+   node movement, prior to sending UPDATE messages.
+
+   For example, STUN [RFC3489] offers a generic mechanism using which a
+   host behind NAT can detect the presence of NAT and type of NAT
+   present.  In STUN, the host contacts a STUN server which is located
+   always in public network and the STUN server replies back letting the
+   host know whether the host is behind NAT or in public network.  STUN
+   can be used to detect NATs in all but one case where both of the host
+   are behind the same NAT.  This is commonly referred as the Hairpin
+   translation [I-D.srisuresh-behave-p2p-state] .  The hairpin
+   translation poses an unnecessary overhead in terms of UDP processing
+   of packets and routing of packets through the NAT despite the hosts
+   being located within the same network.
+
+   As a solution to the hairpin problem, an implementation MAY choose
+   first to send I1 packets without UDP encapsulation and wait for the
+   response for an implementation specific time.  If the initiator does
+   not get a reply from the responder, it then can start retransmitting
+   I1 packets UDP encapsulated.  This approach solve the hairpin
+   problem, but incurs extra latency for the HIP connection.
+
+
+3.  HIP Across NATs
+
+   HIP based communications between two hosts consists effectively of
+   HIP control traffic and ESP encrypted data traffic.  Before ESP data
+   traffic can be sent, the hosts send HIP control messages to negotiate
+   algorithms and exchange keys.  After this, the hosts can start
+   sending encrypted ESP data traffic.
+
+   The HIP based communications defined in [I-D.ietf-hip-base] works
+   well in public networks.  However, this does not work with some
+   legacy NATs which just drop HIP control traffic and ESP data traffic.
+   As a solution for this, we propose UDP encapsulation of control and
+   data traffic using a specific scheme described in this document.  The
+   scheme also allows hosts behind NATs to act as servers.
+
+   [RFC3948] describes UDP encapsulation of IPsec ESP transport and
+   tunnel mode.  This document only describes the changes required for
+   UDP encapsulation of BEET mode [I-D.nikander-esp-beet-mode].
+
+
+
+Schmitt, et al.         Expires December 14, 2006               [Page 4]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+3.1.  Packet Formats
+
+   This section defines the UDP-encapsulation packet format for HIP base
+   exchange and control traffic, IPsec ESP BEET-mode traffic and NAT
+   keep-alive.
+
+3.1.1.  Control Traffic
+
+      0                   1                   2                   3
+      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     |        Source Port            |      Destination Port         |
+     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     |           Length              |           Checksum            |
+     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     |                                                               |
+     ~                    HIP Header and Parameters                  ~
+     |                                                               |
+     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+        Figure 1: Format for UDP-encapsulated HIP control traffic.
+
+   Figure 1 shows how HIP control packets are encapsulated within UDP.
+   A minimal UDP packet carries a complete HIP packet in its payload.
+   Contents of the UDP source and destination ports are described below.
+   The UDP length and checksum field MUST be computed as described in
+   [RFC0768].  The HIP header and parameter follow the conventions
+   [I-D.ietf-hip-base] with the exception that the HIP header checksum
+   MUST be zero.  The HIP headers checksum is not used because it is
+   redundant and requires the use of inner addresses (extra complexity
+   for UDP-NAT transformations).
+
+3.1.2.  Control Channel Keep-Alives
+
+   The keep-alive for control channel are basically UDP encapsulated
+   UPDATE packets [I-D.ietf-hip-base].  The UPDATE packets MAY contain
+   HIP parameters.  The NAT traversal mechanisms encapsulate these
+   UPDATE packets within the payload of UDP packets.
+
+
+
+
+
+
+
+
+
+
+
+
+
+Schmitt, et al.         Expires December 14, 2006               [Page 5]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+3.1.3.  Data Traffic
+
+      0                   1                   2                   3
+      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     |         Source Port           |       Destination Port        |
+     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     |           Length              |           Checksum            |
+     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     |                                                               |
+     ~                          ESP Header                           ~
+     |                                                               |
+     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+    Figure 2: Format for UDP-encapsulated IPsec ESP BEET-mode traffic.
+
+   Figure 2 shows how IPsec ESP BEET-mode packets are encapsulated
+   within UDP.  Again, a minimal UDP packet carries the ESP packet in
+   its payload.  Contents of the UDP source and destination ports are
+   described in later sections.  The UDP length and checksum field MUST
+   be computed as described in [RFC0768].
+
+3.1.4.  FROM_NAT Parameter
+
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |             Type              |             Length            |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |                                                               |
+    |                             Address                           |
+    |                                                               |
+    |                                                               |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |             Port              |       Padding                 |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               |
+    |                                                               |
+    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+    Type        [ TBD by IANA (63998 = 2^16 - 2^11 + 2^9 - 2) ]
+    Length      24
+    Address     An IPv6 address or an IPv4-in-IPv6 format IPv4 address.
+
+                  Figure 3: Format for FROM_NAT Parameter
+
+   Figure 3 shows FROM_NAT parameter.  The use of this parameter is
+   described in later sections.
+
+
+
+
+Schmitt, et al.         Expires December 14, 2006               [Page 6]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+3.1.5.  VIA_RVS_NAT Parameter
+
+     0                   1                   2                   3
+     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     |             Type              |             Length            |
+     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     |                                                               |
+     |                            Address  + Port                    |
+     |                                                               |
+     |                                                               |
+     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     .                               .                               .
+     .                               .                               .
+     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     |                                                               |
+     |                            Address  + Port                    |
+     |                                                               |
+     |                                                               |
+     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+     Type        [ TBD by IANA (64002 = 2^16 - 2^11 + 2^9 + 2) ]
+     Length      Variable
+     Address     An IPv6 address or an IPv4-in-IPv6 format IPv4 address
+
+                Figure 4: Format for VIA_RVS_NAT Parameter
+
+   Figure 4 shows VIA_RVS_NAT parameter.  The use of this parameter is
+   described in later sections.
+
+3.2.  UDP Encapsulation/Decapsulation of IPsec BEET-Mode ESP
+
+   [RFC3948] describes UDP encapsulation of IPsec ESP transport and
+   tunnel mode.  This section describes the changes required for UDP
+   encapsulation of BEET mode.
+
+3.2.1.  UDP Encapsulation of IPsec BEET-Mode ESP
+
+   In BEET IPsec mode, any present transport-layer checksums in the
+   payload data are consequently based on the HITs.  The packet MUST
+   then undergo BEET-mode ESP cryptographic processing as defined in
+   Section 5.3 of [I-D.nikander-esp-beet-mode].
+
+   The resulting BEET-mode packet is then UDP encapsulated.  For this
+   purpose, a UDP header MUST be inserted between the IP and ESP header.
+   The source and destination ports are filled in as defined in later
+   sections.  The UDP checksum MUST be calculated based on an IP header
+   that contains the outer addresses of the SA.  The other fields of the
+   UDP header are computed as described in [RFC0768].
+
+
+
+Schmitt, et al.         Expires December 14, 2006               [Page 7]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+   The resulting UDP packet MUST then undergo BEET IP header processing
+   as defined in Section 5.4 of [I-D.nikander-esp-beet-mode].
+
+   Figure 5 illustrates the BEET-mode UDP encapsulation procedure for a
+   TCP packet.
+
+     ORIGINAL TCP PACKET:
+        --------------------------------------------
+        | inner IPv6 hdr |  ext hdrs  |     |      |
+        |   with HITs    | if present | TCP | Data |
+        --------------------------------------------
+
+     PACKET AFTER BEET-MODE ESP PROCESSING:
+        ------------------------------------------------------------
+        | inner IPv6 hdr | ESP | dest |     |      |  ESP    | ESP |
+        |   with HITs    | hdr | opts.| TCP | Data | Trailer | ICV |
+        ------------------------------------------------------------
+                               |<------- encryption -------->|
+                         |<----------- integrity ----------->|
+
+     FINAL PACKET AFTER BEET_MODE IP HEADER PROCESSING:
+        --------------------------------------------------------------
+        | outer IPv4 | UDP | ESP | dest |     |      |  ESP    | ESP |
+        |    hdr     | hdr | hdr | opts.| TCP | Data | Trailer | ICV |
+        --------------------------------------------------------------
+                                 |<------- encryption -------->|
+                           |<----------- integrity ----------->|
+
+       Figure 5: UDP Encapsulation of an IPsec BEET-mode ESP packet
+                         containing a TCP segment.
+
+3.2.2.  UDP Decapsulation of IPsec BEET-Mode ESP
+
+   An incoming UDP-encapsulated IPsec BEET-mode ESP packet is
+   decapsulated as follows.  First, if the UDP checksum is invalid, then
+   the packet MUST be dropped.  Then, the packet MUST be verified as
+   defined in [I-D.nikander-esp-beet-mode].  If verified, the ESP data
+   contained in the payload of the UDP packet MUST be decrypted as
+   described in [I-D.nikander-esp-beet-mode].
+
+3.3.  Initiator Behind NAT
+
+   This section discusses mechanisms to reach a HIP responder located in
+   publicly addressable network by a HIP initiator that is located
+   behind a NAT.  The case where the responder is using a rendezvous
+   service is also described.
+
+
+
+
+
+Schmitt, et al.         Expires December 14, 2006               [Page 8]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+3.3.1.  NAT Traversal of HIP Control Traffic
+
+   This section describes the details of enabling NAT traversal for HIP
+   control traffic for the base exchange [I-D.ietf-hip-base] through UDP
+   encapsulation for the case when initiator of the association is
+   located behind a NAT and responder is located in publicly addressable
+   network.  UDP-encapsulated HIP control traffic MUST use the packet
+   formats described in Section 3.1.  When sending UDP-encapsulated HIP
+   control traffic, a HIP implementation MUST zero the HIP header
+   checksum before calculating the UDP checksum.  The receiver MUST only
+   verify the correctness of the UDP checksum and MUST NOT verify the
+   checksum of the HIP header.
+
+   The initiator of a UDP-encapsulated HIP base exchange MUST use the
+   UDP destination port 50500 for all control packets it sends.  It is
+   RECOMMENDED use 50500 as the source port as well, but an
+   implementation MAY use a (randomly selected) unoccupied source port.
+   If it uses a random source port, it MUST listen for and accept
+   arriving HIP control/ESP Data packets on this port until the
+   corresponding HIP association is torn down.  The random source port
+   is RECOMMENDED to be in the range of the dynamic and private ports
+   (49152-65535).  Using a random source port instead of a fixed one
+   makes it possible to have multiple clients behind a NAT middlebox
+   that does only address translation but no port translation.
+
+   The responder of a UDP-encapsulated HIP base exchange MUST use 50500
+   as the source port for all UDP-encapsulated control packets it sends.
+   The source address for all the packets that the responder sends MUST
+   be the same as the IP address on which responder receives packets
+   from initiator.  The responder MUST NOT respond to any arriving UDP-
+   encapsulated control message with an decapsulated reply.  HIP
+   implementations that implement the NAT traversal mechanisms generally
+   MUST process UDP-encapsulated base exchange messages equivalently to
+   decapsulated messages, i.e., according to [I-D.ietf-hip-base].
+
+   The remainder of this section clarifies this process through an
+   example which is illustrated in Figure 6.  It shows an initiator with
+   the private IP address I behind a NAT.  The NAT has the public IP
+   address as NAT.  The responder is located in the public Internet at
+   the IP address R.
+
+
+
+
+
+
+
+
+
+
+
+Schmitt, et al.         Expires December 14, 2006               [Page 9]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+                        +----+
+                        |    |
+        +---+           |    |                                 +---+
+        |   |----(1)--->|    |---------------(2)-------------->|   |
+        |   |           | N  |                                 |   |
+        |   |<---(4)----| A  |<--------------(3)---------------|   |
+        | I |           | T  |                                 | R |
+        |   |----(5)--->|    |---------------(6)-------------->|   |
+        |   |           |    |                                 |   |
+        |   |<---(8)----|    |<--------------(7)---------------|   |
+        +---+           +----+                                 +---+
+
+        1. IP(I, R)     UDP(I-rand, 50500)  I1(HIT-I, HIT-R)
+        2. IP(NAT, R)   UDP(NAT-P, 50500)   I1(HIT-I, HIT-R)
+        3. IP(R, NAT)   UDP(50500, NAT-P)   R1(HIT-R, HIT-I)
+        4. IP(R, I)     UDP(50500, I-rand)  R1(HIT-R, HIT-I)
+        5. IP(I, R)     UDP(I-rand, 50500)  I2(HIT-I, HIT-R)
+        6. IP(NAT, R)   UDP(NAT-P', 50500)   I2(HIT-I, HIT-R)
+        7. IP(R, NAT)   UDP(50500, NAT-P')   R2(HIT-R, HIT-I)
+        8. IP(R, I)     UDP(50500, I-rand)  R2(HIT-R, HIT-I)
+
+        I:       IP of Initiator
+        R:       IP of Responder
+        NAT:     Public IP of NAT
+        NAT-P:   NAT Mangled Port
+        NAT-P':  NAT Mangled Port
+        I-rand:  Random Port Number - Chosen by initiator
+        HIT-I:   Initiator's HIT
+        HIT-R:   Responder's HIT
+
+
+   Figure 6: Example of a UDP-encapsulated HIP base exchange (initiator
+             behind a NAT, responder on the public Internet).
+
+   Before beginning the base exchange, the initiator detects that it is
+   behind a NAT.  The initiator starts the base exchange by sending a
+   UDP-encapsulated I1 packet to the responder.  According to the rules
+   specified above, the source IP address of this I1 packet is I and its
+   source UDP port is I-rand.  It is addressed to R on port 50500.  The
+   NAT in Figure 6 forwards the I1 but substitutes the source I with its
+   own public IP address NAT and substitutes the source UDP port I-rand
+   with NAT-P, which will usually be different from I-rand.
+
+   The responder in Figure 6 receives the UDP-encapsulated I1 packet on
+   the UDP port 50500, it processes it according to [I-D.ietf-hip-base].
+   The responder replies back with an R1 using the addresses and port
+   information of I1.  Thus R1 packet is destined to the source IP
+   address and UDP port of the I1, i.e., IP address NAT and port NAT-P.
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 10]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+   The NAT substitutes the destination of this packet, replacing NAT:
+   NAT-P with I:I-rand (IP address:port).
+
+   The initiator receives a UDP-encapsulated R1 packet from the
+   responder and processes it according to [I-D.ietf-hip-base].  When it
+   responds with a UDP-encapsulated I2 packet, it uses the same IP
+   source and destination addresses and UDP source and destination ports
+   that it used for sending the corresponding I1 packet, i.e., the
+   packet is addressed as I:I-rand -> R:50500.  The NAT again
+   substitutes the source information, replacing it with NAT:P'.
+
+   When a responder receives a UDP-encapsulated I2 packet destined to
+   UDP port 50500, it MUST use the UDP source port contained in this
+   packet for further HIP communications with the initiator.  It then
+   processes the I2 packet according to [I-D.ietf-hip-base].  When it
+   responds with an R2 message, it UDP-encapsulates it, using the UDP
+   source port of the I2 packet as the destination UDP port, and sends
+   it to the source IP address of the I2 packet, i.e., it sends the R2
+   packet from R:50500 to NAT:NAT-P'.  The NAT again replaces the
+   destination information in the R2 with I:I-rand.
+
+   Usually, the I1-R1 and I2-R2 exchanges occur fast enough for the NAT
+   state to time out.  This means that the NAT uses the state
+   established during the I1-R1 exchange to translate the I2-R2
+   exchange, i.e., the ports NAT-P and NAT-P' will be identical.
+   However, an implementation MUST handle even the case where the NAT
+   state times out between the two exchanges and the I1 and I2 arrive
+   from different UDP source ports and/or IP addresses, as shown in
+   Figure 6.
+
+3.3.2.  NAT Traversal of HIP Data Traffic
+
+   This section describes the details of enabling NAT traversal of HIP
+   data traffic.  As described in Section 3, HIP data traffic is carried
+   in UDP-encapsulated IPsec BEET-mode ESP packets.
+
+3.3.2.1.  IPsec BEET-Mode Security Associations
+
+   During the HIP base exchange, the two peers exchange parameters that
+   enable them to define a pair of IPsec ESP security associations
+   (SAs), as described in [I-D.ietf-hip-esp].  As mentioned in
+   Section 3.3.1, when two peers perform a UDP-encapsulated base
+   exchange, they MUST define a pair of IPsec SAs that result in UDP-
+   encapsulated BEET-mode ESP data traffic.
+
+   The management of encryption and authentication protocols and of
+   security parameter indices (SPIs) occurs as defined in
+   [I-D.ietf-hip-esp].  Additional SA parameters, such as IP addresses
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 11]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+   and UDP ports, MUST be defined according to the following
+   specification.  Two SAs MUST be defined on each host for one HIP
+   association; one for outgoing data and another one for incoming data.
+
+   The initiator MUST use UDP destination port 50500 for all UDP-
+   encapsulated ESP packets it sends.  It MAY also use port 50500 as
+   source port or it MAY use a random source port.  If it uses a random
+   source port, it MUST listen for and accept arriving UDP-encapsulated
+   ESP packets on this port until the corresponding HIP association is
+   torn down.
+
+   The responder of a UDP-encapsulated IPsec BEET-mode ESP exchange MUST
+   use 50500 as the source port for all UDP-encapsulated ESP packets it
+   sends.  The destination port is the port it is receiving UDP
+   encapsulated ESP data from the initiator.
+
+   Both initiator and responder of a HIP association that uses the NAT
+   traversal mechanism as described in this draft MUST define BEET mode
+   with UDP encapsulation as IPsec mode for SA after a successful base
+   exchange.  The inner source address MUST be local HIT used during
+   base exchange and inner destination address MUST be HIT of the
+   respective peer.  The other parts of the SA are described in
+   individual sections.
+
+3.3.2.1.1.  Security Associations at the Initiator
+
+   The initiator of a UDP-encapsulated base exchange defines its
+   outbound SA as shown in Table 1
+
+   +--------------+----------------------------------------------------+
+   | Field        | Value                                              |
+   +--------------+----------------------------------------------------+
+   | Outer src    | Same local IP address from which the base exchange |
+   | address      | packets were transmitted                           |
+   | Outer dst    | Same peer IP address to which base exchange        |
+   | address      | packets were transmitted                           |
+   | UDP src port | Same port number as chosen for I2 packet in base   |
+   |              | exchange                                           |
+   | UDP dst port | Port 50500                                         |
+   +--------------+----------------------------------------------------+
+
+                     Table 1: Outbound SA at initiator
+
+   The initiator of a UDP-encapsulated base exchange defines its inbound
+   SA as shown in Table 2
+
+
+
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 12]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+   +--------------+----------------------------------------------------+
+   | Field        | Value                                              |
+   +--------------+----------------------------------------------------+
+   | Outer src    | Same peer IP address to which base exchange        |
+   | address      | packets were transmitted                           |
+   | Outer dst    | Same local IP address from which the base exchange |
+   | address      | packets were transmitted                           |
+   | UDP src port | Port 50500                                         |
+   | UDP dst port | Initiator MUST use the UDP source port it uses in  |
+   |              | the outbound SA here                               |
+   +--------------+----------------------------------------------------+
+
+                     Table 2: Inbound SA at initiator
+
+3.3.2.1.2.  Security Associations at the Responder
+
+   The responder of a UDP-encapsulated base exchange defines its
+   outbound SA shown in Table 3.
+
+   +-------------+-----------------------------------------------------+
+   | Field       | Value                                               |
+   +-------------+-----------------------------------------------------+
+   | Outer src   | Same local IP address from which the base exchange  |
+   | address     | packets were transmitted                            |
+   | Outer dst   | Peer IP address of the I2 packet received during    |
+   | address     | the base exchange                                   |
+   | UDP src     | Port 50500                                          |
+   | port        |                                                     |
+   | UDP dst     | Source UDP port of the I2 packet received from the  |
+   | port        | initiator during base exchange                      |
+   +-------------+-----------------------------------------------------+
+
+                     Table 3: Outbound SA at Responder
+
+   Similarly, the responder of a UDP-encapsulated base exchange defines
+   its inbound SA as shown in Table 4
+
+   +-------------+-----------------------------------------------------+
+   | Field       | Value                                               |
+   +-------------+-----------------------------------------------------+
+   | Outer src   | Source IP address of the I2 packet received from    |
+   | address     | the initiator during base exchange                  |
+   | Outer dst   | Same local IP address from which the base exchange  |
+   | address     | packets were transmitted                            |
+   | UDP src     | Source UDP port of the I2 packet received from the  |
+   | port        | initiator during base exchange                      |
+
+
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 13]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+   | UDP dst     | Port 50500                                          |
+   | port        |                                                     |
+   +-------------+-----------------------------------------------------+
+
+                     Table 4: Inbound SA at responder
+
+3.3.3.  Use of the Rendezvous Service when only the Initiator Is Behind
+        NAT
+
+   The rendezvous extensions for HIP without NAT traversal have been
+   defined in [rvs].  This section addresses only the scenario when a
+   HIP node from behind NAT uses rendezvous service to contact another
+   HIP node which is in public addressable network.  The described
+   mechanism does not work with symmetric NATs.
+
+   A rendezvous server MUST listen on UDP port number 50500 for incoming
+   UDP encapsulated I1 packets in order to support NAT traversal and
+   relay them to registered rendezvous clients.
+
+   The rendezvous registration between RVS and a rendezvous client
+   located in a public network is described in [rvs].  When a HIP node
+   from behind NAT tries to reach a rendezvous client through RVS, it
+   sends an UDP encapsulated I1 packet on port 50500 to the RVS.  The
+   RVS MUST check the UDP header checksum of the incoming packet, and if
+   found incorrect, RVS MUST discard the packet.  The RVS relays the
+   inbound I1 packets to the registered rendezvous client.  The RVS
+   relays the I1 from its own IP address to the rendezvous client
+   address.  Also, the IP checksum MUST be recalculated.  RVS should
+   discard the UDP header.  RVS MUST append a FROM_NAT parameter
+   (Figure 3) containing the original source IP address and source UDP
+   port number that was present in the incoming UDP encapsulated I1
+   packet.  The FROM_NAT parameter MUST be integrity protected by an
+   RVS_HMAC as described in [rvs].  RVS MUST compute the checksum of the
+   I1 packet.  Once this is completed, RVS relays the packet to the
+   corresponding rendezvous client.
+
+   The rendezvous client (i.e. the responder) MUST validate any RVS_HMAC
+   parameter present in the I1.  If an RVS_HMAC parameter failed to
+   verify, the packet MUST be dropped.  When the responder replies to
+   the I1 relayed by RVS, it MUST append a VIA_RVS parameter to the R1
+   as described in [rvs].  In addition, it MUST send the R1 UDP
+   encapsulated.  The destination port MUST be the same as the port
+   number contained in the FROM_NAT parameter.  The source port MUST be
+   50500.  The processing of R1 and onwards at the initiator is
+   described in [rvs].
+
+
+
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 14]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+                                        +-------+
+                               +--(2)-->|       |------(3)------+
+                               |        |  RVS  |               |
+                     +----+    |        |       |               |
+                     |    |    |        +-------+               V
+      +---+          |    |    |                              +---+
+      |   |---(1)--->|    |----+                              |   |
+      |   |          | N  |                                   |   |
+      |   |<---(5)---| A  |<----------------(4)---------------|   |
+      | I |          | T  |                                   | R |
+      |   |---(6)--->|    |-----------------(7)-------------->|   |
+      |   |          |    |                                   |   |
+      |   |<---(9)---|    |<----------------(8)---------------|   |
+      +---+          +----+                                   +---+
+
+      1. IP(I, RVS)   UDP(I-rand, 50500)  I1(HIT-I, HIT-R)
+      2. IP(NAT, RVS) UDP(NAT-P, 50500)   I1(HIT-I, HIT-R)
+      3. IP(RVS, R)   I1(HIT-I, HIT-R, FROM_NAT:[NAT,NAT-P], RVS_HMAC)
+      4. IP(R, NAT)   UDP(50500, NAT-P)  R1(HIT-R, HIT-I, VIA_RVS)
+      5. IP(R, I)     UDP(50500, I-rand) R1(HIT-R, HIT-I, VIA_RVS)
+      6. IP(I, R)     UDP(I-rand, 50500) I2(HIT-I, HIT-R)
+      7. IP(NAT, R)   UDP(NAT-P, 50500)  I2(HIT-I, HIT-R)
+      8. IP(R, NAT)   UDP(50500, NAT-P)  R2(HIT-R, HIT-I)
+      9. IP(R, I)     UDP(50500, I-rand) R2(HIT-R, HIT-I)
+
+      I:       IP of Initiator
+      R:       IP of Responder
+      RVS:     IP of RVS
+      NAT:     Public IP of NAT
+      NAT-P:   NAT Mangled Port
+      I-rand:  Random Port Number - Chosen by initiator
+      HIT-I:   Initiator's HIT
+      HIT-R:   Responder's HIT
+
+
+   Figure 7: Example of a UDP-encapsulated HIP base exchange Through RVS
+    (initiator behind a NAT, responder and RVS on the public Internet).
+
+3.4.  Responder Behind NAT
+
+   This section discusses mechanisms to reach a HIP responder that is
+   located behind a NAT.  This section assumes that the initiator is
+   located on publicly addressable network.  The initiator contacts the
+   responder through an RVS server.
+
+
+
+
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 15]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+3.4.1.  Rendezvous Client Registration From Behind NAT
+
+   [rvs] defines the rendezvous client registration when the rendezvous
+   client is present in publicly addressable network.  In this section,
+   an extension to the rendezvous client registration is defined for the
+   case when the rendezvous client is behind a NAT.
+
+   A node behind a NAT MUST first register to the RVS when it going to
+   act as a responder for some other nodes.  The node (i.e. rendezvous
+   client) performs a base exchange with the RVS over UDP as described
+   in Section 3.3 by sending I1 UDP encapsulated and 50500 as
+   destination port number.  RVS sends REG_INFO parameter in R1 over UDP
+   to which rendezvous client replies with REG_REQ in I2 which is also
+   sent over UDP.  If RVS grants service to the rendezvous client, it
+   MUST store the source IP address and source port number of the I2 UDP
+   packet that it had received from the rendezvous client during base
+   exchange.  The source IP address belongs to the NAT and the source
+   port number is the NAT mangled port.  RVS then replies with REG_RESP
+   in R2 over UDP.  If the registration process results in a successful
+   REG_RESP, the rendezvous client MUST send NAT keepalives
+   (Section 3.1.2) to keep the mapping in the NAT with the RVS open.
+   The NAT keepalives sent from rendezvous client to the RVS MUST have
+   the same source port as the I2 packet.
+
+   When the RVS gets an I1 packet from a HIP node to be relayed to the
+   successfully registered rendezvous client behind NAT, RVS MUST relay
+   the I1 over UDP with the destination port as the one stored during
+   registration.  This process is illustrated in Section 3.4.2.
+
+
+                       +----+
+                       |    |                              +-------+
+       +---+           |    |     UDP-I1  sport:p1         |       |
+       |RVS|---------->|    |----------------------------->|       |
+       | C |           | N  |     UDP-R2(REG_INFO)         |       |
+       | L |<----------| A  |<-----------------------------|   R   |
+       | I |           | T  |                              |   V   |
+       | E |           |    |     UDP-I2(REG_REQ) sport:P2 |   S   |
+       | N |---------->|    |----------------------------->|       |
+       | T |<----------|    |<-----------------------------|       |
+       +---+           +----+     UDP-R2(REG_RES)          +-------+
+
+       RVS Stores P2 corresponding to I's HIT
+
+
+   Figure 8: UDP-encapsulated Rendezvous Client Registration (rendezvous
+             client behind a NAT, RVS on the public Internet).
+
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 16]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+3.4.2.  NAT Traversal of HIP Control Traffic
+
+   This section describes the details of enabling NAT traversal for base
+   exchange packets [I-D.ietf-hip-base] through UDP encapsulation, for
+   the case when the HIP initiator is on publicly addressable network
+   and the HIP responder is behind NAT.  The process is illustrated in
+   Figure 9.
+
+   Before the HIP base exchange starts, the responder of the HIP base
+   exchange MUST have completed a successful rendezvous client
+   registration using the scheme defined in Section 3.4.1.
+
+   The initiator of the HIP base exchange sends a plain I1 packet
+   (without UDP encapsulation) to RVS as described in [rvs].  The RVS
+   relays the inbound I1 packet to the registered rendezvous client.  If
+   rendezvous client registration was not established over UDP, it
+   follows the procedures for relaying I1 as described in [rvs].  If the
+   rendezvous client registration was established over UDP, the RVS MUST
+   follow the mechanism to relay the I1 as described here.
+
+   To relay the I1 packet, RVS SHOULD zero the HIP header checksum from
+   the I1 packet.  RVS must add a FROM parameter, as described in [rvs],
+   which contains the IP address of HIP initiator.  The FROM parameter
+   is integrity protected by a RVS_HMAC as described in [rvs].  RVS
+   replaces the destination IP address in the IP header of the packet
+   with IP that it had stored during the rendezvous client registration
+   (which is the IP address of the outermost NAT behind which rendezvous
+   client is located).  It MUST then encapsulate the I1 packet within
+   UDP.  The source port in the UDP header MUST be 50500 and the
+   destination port MUST be the same as the source port number of the I2
+   packet which it had stored during the registration process.  RVS then
+   recomputes the IP header checksum and sends the packet.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 17]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+                        +-------+
+                 +----->|       |-----+
+                 |      |  RVS  |     |
+                 |      |       |     |
+                 |      +-------+     |           +----+
+   +---+         |                    |           |    |          +---+
+   |   |---(1)---+                    +----(2)--->|    |---(3)--->|   |
+   |   |                                          | N  |          |   |
+   |   |<------------------(5)--------------------| A  |<--(4)----|   |
+   | I |                                          | T  |          | R |
+   |   |-------------------(6)------------------->|    |---(7)--->|   |
+   |   |                                          |    |          |   |
+   |   |<------------------(9)--------------------|    |<--(8)----|   |
+   +---+                                          +----+          +---+
+
+   1. IP(I, RVS)                      I1( HIT-I, HIT-R)
+   2. IP(RVS, NAT) UDP(50500, P)      I1(HIT-I, HIT-R, FROM:I, RVS_HMAC)
+   3. IP(RVS, R)   UDP(50500, R-rnd2) I1(HIT-I, HIT-R, FROM:I, RVS_HMAC)
+   4. IP(R, I)     UDP(R-rand, 50500) R1(HIT-R, HIT-I, VIA_RVS_NAT)
+   5. IP(NAT, I)   UDP(NAT-P, 50500)  R1(HIT-R, HIT-I, VIA_RVS_NAT)
+   6. IP(I, NAT)   UDP(50500, NAT-P)  I2(HIT-I, HIT-R)
+   7. IP(I, R)     UDP(50500, R-rand) I2(HIT-I, HIT-R)
+   8. IP(R, I)     UDP(R-rand, 50500) R2(HIT-R, HIT-I)
+   9. IP(NAT, I)   UDP(NAT-P, 50500)  R2(HIT-R, HIT-I)
+
+
+   I:      IP of Initiator
+   R:      IP of Responder
+   RVS:    IP of RVS
+   NAT:    Public IP of NAT
+   NAT-P:  NAT Mangled Port for base exchange
+   P:      NAT Mangled Port for Rendezvous Client Registration
+   R-rand: Random Port Number - Chosen by responder
+   R-rnd2: Random Port Number chosen during
+           rendezvous client registration
+   HIT-I:  Initiator's HIT
+   HIT-R:  Responder's HIT
+
+
+
+     Figure 9: UDP-encapsulated HIP base exchange (initiator on public
+                    Internet, responder behind a NAT).
+
+   The relayed I1 packet travels from RVS to the NAT.  The NAT changes
+   the destination IP address of the UDP encapsulated I1 packet, and the
+   destination port number in the UDP header.  The responder accepts the
+   packet from the RVS and processes it according to [rvs].  The
+   resulting R1 must be encapsulated within UDP.  It is RECOMMENDED that
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 18]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+   the responder uses 50500 as source port number, but it MAY choose a
+   random port number.  The destination port number MUST be 50500.  The
+   destination address in the IP header MUST be the same as one
+   specified in the FROM parameter of the relayed I1 packet.
+
+   The initiator MUST listen on port 50500 and it receives the UDP
+   encapsulated R1.  After verifying the HIP packet, it concludes that
+   the responder is behind a NAT because the packet was UDP
+   encapsulated.  The initiator processes the R1 control packet
+   according to [I-D.ietf-hip-base] and replies using I2 that is UDP
+   encapsulated.  The addresses and ports are derived from the received
+   R1.
+
+   The NAT translates and forwards the UDP encapsulated I2 packet to the
+   responder.  The resulting R2 packet is also UDP encapsulated using
+   the address and port information from the received I2 packet.
+
+3.4.3.  NAT Traversal of HIP Data Traffic
+
+   After a successful base exchange, both of the HIP nodes have all the
+   parameters with them needed to establish UDP BEET mode Security
+   Association.  The following section describe inbound and outbound
+   security associations at initiator and responder.
+
+3.4.3.1.  Security Associations at the Initiator
+
+   The initiator of a base exchange defines its outbound SA as shown in
+   Table 5
+
+   +--------------+----------------------------------------------------+
+   | Field        | Value                                              |
+   +--------------+----------------------------------------------------+
+   | Outer src    | Same local IP address from which the base exchange |
+   | address      | packets were transmitted                           |
+   | Outer dst    | Same peer IP address from which R2 packet was      |
+   | address      | received during base exchange                      |
+   | UDP src port | Port 50500                                         |
+   | UDP dst port | Source port of incoming R2 packet during base      |
+   |              | exchange                                           |
+   +--------------+----------------------------------------------------+
+
+                     Table 5: Outbound SA at initiator
+
+   The initiator of a base exchange defines its inbound SA as shown in
+   Table 6
+
+
+
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 19]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+   +--------------+----------------------------------------------------+
+   | Field        | Value                                              |
+   +--------------+----------------------------------------------------+
+   | Outer src    | Same peer IP address from which R2 packet was      |
+   | address      | received during base exchange                      |
+   | Outer dst    | Same local IP address from which the base exchange |
+   | address      | packets were transmitted                           |
+   | UDP src port | Source port of incoming R2 packet during base      |
+   |              | exchange                                           |
+   | UDP dst port | Port 50500                                         |
+   +--------------+----------------------------------------------------+
+
+                     Table 6: Inbound SA at initiator
+
+3.4.3.2.  Security Associations at the Responder
+
+   The responder of a UDP-encapsulated base exchange defines its
+   outbound SA shown in Table 7.
+
+   +--------------+----------------------------------------------------+
+   | Field        | Value                                              |
+   +--------------+----------------------------------------------------+
+   | Outer src    | Same local IP address from which the base exchange |
+   | address      | packets were transmitted                           |
+   | Outer dst    | Same peer IP as that used during base exchange     |
+   | address      |                                                    |
+   | UDP src port | Same as source port chosen during base exchange    |
+   | UDP dst port | Port 50500                                         |
+   +--------------+----------------------------------------------------+
+
+                     Table 7: Outbound SA at Responder
+
+   Similarly, the responder of a UDP-encapsulated base exchange defines
+   its inbound SA as shown in Table 8
+
+   +--------------+----------------------------------------------------+
+   | Field        | Value                                              |
+   +--------------+----------------------------------------------------+
+   | Outer src    | Source peer IP address as used in base exchange    |
+   | address      |                                                    |
+   | Outer dst    | Same local IP address from which the base exchange |
+   | address      | packets were transmitted                           |
+   | UDP src port | Port 50500                                         |
+   | UDP dst port | Same as source port chosen during base exchange    |
+   +--------------+----------------------------------------------------+
+
+                     Table 8: Inbound SA at responder
+
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 20]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+3.5.  Both Hosts Behind NAT
+
+   This section describe the details of enabling NAT traversal for HIP
+   control and ESP data traffic, such as the base exchange
+   [I-D.ietf-hip-base], through UDP encapsulation, for the case when the
+   HIP initiator and the HIP responder are both behind two separate
+   NATs.  The described mechanism applies also when the hosts are behind
+   the same NAT but may result in inefficient routing paths, unless the
+   countermeasures described in section Section 2 are followed.  The
+   main limitation of this approach is that it does not work with
+   symmetric NATs.
+
+   This section uses the rendezvous mechanisms described in
+   Section 3.3.3 and Section 3.4.1.  This achieves the goal by combining
+   techniques described in Section 3.3 and Section 3.4.
+
+3.5.1.  NAT Traversal of HIP Control Traffic
+
+   This section describes traversal mechanism for HIP control traffic in
+   the situation when both the initiator and the responder are behind
+   NATs.  Both hosts MUST first detect using external mechanism that
+   they are located behind NAT.  The RVS MUST be located on publicly
+   addressable network.  Before initiator begins the base exchange, the
+   responder MUST have completed a successful rendezvous client
+   registration with the RVS using the mechanism described in
+   Section 3.4.1.
+
+   Initiator of the HIP base exchange starts the base exchange by
+   sending an UDP encapsulated I1 packet to RVS.  The UDP packet MUST
+   have destination port number 50500 and initiator is RECOMMENDED to
+   use 50500 as source port number but it MAY as well pick a random port
+   number.  RVS MUST listen on UDP port 50500.  RVS MUST accept the
+   packet as described in Section 3.3.3.  As there has been a successful
+   rendezvous client registration between the responder and the RVS as
+   described in Section 3.4.1, the RVS knows the port number which it
+   can use to communicate with the responder through the NAT.  RVS MUST
+   add a FROM_NAT parameter to the I1 packet.  The FROM_NAT parameter
+   contains the source address of the I1 packet, which is effectively
+   the address of the outermost NAT of the initiator.  The RVS copies
+   the source port of the UDP encapsulated I1 packet into the port
+   number field of the FROM_NAT parameter.  The FROM_NAT parameter is
+   integrity protected by an RVS_HMAC as described in [rvs].  RVS MUST
+   zero the checksum of the I1 packet.  It MUST replace the destination
+   IP address of the I1 packet by the one it had stored earlier during
+   rendezvous client registration.  It MUST replace source IP address of
+   I1 packet with its own address.  UDP source port of the relayed I1
+   packet is MUST be 50500 and destination port MUST be the same as one
+   it had stored during the client rendezvous registration.  IP header
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 21]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+   checksum MUST be recomputed.  RVS SHOULD then relay the I1 packet.
+
+   The responder receives the relayed I1 packet and proceeds with the
+   base exchange as described in Section 3.4.  The initiator MUST
+   complete the base exchange as described in Section 3.3.3.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 22]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+                                 +-------+
+                        +--(2)-->|       |--(3)--+
+                        |        |  RVS  |       |
+                +----+  |        |       |       |   +----+
+   +---+        |    |  |        +-------+       |   |    |        +---+
+   |   |--(1)-->|    |--+                        +-->|    |--(4)-->|   |
+   |   |        | N  |                               | N  |        |   |
+   |   |<--(7)--| A  |<-------------(6)--------------| A  |<--(5)--|   |
+   | I |        | T  |                               | T  |        | R |
+   |   |--(8)-->| -  |--------------(9)------------->| -  |--(10)->|   |
+   |   |        | I  |                               | R  |        |   |
+   |   |<-(13)--|    |<-------------(12)-------------|    |<-(11)--|   |
+   +---+        +----+                               +----+        +---+
+
+   1.  IP(I, RVS)       UDP(I-rand, 50500) I1(HIT-I, HIT-R)
+   2.  IP(NAT-I, RVS)   UDP(P1, 50500)     I1(HIT-I, HIT-R)
+   3.  IP(RVS, NAT-R)   UDP(50500, P)
+                         I1(HIT-I, HIT-R, FROM_NAT:[NAT-I,P1], RVS_HMAC)
+   4.  IP(RVS, R)       UDP(50500, RVS-P)
+                         I1(HIT-I, HIT-R, FROM_NAT:[NAT-I,P1], RVS_HMAC)
+   5.  IP(R, NAT-I)     UDP(R-rand, P1)    R1(HIT-R, HIT-I, VIA_RVS_NAT)
+   6.  IP(NAT-R, NAT-I) UDP(P2, P1)        R1(HIT-R, HIT-I, VIA_RVS_NAT)
+   7.  IP(NAT-R, I)     UDP(P2, I-rand)    R1(HIT-R, HIT-I, VIA_RVS_NAT)
+   8.  IP(I, NAT-R)     UDP(I-rand, P2)    I2(HIT-I, HIT-R)
+   9.  IP(NAT-I, NAT-R) UDP(P1, P2)        I2(HIT-I, HIT-R)
+   10. IP(NAT-I, R)     UDP(P1, R-rand)    I2(HIT-I, HIT-R)
+   11. IP(R, NAT-I)     UDP(R-rand, P1)    R2(HIT-R, HIT-I)
+   12. IP(NAT-R, NAT-I) UDP(P2, P1)        R2(HIT-R, HIT-I)
+   13. IP(NAT-R, I)     UDP(P2, I-rand)    R2(HIT-R, HIT-I)
+
+   I:       IP of Initiator
+   R:       IP of Responder
+   RVS:     IP of RVS
+   NAT-I:   Public IP of NAT-I
+   NAT-R:   Public IP of NAT-R
+   I-rand:  Random Port Number - Chosen by initiator
+   R-rand:  Random Port Number - Chosen by responder
+   RVS-P:   Random Port Number chosen during
+            rendezvous client registration
+   P1:      NAT Mangled Port by NAT-I for Base Exchange
+   P2:      NAT Mangled Port by NAT-R for Base Exchange
+   P:       NAT Mangled Port for Rendezvous Client Registration
+   HIT-I:   Initiator's HIT
+   HIT-R:   Responder's HIT
+
+       Figure 10: UDP-encapsulated HIP base exchange (initiator and
+                responder behind a NAT, RVS on public IP).
+
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 23]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+3.5.2.  NAT Traversal of HIP Data Traffic
+
+   After a successful base exchange, both the HIP nodes have all the
+   parameters with them to establish UDP BEET mode Security Association.
+   The following section describe inbound and outbound security
+   associations at initiator and responder.
+
+3.5.2.1.  Security Associations at the Initiator
+
+   The initiator of a base exchange defines its outbound SA as shown in
+   Table 9
+
+   +--------------+----------------------------------------------------+
+   | Field        | Value                                              |
+   +--------------+----------------------------------------------------+
+   | Outer src    | Same local IP address from which the base exchange |
+   | address      | packets were transmitted                           |
+   | Outer dst    | Same peer IP address from which R2 packet was      |
+   | address      | received during base exchange                      |
+   | UDP src port | Same as the port number chosen to send I2 during   |
+   |              | base exchange                                      |
+   | UDP dst port | Source port of incoming R2 packet during base      |
+   |              | exchange                                           |
+   +--------------+----------------------------------------------------+
+
+                     Table 9: Outbound SA at initiator
+
+   The initiator of a base exchange defines its inbound SA as shown in
+   Table 10
+
+   +--------------+----------------------------------------------------+
+   | Field        | Value                                              |
+   +--------------+----------------------------------------------------+
+   | Outer src    | Same peer IP address from which R2 packet was      |
+   | address      | received during base exchange                      |
+   | Outer dst    | Same local IP address from which the base exchange |
+   | address      | packets were transmitted                           |
+   | UDP src port | Source port of incoming R2 packet during base      |
+   |              | exchange                                           |
+   | UDP dst port | Same as the port number chosen to send I2 during   |
+   |              | base exchange                                      |
+   +--------------+----------------------------------------------------+
+
+                     Table 10: Inbound SA at initiator
+
+
+
+
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 24]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+3.5.2.2.  Security Associations at the Responder
+
+   The responder of a UDP-encapsulated base exchange defines its
+   outbound SA shown in Table 11.
+
+   +--------------+----------------------------------------------------+
+   | Field        | Value                                              |
+   +--------------+----------------------------------------------------+
+   | Outer src    | Same local IP address from which the base exchange |
+   | address      | packets were transmitted                           |
+   | Outer dst    | Same peer IP as that used during base exchange     |
+   | address      |                                                    |
+   | UDP src port | Same as source port chosen send R2 during base     |
+   |              | exchange                                           |
+   | UDP dst port | Same as source port number of I2 packet during     |
+   |              | base exchange                                      |
+   +--------------+----------------------------------------------------+
+
+                    Table 11: Outbound SA at Responder
+
+   Similarly, the responder of a UDP-encapsulated base exchange defines
+   its inbound SA as shown in Table 12
+
+   +--------------+----------------------------------------------------+
+   | Field        | Value                                              |
+   +--------------+----------------------------------------------------+
+   | Outer src    | Source peer IP address as used in base exchange    |
+   | address      |                                                    |
+   | Outer dst    | Same local IP address from which the base exchange |
+   | address      | packets were transmitted                           |
+   | UDP src port | Same as source Port received from I2 during base   |
+   |              | exchange                                           |
+   | UDP dst port | Same as source port used to send R2 during base    |
+   |              | exchange                                           |
+   +--------------+----------------------------------------------------+
+
+                     Table 12: Inbound SA at responder
+
+3.6.  NAT Keep-Alives
+
+   Typically, NATs cache an established binding and time it out if they
+   have not used it to relay traffic for a given period of time.  This
+   timeout is different for different NAT implementations.  The BEHAVE
+   working group is discussing recommendations for standardized timeout
+   values.  To prevent NAT bindings that support the traversal of UDP-
+   encapsulated HIP traffic from timing out during times when there is
+   no control or data traffic, HIP hosts SHOULD send periodic keep-alive
+   messages.
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 25]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+   Typically, only outgoing traffic acts refreshes the NAT port state
+   for security reasons.  Consequently, both hosts SHOULD send periodic
+   keep-alives for the UDP channel of all their established HIP
+   associations if the channel has been idle for a specific period of
+   time.
+
+   For the UDP channel, keep-alives MUST be UDP-encapsulated HIP UPDATE
+   packets as defined in Section 3.1.2.  The packets MUST use the same
+   source and destination ports and IP addresses as the corresponding
+   UDP tunnel.  The default keep-alive interval for control channels
+   MUST be 20 seconds.  The responder of the HIP association should just
+   discard the keep-alives.
+
+3.7.  HIP Mobility
+
+   After a successful base exchange, either host can change its network
+   location using the mechanisms defined in [I-D.ietf-hip-mm].  This
+   section describes such mobility mechanisms in the presence of NATs.
+   However, double jump scenario, where both hosts move simultaneously,
+   is excluded.
+
+   The mobile node can change its location as described in Table 13.
+
+   +----+---------------------------+----------------------------------+
+   | No | From network              | To network                       |
+   +----+---------------------------+----------------------------------+
+   | 1  | Behind NAT                | Publicly Addressable Network     |
+   | 2  | Publicly Addressable      | Behind NAT                       |
+   |    | Network                   |                                  |
+   | 3  | Behind NAT-A              | Stays behind NAT-A, but          |
+   |    |                           | different IP                     |
+   | 4  | Behind NAT-A              | Behind NAT-B                     |
+   | 5  | Publicly Addressable      | Publicly Addressable Network     |
+   |    | Network                   |                                  |
+   +----+---------------------------+----------------------------------+
+
+                   Table 13: End host mobility scenarios
+
+   The corresponding peer node can be located as follows Table 14
+
+
+
+
+
+
+
+
+
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 26]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+             +----+------------------------------------------+
+             | No | Peer Node network                        |
+             +----+------------------------------------------+
+             | A  | Publicly Addressable Network With RVS    |
+             | B  | Publicly Addressable Network Without RVS |
+             | C  | Behind NAT With RVS                      |
+             | D  | Behind NAT Without RVS                   |
+             +----+------------------------------------------+
+
+                   Table 14: Peer host Network Scenarios
+
+   The NAT traversal mechanisms may not work when the corresponding node
+   is behind a NAT without RVS (case D), except when the mobile node
+   stays behind the same cone NAT (case 3D).
+
+   When a host changes its location, it SHOULD detect the presence of
+   NATs along the new paths to its peers using some external mechanism
+   before sending any UPDATE messages.  Alternatively, it MAY use some
+   heuristics to conclude that it is behind a NAT rather than incur the
+   latency of running NAT detection first.
+
+   The mobile node MUST send the UPDATE packet through the corresponding
+   node's RVS if it has one, in addition to sending it to the
+   corresponding node directly.  The mobile node encapsulates the UPDATE
+   packet within UDP only if it is behind a NAT.  The corresponding node
+   MUST reply using UDP if the packet was encapsulated within UDP, or
+   without UDP if the UDP header was not present in the UPDATE packet.
+
+   The rendezvous server UPDATE relaying process is similar to I1.  The
+   rendezvous server MUST add FROM parameter if it gets a UPDATE packet
+   without UDP encapsulation, or a FROM_NAT parameter if the UPDATE
+   packet it receives is UDP encapsulated and MUST protect the packet
+   with HMACs.  Upon replying to the UPDATE, the corresponding node MUST
+   add a VIA_RVS (or VIA_RVS_NAT) parameter to the reply.
+
+   When the UDP encapsulation for NAT traversal is used, private IP
+   addresses should be filtered out from the LOCATOR parameter in the
+   HIP control packets.  Exposing private addresses may impose privacy
+   related problems.
+
+3.8.  HIP Multihoming
+
+   Multiple security associations can exists between the same hosts.
+   They may be connected through several paths, some of which may
+   include a NAT and others may not.  Implementations that support
+   multihoming MUST support concurrent HIP associations between the same
+   host pair in a way that allows some of them to use UDP encapsulation
+   while others use basic HIP.  Implementations MAY distinguish HIP
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 27]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+   associations based on the SPI instead of a HIT pair for this purpose.
+
+3.9.  Firewall Traversal
+
+   When the initiator or the responder of a HIP association is behind a
+   firewall, additional issues arise.
+
+   When the initiator is behind a firewall, the NAT traversal mechanisms
+   described in Section 3 depend on the ability to initiate
+   communication via UDP to destination port 50500 from arbitrary source
+   ports and to receive UDP response traffic from that port to the
+   chosen source port.
+
+   Most firewall implementations support "UDP connection tracking",
+   i.e., after a host behind a firewall has initiated a UDP
+   communication to the public Internet, the firewall relays UDP
+   response traffic in the return direction.  If no such return traffic
+   arrives for a specific period of time, the firewall stops relaying
+   the given IP address and port pair.  The mechanisms described in
+   Section 3 already enable traversal of such firewalls, if the keep-
+   alive interval used is less than the refresh interval of the
+   firewall.
+
+   If the initiator is behind a firewall that does not support "UDP
+   connection tracking", the NAT traversal mechanisms described in
+   Section 3 can still be supported, if the firewall allows permanently
+   inbound UDP traffic from port 50500 and destined to arbitrary source
+   IP addresses and UDP ports.
+
+   When the responder is behind a firewall, the NAT traversal mechanisms
+   described in Section 3 depend on the ability to receive UDP traffic
+   on port 50500 from arbitrary source IP addresses and ports.
+
+   The NAT traversal mechanisms described in Section 3 require that the
+   firewall - stateful or not - allow inbound UDP traffic to port 50500
+   and allow outbound UDP traffic to arbitrary UDP ports.  If necessary
+   for firewall traversal, ports reserved for IKE MAY be used for
+   initiating new connections, but the implementation MUST be able to
+   listen for UDP packets from port 50500.
+
+
+4.  Security Considerations
+
+   Section 5.1 of [RFC3948] describes a security issue for the UDP
+   encapsulation of standard IP tunnel mode when two hosts behind
+   different NATs have the same private IP address and initiate
+   communication to the same responder in the public Internet.  The
+   responder cannot distinguish between the two hosts, because security
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 28]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+   associations are based on the same inner IP addresses.
+
+   This issue does not exist with the UDP encapsulation of IPsec BEET
+   mode as described in Section 3, because the responder use the HITs to
+   distinguish between different communication instances.
+
+
+5.  IANA Considerations
+
+   This section is to be interpreted according to [RFC2434].
+
+   This draft currently uses a UDP port in the "Dynamic and/or Private
+   Port" range, i.e., 50500.  Upon publication of this document, IANA is
+   requested to register two UDP ports and the RFC editor is requested
+   to change all occurrences of port 50500 to the port IANA has
+   registered.
+
+
+6.  Acknowledgements
+
+   The authors would like to thank Tobias Heer, Teemu Koponen, Juhana
+   Mattila, Jeffrey M. Ahrenholz, Thomas Henderson, Kristian Slavov,
+   Janne Lindqvist and Pekka Nikander for their comments on this
+   document.
+
+   [I-D.nikander-hip-path] presented some initial ideas for NAT
+   traversal of HIP communication.  This document describes
+   significantly different mechanisms that, among other differences, use
+   external NAT discovery and do not require encapsulation servers.
+
+   Lars Eggert and Martin Stiemerling are partly funded by Ambient
+   Networks, a research project supported by the European Commission
+   under its Sixth Framework Program.  The views and conclusions
+   contained herein are those of the authors and should not be
+   interpreted as necessarily representing the official policies or
+   endorsements, either expressed or implied, of the Ambient Networks
+   project or the European Commission.
+
+   Miika Komu is working for InfraHIP research group at Helsinki
+   Institute for Information Technology (HIIT).  The InfraHIP project is
+   funded by Tekes, Elisa, Nokia, The Finnish Defence Forces and
+   Ericsson.
+
+
+7.  References
+
+
+
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 29]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+7.1.  Normative References
+
+   [I-D.ietf-hip-base]
+              Moskowitz, R., "Host Identity Protocol",
+              draft-ietf-hip-base-05 (work in progress), March 2006.
+
+   [I-D.ietf-hip-esp]
+              Jokela, P., "Using ESP transport format with HIP",
+              draft-ietf-hip-esp-02 (work in progress), March 2006.
+
+   [I-D.ietf-hip-mm]
+              Nikander, P., "End-Host Mobility and Multihoming with the
+              Host Identity Protocol", draft-ietf-hip-mm-03 (work in
+              progress), March 2006.
+
+   [I-D.nikander-esp-beet-mode]
+              Melen, J. and P. Nikander, "A Bound End-to-End Tunnel
+              (BEET) mode for ESP", draft-nikander-esp-beet-mode-05
+              (work in progress), February 2006.
+
+   [RFC0768]  Postel, J., "User Datagram Protocol", STD 6, RFC 768,
+              August 1980.
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119, March 1997.
+
+   [RFC2434]  Narten, T. and H. Alvestrand, "Guidelines for Writing an
+              IANA Considerations Section in RFCs", BCP 26, RFC 2434,
+              October 1998.
+
+   [RFC4423]  Moskowitz, R. and P. Nikander, "Host Identity Protocol
+              (HIP) Architecture", RFC 4423, May 2006.
+
+   [rvs]      Laganier, J. and L. Eggert, "Host Identity Protocol (HIP)
+              Rendezvous Extension".
+
+7.2.  Informative References
+
+   [I-D.irtf-hiprg-nat]
+              Stiemerling, M., "NAT and Firewall Traversal Issues of
+              Host Identity Protocol (HIP)  Communication",
+              draft-irtf-hiprg-nat-02 (work in progress), May 2006.
+
+   [I-D.nikander-hip-path]
+              Nikander, P., "Preferred Alternatives for Tunnelling HIP
+              (PATH)", draft-nikander-hip-path-01 (work in progress),
+              March 2006.
+
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 30]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+   [I-D.srisuresh-behave-p2p-state]
+              Srisuresh, P., "State of Peer-to-Peer(P2P) Communication
+              Across Network Address  Translators(NATs)",
+              draft-srisuresh-behave-p2p-state-02 (work in progress),
+              March 2006.
+
+   [RFC2663]  Srisuresh, P. and M. Holdrege, "IP Network Address
+              Translator (NAT) Terminology and Considerations",
+              RFC 2663, August 1999.
+
+   [RFC3489]  Rosenberg, J., Weinberger, J., Huitema, C., and R. Mahy,
+              "STUN - Simple Traversal of User Datagram Protocol (UDP)
+              Through Network Address Translators (NATs)", RFC 3489,
+              March 2003.
+
+   [RFC3948]  Huttunen, A., Swander, B., Volpe, V., DiBurro, L., and M.
+              Stenberg, "UDP Encapsulation of IPsec ESP Packets",
+              RFC 3948, January 2005.
+
+
+Appendix A.  Document Revision History
+
+   To be removed upon publication
+
+   +------------+------------------------------------------------------+
+   | Revision   | Comments                                             |
+   +------------+------------------------------------------------------+
+   | schmitt-00 | Initial version.                                     |
+   | ietf-00    | Officially adopted as WG item. Solved issues         |
+   |            | 1-9,11,12                                            |
+   +------------+------------------------------------------------------+
+
+
+Authors' Addresses
+
+   Vivien Schmitt
+   NEC Network Laboratories
+   Kurfuerstenanlage 36
+   Heidelberg  69115
+   Germany
+
+   Phone: +49 6221 90511 0
+   Fax:   +49 6221 90511 55
+   Email: schmitt@netlab.nec.de
+   URI:   http://www.netlab.nec.de/
+
+
+
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 31]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+   Abhinav Pathak
+   IIT Kanpur
+   B204, Hall - 1, IIT Kanpur
+   Kanpur  208016
+   India
+
+   Phone: +91 9336 20 1002
+   Email: abhinav.pathak@hiit.fi
+   URI:   http://www.iitk.ac.in/
+
+
+   Miika Komu
+   Helsinki Institute for Information Technology
+   Tammasaarenkatu 3
+   Helsinki
+   Finland
+
+   Phone: +358503841531
+   Fax:   +35896949768
+   Email: miika@iki.fi
+   URI:   http://www.hiit.fi/
+
+
+   Lars Eggert
+   NEC Network Laboratories
+   Kurfuerstenanlage 36
+   Heidelberg  69115
+   Germany
+
+   Phone: +49 6221 90511 43
+   Fax:   +49 6221 90511 55
+   Email: lars.eggert@netlab.nec.de
+   URI:   http://www.netlab.nec.de/
+
+
+   Martin Stiemerling
+   NEC Network Laboratories
+   Kurfuerstenanlage 36
+   Heidelberg  69115
+   Germany
+
+   Phone: +49 6221 90511 13
+   Fax:   +49 6221 90511 55
+   Email: stiemerling@netlab.nec.de
+   URI:   http://www.netlab.nec.de/
+
+
+
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 32]
+
+Internet-Draft      HIP Extensions for NAT Traversal           June 2006
+
+
+Full Copyright Statement
+
+   Copyright (C) The Internet Society (2006).
+
+   This document is subject to the rights, licenses and restrictions
+   contained in BCP 78, and except as set forth therein, the authors
+   retain all their rights.
+
+   This document and the information contained herein are provided on an
+   "AS IS" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS
+   OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET
+   ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED,
+   INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE
+   INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED
+   WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+
+
+Intellectual Property
+
+   The IETF takes no position regarding the validity or scope of any
+   Intellectual Property Rights or other rights that might be claimed to
+   pertain to the implementation or use of the technology described in
+   this document or the extent to which any license under such rights
+   might or might not be available; nor does it represent that it has
+   made any independent effort to identify any such rights.  Information
+   on the procedures with respect to rights in RFC documents can be
+   found in BCP 78 and BCP 79.
+
+   Copies of IPR disclosures made to the IETF Secretariat and any
+   assurances of licenses to be made available, or the result of an
+   attempt made to obtain a general license or permission for the use of
+   such proprietary rights by implementers or users of this
+   specification can be obtained from the IETF on-line IPR repository at
+   http://www.ietf.org/ipr.
+
+   The IETF invites any interested party to bring to its attention any
+   copyrights, patents or patent applications, or other proprietary
+   rights that may cover technology that may be required to implement
+   this standard.  Please address the information to the IETF at
+   ietf-ipr@ietf.org.
+
+
+Acknowledgment
+
+   Funding for the RFC Editor function is provided by the IETF
+   Administrative Support Activity (IASA).
+
+
+
+
+
+Schmitt, et al.         Expires December 14, 2006              [Page 33]
+

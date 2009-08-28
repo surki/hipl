@@ -1,0 +1,36 @@
+The files in this directory are minimal, example configurations for the
+linux kernel. You should select the one that matches the kernel version,
+and modify it to suite your system! The kernel compilation process is
+documented in linux/README, but we give a brief HOWTO for the brave and
+impatient:
+
+% cp <CONFIG_FILE_NAME> ../linux/.config
+% cd ../linux
+% make oldconfig        # in case you have picked out an old config
+% make menuconfig       # modify the configuration according to your 
+                          needs!
+% make                  # build the kernel and modules
+% make modules_install  # install modules
+# su
+# cp arch/i386/boot/bzImage /boot/vmlinux-hip-2.6
+# cp System.map /boot/System.map-hip-2.6
+# <edit /etc/lilo.conf or grub to suite your needs>
+# reboot
+
+The example configuration files are used on a AMD 32 bit host with an
+IDE disk. The same configuration works also for a vmware virtual machine 
+that is run in the same host.
+
+The kernel provided in the HIPL software bundle is standard linux kernel
+(with some HIP modifications). For this reason, if you run into problems
+that are not HIP related, please consult the linux/README first before
+asking any questions on the HIPL mailing list. There are also many
+user forums out there in the Internet that may be helpful for
+general questions about linux kernel configuration.
+
+There is also a configuration derived from that used by Knoppix,
+i.e. it is the 2.6 .config from Knoppix 3.6 with the addition that
+IPv6 is compiled in and HIP is included.  This is provided since it is
+expected that the Knoppix config would work out of the box on many
+different kinds of systems.  This configuration has been tested with a
+remastered Knoppix on a couple of systems.

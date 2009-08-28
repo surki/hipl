@@ -1,0 +1,289 @@
+(This file is obsoleted? -Miika)
+
+Source changes between usagi patched kernel 2.4.18 and kernel in CVS
+
+cd ~/linux-2.4.18-usagi-20020312/net/ipv6
+diff -Nr --exclude=CVS . ~/hipl/linux/net/ipv6
+
+
+net/ipv6:
+---------
+
+* absproto/absproto_in.c
+
+Find the handler for the given protocol number.
+
+static inline struct absproto_info* absproto_find_handler(__u8 protocol):
+
+
+* absproto/absproto_init.c
+
+Absproto initialization, new protocol registration for IPv6, unregistering a protocol and cleanup.
+
+int absproto_register6(struct absproto_info* info)
+int absproto_unregister6(struct absproto_info* info) 
+static int absproto_init(void)
+static void absproto_cleanup(void)
+
+
+* absproto/absproto_out.c
+
+Outbound data header handling functions (make options, build header, push header)
+
+struct ipv6_txoptions *absproto_handler_make_opts (struct ipv6_txoptions *opt, 
+                                                   struct ipv6_txoptions *opt_space,
+                                                   struct flowi *fl)
+u8* absproto_handler_build_header(struct sk_buff *skb, struct ipv6_txoptions *opt, u8 *prev hdr)
+struct sk_buff* absproto_handler_push_header(struct sk_buff *skb, struct ipv6_txoptions *opt, u8 *nexthdr)
+void absproto_handler_free_opts(struct ipv6_txoptions *opt)
+#if 0 static struct sk_buff *esp_build_header(struct sk_buff *skb, struct sad_entry *sade, struct sock *sk)
+#if 0 void* *esp_outbound(struct sk_buff *skb, struct in6_addr *daddr, struct in6_addr *saddr, int *opt_len, int *nh_offset, struct sock* sk) 
+#if 0 struct sk_buff *esp_outbound_modify(struct sk_buff *skb, void *info)
+
+
+* absproto/fake/fake.c
+
+int fake_inbound(struct sk_buff **skb, int offset)
+void* fake_outbound(struct flowi *fl, struct absproto_data *bdata)
+struct sk_buff* fake_modify(struct sk_buff *skb, void *info)
+static int fake_init(void)
+static void fake_cleanup(void)
+
+
+* absproto/fake/trans_ah.c
+
+static int fake_parse_header(struct sk_buff *skb)
+int fake_inbound(struct sk_buff **skb, int offset)
+static struct sk_buff *fake_build_header(struct sk_buff *skb, char *sade, __u8 upper_protocol, struct sock *sk)
+void* fake_outbound(struct sk_buff *skb, struct in6_addr *daddr, struct in6_addr *saddr, int *opt_len, int *nh_offset, struct sock *sk, int *ret)
+static int fake_init(void)
+static void fake_cleanup(void)
+
+
+* absproto/hip/hip.c
+
+static void hip_cookie_make(struct hip_birthday_cookie *bc)
+#if 0 static int hip_cookie_verify(...)
+static u32 hip_get_free_spi(void)
+static struct hip_common* hip_build_r1(struct in6_addr *lhit)
+static int hip_add_r1(struct in6_addr *lhit)
+int hip_add_lhi(struct hip_lhid *hi)
+int hip_del_lhi(struct hip_lhid *hi)
+static int hip_get_lhi_hit(struct in6_addr *hit, int type)
+static int hip_sdb_init(void)
+static void hip_sdb_uninit(void)
+static struct hip_sdb_state *hip_sdb_find(struct in6_addr *hit) 
+static struct hip_sdb_state *hip_sdb_find_spi(u32 spi)
+static struct hip_sdb_state *hip_sdb_add(void) 
+int hip_len_pad(int len)
+static struct hip_tlv_common* hip_tlv_sane(struct hip_tlv_common *cur, int min_len, int max_len, struct hip_common *start, unsigned int *prev_type, int type_num)
+struct hip_common* hip_get_r1(void)
+void hip_uninit_r1(void)
+int hip_init_r1(void)
+static int hip_getfrag(const void *data, struct in6_addr *saddr, char *buff, unsigned int offset, unsigned int len)
+static int hip_controls_sane(u16 controls, u16 legal)
+static int hip_csum_verify(struct sk_buff *skb)
+static int hip_csum_send(struct in6_addr *peer_addr, struct hip_common* buf)
+int hip_handle_i1(struct sk_buff *skb)
+void hip_handle_r1_finish(struct usd_context *ctx)
+int hip_handle_r1(struct hip_sdb_state *entry, struct sk_buff *skb) 
+void hip_handle_i2_finish(struct usd_context *ctx)
+int hip_handle_i2(struct sk_buff *skb) 
+int hip_handle_r2(struct hip_sdb_state *entry, struct sk_buff *skb) 
+int hip_inbound(struct sk_buff **skb, int offset)
+static int hip_send_i1(struct hip_sdb_state *entry)
+int hip_exchange(struct sockaddr *uaddr, int addr_len)
+static int hip_sock_init(void)
+void hip_sock_uninit(void)
+void hip_add_flowlabel(struct flowi *fl, struct in6_addr *src, struct in6_addr **first_hop)
+void hip_handle_flowlabel(struct ipv6hdr *hdr)
+int hip_get_addr(struct in6_addr *hit, struct in6_addr *addr)
+int hip_get_hits(struct in6_addr *hitd, struct in6_addr *hits)
+static int hip_init(void)
+static void hip_cleanup(void)
+
+
+* absproto/hip/ioctl.c
+
+static inline void hip_print_hit(struct in6_addr *hit)
+int hip_ioctl(struct inode *in, struct file *file, unsigned int cmd, unsigned long arg)
+int hip_ioctl_init(void)
+void hip_ioctl_deinit(void)
+
+
+* absproto/hip/usd.c
+
+void usd_r1_finish(struct usd_context *ctx)
+void usd_r1_start(struct usd_context *ctx, void (*finish_callback)(struct usd_context* ctx))
+
+
+* absproto/spd/spdm.c
+
+struct sad_entry *spd_get_sa_out6(int alg, struct in6_addr *daddr)
+struct sad_entry *spd_get_sa_in6(int alg, struct in6_addr *daddr, __u32 spi) 
+static struct sad_entry *spd_get_new_sade(void)
+static int spd_setup_esp(struct sad_entry *sade, int enc_alg, char* key)
+int spd_add_sa6(int algorithm, int dir, struct in6_addr *addr, __u32 spi, int antir,
+                int auth_alg, char *auth_key, int auth_key_len, int enc_alg)
+static void spd_free_sads_entry(int i)
+static int spd_init(void)
+static void spd_cleanup(void)
+
+
+* absproto_glue.c
+* af_inet6.c
+
+* exthdrs.c
+
+muutoksia: int inet6_register_new_proto(u8 protocol, int (*inbound_handler)(struct sk_buff **, int offset))
+
+void ipv6_push_frag_opts(struct sk_buff *skb, struct ipv6_txoptions *opt, u8 *proto)
+now void function
+
+* hip_glue.c
+* ip6_input.c
+
+optimizations
+
+* ip6_output.c
+
+optimizations
+
+* route.c
+
+optimizations
+
+* tcp_ipv6.c 
+
+optimizations
+
+* udp.c
+
+debug msgs
+
+
+include/net:
+
+cd ~/linux-2.4.18-usagi-20020312/include/net/
+diff -Nr --exclude=CVS . ~/hipl/linux/include/net
+
+* absproto.h
+* absproto_glue.h
+* hip.h
+* hip_glue.h
+* ipv6.h
+* pfkeyv2.h
+* spdm.h
+* usd.h 
+
+structs and defines
+
+
+
+
+Flowcharts:
+
+send I1:
+tcp_v6_connect():
+
+HIP_CALLPROC(hip_exchange)(uaddr, addr_len)
+
+-> hip_exchange(uaddr, addr_len)
+  - hip_is_hit
+  - if hip_sdb_find
+    - hip_sdb_add
+    - hip_get_lhi_hit
+    - ipv6_addr_copy
+    - hip_send_i1
+      - hip_csum_send
+        - csum_* and ip6_build_xmit
+
+HIP_CALLPROC(hip_get_hits)(&np->daddr, &np->rcv_saddr);
+
+Check hit. If there isn't an entry in SDB then add a new entry and
+send I1.
+
+
+receive I1, send R1:
+-> ip6_input
+  - ip6_input_finish
+    - hip_handle_flowlabel
+    - ipv6_parse_exthdrs
+      - hip_inbound
+        - hip_handle_i1
+          - hip_get_r1
+          - hip_csum_send
+            - csum_* and ip6_build_xmit
+
+
+receive R1, send I2:
+
+-> ip6_input
+  - ip6_input_finish
+    - hip_handle_flowlabel
+    - ipv6_parse_exthdrs
+      - hip_inbound
+        - hip_handle_r1
+          - usd_r1_start(ctx, hip_handle_r1_finish)
+            - hip_handle_r1_finish
+              - hip_cookie_make
+              - hip_csum_send
+                - csum_* and ip6_build_xmit
+
+
+receive I2, send R2:
+
+-> ip6_input
+  - ip6_input_finish
+    - hip_handle_flowlabel
+    - ipv6_parse_exthdrs
+      - hip_inbound
+        - hip_handle_i2
+        - hip_handle_i2_finish
+          - hip_csum_send
+            - csum_* and ip6_build_xmit
+
+
+receive R2:
+
+-> ip6_input
+  - ip6_input_finish
+    - hip_handle_flowlabel
+    - ipv6_parse_exthdrs
+      - hip_inbound
+        - hip_handle_r2
+          - todo US: Verify signature
+
+
+Output:
+
+-> tcp_v6_xmit
+  - ip6_route_output
+  - ip6_xmit
+    - ABSPROTO_CALLFUNC(absproto_make_opts, opt)(opt, &opt_space, fl)
+    - HIP_CALLPROC(hip_add_flowlabel)(fl, &tmp_src, &first_hop)
+    - ABSPROTO_CALLPROC(absproto_free_opts)(opt);
+
+
+-> ip6_output
+  - ip6_output_finish
+    - 
+
+-> ip6_build_xmit
+   - ip6_route_output
+   - opt = ABSPROTO_CALLFUNC(absproto_make_opts, opt)(opt, &opt_space, fl)
+   - ipv6_build_frag_opts
+   - ip6_frag_xmit
+   - ABSPROTO_CALLPROC(absproto_free_opts)(opt)
+
+-> ipv6_build_frag_opts
+   - prev_hdr = ipv6_build_authhdr(skb, prev_hdr, opt->auth);
+   - prev_hdr = ABSPROTO_CALLFUNC(absproto_header_builder, prev_hdr)(skb, opt,
+                                  prev_hdr);
+   - prev_hdr = ipv6_build_exthdr(skb, prev_hdr, NEXTHDR_DEST, opt->d
+                                  st1opt, &parm->dst1);
+
+-> ipv6_push_frag_opts
+   - ipv6_push_exthdr
+   - ABSPROTO_CALLFUNC(absproto_header_pusher, skb)(skb, opt, proto)
+   - ipv6_push_authhdr

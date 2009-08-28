@@ -1,0 +1,7 @@
+?package(hipl-manager):\
+    needs="x11"\
+    section="Apps/Net"\
+    title="HIP Manager"\
+    longtitle="Graphical manager for HIPL daemon"\
+    command="/usr/sbin/hipagent -b"\
+	icon="/usr/share/pixmaps/hipmanager.png"

@@ -1,0 +1,9 @@
+#!/bin/sh
+
+export PATH=$PATH:/usr/local/v6/sbin:/usr/local/v6/bin
+
+ipsec auto --delete testv6 > /dev/null 2>&1
+pfkey -F any > /dev/null 2>&1
+ipsec auto --add testv6 > /dev/null 2>&1
+ipsec auto --ready > /dev/null 2>&1
+ipsec auto --up testv6 > /dev/null 2>&1

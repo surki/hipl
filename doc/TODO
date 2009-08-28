@@ -1,0 +1,562 @@
+ABOUT
+=====
+
+This file contains some of the things to do for the
+implementation. The rest of the TODO items are scattered in source
+files: mainly as a list in the beginning of the source file.
+Sometimes the items are as notes elsewhere in the source file if the
+there is specific line of the source code that needs fixing. Search
+for the strings "XX" or "TODO" to locate the file specific TODO items.
+
+
+IETF 63 action items
+====================
+
+Base draft (diff 02,03):
+
+  - all parameter values changed (section 6.2)
+  - parameter type order strictly enforced, except for 2048-4095 (6.2)
+  - HIT computation has changed -- now they are 120 bits (section 3)
+  - state machine 4.4.2:
+    - state machine changed; there are two instances where you need to
+      compare HITs, etc (Aura et al)
+    - CLOSE handling
+  - nonce I and J should hashed into the DH keymaterial
+  - does not affect interops (?): puzzle storing has changed (see section C)
+  - the HI in I2 can be unencrypted
+  - notify has changed
+  - XX FIX: check interoperability between user and kernel branches
+
+ESP-draft:
+
+  - SPI is gone, replaced with ESP_INFO
+
+MM-draft (diff 01,02):
+
+  - SPI and NES are gone, replaced with ESP_INFO
+  - REA is now LOCATOR
+  - keymat_index is now always explicitly specified
+  - an ACK can now be a multi-ACK, containing multiple sequence numbers!
+
+Rendezvous draft:
+  - XX CHECK
+
+IETF 63 action items
+====================
+
+Base draft (diff 02,03):
+
+  - all parameter values changed (section 6.2)
+  - parameter type order strictly enforced, except for 2048-4095 (6.2)
+  - HIT computation has changed -- now they are 120 bits (section 3)
+  - state machine 4.4.2:
+    - state machine changed; there are two instances where you need to
+      compare HITs, etc (Aura et al)
+    - CLOSE handling
+  - nonce I and J should hashed into the DH keymaterial
+  - does not affect interops (?): puzzle storing has changed (see section C)
+  - the HI in I2 can be unencrypted
+  - notify has changed (optional)
+  - check interoperability between user and kernel branches: HMAC fails
+
+ESP-draft:
+
+  - SPI is gone, replaced with ESP_INFO
+
+MM-draft (diff 00,02):
+
+  - SPI and NES are gone, replaced with ESP_INFO
+  - REA is now LOCATOR
+  - keymat_index is now always explicitly specified
+  - an ACK can now be a multi-ACK, containing multiple sequence numbers!
+
+Rendezvous draft:
+  - XX CHECK
+
+IETF 60 action items
+====================
+
+diff 09 -> base-00
+
+[TODO] 5.4.2 HIP State Processes
+
+   See also: 8.6  Processing incoming R1 packets
+
+     6.   If the HIP association state is I2-SENT, the system MAY reenter
+          state I1-SENT and process the received R1 if it has a larger R1
+          generation counter than the R1 responded to previously.
+
+   See also: 8.7 Processing incoming I2 packets
+
+    4. If the system is in any other state, it SHOULD check that the
+       birthday value in I2 is larger than the currently stored peer
+       birthday value, if there is a stored value. If the newly
+       received I2 has a lower or equal birthday value than the stored
+       one, the I2 is stale (perhaps replayed) and SHOULD be dropped.
+
+    20. Upon transitioning to R2-SENT, start a timer.  Leave R2-SENT if
+        either the timer expires (allowing for maximal retransmission of
+        I2s), some data has been received on the incoming SA, or an
+        UPDATE packet has been received (or some other packet that
+        indicates that the peer has moved to ESTABLISHED).
+
+  UNASSOCIATED
+  Receive I2, process
+        if successful, send R2 and go to *R2-SENT*
+        if fail, stay at UNASSOCIATED
+  Receive ESP for unknown SA, optionally send ICMP..
+  Receive ANYOTHER, drop and stay at UNASSOCIATED
+
+  I1-SENT
+  Receive I2, process
+        if successful, send R2 and go to *R2-SENT*
+        if fail, stay at I1-SENT
+
+  I2-SENT
+  Receive R1, process
+        if successful, send I2 and cycle at I2-SENT
+        if fail, stay at I2-SENT
+  Receive I2, process
+        if successful, send R2 and go to *R2-SENT*
+        if fail, stay at I2-SENT
+
+  R2-SENT
+  Receive I1, send R1 and stay at R2-SENT
+  Receive I2, process
+    if failed, stay at R2-SENT
+  Receive UPDATE (check)
+
+  Move to ESTABLISHED after an implementation specific time.
+
+  ESTABLISHED -> check
+
+  s/REKEYING/UPDATING/
+
+  REKEYING <- check
+
+  E-FAILED <- check
+
+[DONE/NOT_IN_USE] 6.2.4 R1_COUNTER
+
+   R1_COUNTER is now its own TLV and is separated
+   from  puzzle. It was previously called BIRTHDAY.
+
+   The R1_COUNTER parameter is optional.  It SHOULD be included in the
+   R1 (in which case it is covered by the signature), and if present in
+   the R1, it MAY be echoed (including the Reserved field) by the
+   Initiator in the I2.
+
+ ** have to be able to sign/recreate all R1s after the generation changes.
+ ** Currently, impossible.
+
+IETF 58 action items
+====================
+
+[MIKA] Respect responder's Diffie-Hellman group.
+
+[LATER] Host Identity Tag (draft-08)
+Any conforming implementation MUST be able to deal with both types of
+HITs.  When handling other than type 1 HITs, the implementation is
+RECOMMENDED to explicitly learn and record the binding between the
+Host Identifier and the HIT, as it may not be able generate such HITs
+from Host Identifiers.
+
+[MIKA/DONE ?] 3.5 TCP and UDP pseudoheader computation (draft-07)
+When computing TCP and UDP checksums on sockets bound to HITs or LSIs,
+the IPv6 pseudo-header format [10] is used.  Additionally, the HITs
+MUST be used in the place of the IPv6 addresses in the IPv6
+pseudoheader.  Note that the pseudo-header for actual HIP payloads is
+computed differently; see Section 6.1.2.
+-HIP payload checksum should be ok
+
+[MIKA] 4.1.3 HIP Birthday (draft-08)
+The Birthday also has to be increased in accordance with the system's
+SA timeout parameter. If the system has open SAs, it MUST increase its
+Birthday.
+-"open SAs"=? When building R1 birthday is set automatically
+
+[LATER] 4.2 Sending data on HIP packets (draft-08)
+- The OPTIONAL PAYLOAD packet (see Section 7.8) MAY be used to transfer
+  data.
+
+[LATER] 5.1 HIP Scenarios (draft-08)
+- Verify this.
+
+[LATER] 7. HIP Packets (draft-07)
+An OPTIONAL upper layer payload MAY follow the HIP header. The payload
+proto field in the header indicates if there is additional data
+following the HIP header. The P-bit in the control field of the HIP
+packet header indicates whether the sender is capable of sending and
+receiving this additional data.
+
+[LATER] 7.7 CER - the HIP Certificate Packet (draft-08)
+- The CER packet is OPTIONAL.
+
+[LATER] 7.8 PAYLOAD - the HIP Payload Packet (draft-08)
+- The PAYLOAD packet is OPTIONAL.
+
+[LATER] 8. Packet processing (draft-08)
+- this is a totally new chapter
+
+[LATER] 12. HIP Policies (draft-07)
+- All HIP implementations MUST support more than one simultaneous HIs,
+  at least one one of which SHOULD be reserved for anonymous usage
+- Support for more than two HIs is RECOMMENDED.
+
+
+diff 08-pre-Oct01 08:
+
+6.2 HIP parameters
+- Any added padding bytes MUST be set zero by the sender, but their
+content SHOULD NOT be checked on the receiving end.
+
+6.2.11 HMAC
+- 160 low order bits of the HMAC computed over the HIP packet,
+excluding the HMAC parameter and any following HIP_SIGNATURE or
+HIP_SIGNATURE2 parameters.  The checksum field MUST be set to zero and
+the HIP header length in the HIP common header MUST be calculated not
+to cover any excluded parameters when the HMAC is calculated.
+- HMAC calculation and verification process
+
+6.2.12 HIP_SIGNATURE
+- the signature is calculated over the HIP packet, excluding the
+HIP_SIGNATURE TLV field, but including the HMAC field, if present. The
+checksum field MUST be set to zero and the HIP header length in the
+HIP common header MUST be calculated to the beginning of the
+HIP_SIGNATURE TLV when the signature is calculated.
+
+6.2.13 HIP_SIGNATURE_2
+- the signature is calculated over the R1 packet, excluding the
+HIP_SIGNATURE_2 TLV field, but including the HMAC field, if
+present. Initiator's HIT and Checksum field MUST be set to zero and
+the HIP packet length in the HIP header MUST be calculated to the
+beginning of the HIP_SIGNATURE_2 TLV when the signature is calculated.
+- NES ID Initialized to zero and incremented for each NES.
+
+6.2.15 ENCRYPTED
+- see the whole section
+
+8.3.2 Processing incoming ICMP Protocol Unreachable messages
+- currently received, but not handled (except debugging)
+
+8.5 Processing incoming R1 packets
+- 14.  The system initialized the remaining variables in the
+associated state, including NES ID counters.
+
+8.6 Processing incoming I2 packets
+- 18.  The system initialized the remaining variables in the
+associated state, including NES ID counters.
+
+11.1 Security Association Management
+- REMOVED: The SA MUST include the random # I that was used when the
+SA was created.  It is used for replay protection.
+
+Bug reports
+===========
+
+Miika Komu: cookie indexes fail randomly:
+
+Feb 20 07:54:26 crash kernel: hip_solve_puzzle: *** Puzzle solved ***:
+ae6a19d2d1d939cb
+Feb 20 07:54:26 crash kernel: hip_handle_r1: R1 Successfully received
+   
+Feb 20 07:52:00 oops kernel: hip_fetch_cookie_entry:Calculated index:9
+Feb 20 07:52:00 oops kernel: hip_verify_cookie:error: WARNING: Unknown cookie
+Feb 20 07:52:00 oops kernel: hip_handle_i2:error: Birthday cookie checks failed
+Feb 20 07:52:00 oops kernel: hip_worker: Recoverable error occured
+
+
+
+Date: Thu, 19 Feb 2004 11:20:02 +0000
+From: Simon Schuetz <simon.schuetz@netlab.nec.de>
+Reply-To: hipl-users@freelists.org
+
+Started connest-server on remote machine. Then conntest-gai-client on local 
+machine. Then:
+
+$ ifconfig eth0 del 3ffe::2/64
+$ ifconfig eth0 add 3ffe::3/64
+
+Sometimes I did not even get to enter the 2nd line before the machine died.
+
+> And
+> could show the output of "ifconfig" and "/proc/net/hip/*" before the
+> handover? Thanks.
+
+Date: Thu, 29 Jan 2004 22:18:07 +0200 (EET)
+
+2004-01-29 16:42:00) Mika: @kludge 19:41:45 ~/op/hipl-1.0/test>make
+gcc -DHAVE_CONFIG_H -I. -I. -I.     -I../tools -I../libinet6/include -I..
+-I../linux/include -I../linux/net/ipv6/hip -DHIP_UNITTEST_MODE
+-DCONFIG_HIP_DEBUG -DHIP_LOGFMT_LONG -g -c listifaces.c
+listifaces.c:3:21: ifaddrs.h: No such file or directory
+
+Date: Mon, 2 Feb 2004 19:03:08 +0200 (EET)
+
+libinet6 requires tools to be built before it.
+
+Solution: a global configure/make system.
+
+Date: Mon, 09 Feb 2004 11:54:20 +0200
+
+Bug: hip_socket->sk does not have locks.
+Solution: add a semaphore or spinlock to hip_socket->sk.
+
+lock_sock ?
+
+Date: Thu, 26 Feb 2004 14:41:23 +0200 (EET)
+
+* check that the dst hit of an incoming packet belongs to the localhost
+* check that the hit maps into the host id
+
+Date: Mon, 1 Mar 2004 06:47:57 +0200 (EET)
+
+During IETF, Thomas said that birthday count is quite huge. It should
+be incremental from zero?
+
+action items:
+=============
+
+* Mika
+  * /proc/net/hip/sdb_peer_addr: list addresses so that the first one is the
+    one that will be "active"
+  * multihoming: try multiple addresses of the peer if xmit fails?
+  * check TODO entries from hip.c, input.c etc (the file was split and TODO
+    entries may be in wrong files.
+  * test signature when p = q = null 
+    - p=q=null not tested yet
+
+* Miika
+  * a generic NOTIFY mechanism
+  * convert ioctl to hip socket
+  * remove warnings from tla commit
+  * Checks in the kernel that the HIT matches to the HI to prevent HI ownership
+    forging. I will need this anyway in the Native API...
+  * remove include/net/keymat.h
+  * include/net/keymat.h: this should be elsewhere
+  * remove hip_get_any_localhost_any and replace with select_any_id
+  * clean up the state machine handling
+    * xmit should be done in the uppermost handling function for better support
+      of unit testing
+    * the state should also be changed in the uppermost handling function
+  * ip6_output.c: how should the errors from hip_handle_output be handled?
+  * We don't need HIP_CALLFUNC because we need also some other code
+    surrounding them? Replace them with regular function calls?
+   - regular: no, because ip6_*put.c will not compile if HIP is not to be compiled
+  * rename lhi to something else
+  * hip.c contains still too many unrelated functions: separate to different
+    files! This is also needed to clarify the docbook doc.
+  * webpages
+    * change public_html to www?
+    * status / news pages
+    * the links in the blue box on the left are highlighted incorrectly
+      => use ssi?
+  * fix hip/db.c: hip_built_r1 has no acquire_lock
+  * removal of chained code in the kernel
+  * write unit tests
+    * NULL daemon request
+  * support for multiple HIs in localhost
+  * support for establishing connections via loopback (first attempt failed!)
+  * resolver
+    - files:
+      - check email exchanges with Ericsson
+      - no HITs to /etc/hosts: ip fqdn alias
+      - /etc/hip/hosts: hit fqdn
+        - this is necessary
+      - /etc/hip/known_hosts: hit [keydata_in_dns_format_pem_encoded]
+        - this an option; if the HIs aren't cached, this file is unnecessary
+    - functionality:
+      - only when:
+        not(transparency=off and AI_HIP=off) and node=dns_name
+      - open and read /etc/hip/hosts, grep node name (=dns_name)
+      - get HIT from the grep'd line and corresponding IP for the HIT by
+        grepping HIT's fqdn from /etc/hosts (in libinet6 addresses are fetched
+        transparently from /etc/hosts)
+      - HIT-IP-mapping is sent to the kernel
+      - gai returns HITs according to the normal AI_HIP ja transparency rules
+        (see table)
+  * builder implementation: use offsetof() instead of
+    __attribute__ ((packed)) test
+  * struct hip_xx { struct hip_tlv_common; data }
+  * debug
+    * HIP_INFO and others: use do { stuff; } while (0)
+    * join userspace and kernel debug to one common c-file?
+  * global autoconfiguration file
+  * [ ] HIP; make bzImage
+  *  O_TARGET := hipmod.o
+  * module dependencies
+  * Configure.help
+  * update debug.c
+    * port debug.c for kernel
+    * common unit testing environment to kernel and userspace
+  * set up BIND and a few HITs to the virtual machines
+  * parsers for hipd messages (both for kernel and userspace)
+    - hip_parse_msg() / hip_check_msg()
+      - an idea for hip_parse_msg(): parses the message into an pointer
+        array, which contains pointers to all TLVs (is this BAD?)
+    - build unit test suite for the builder
+    - replace code from hip.c with builder functions
+    - more hip_build_param_XX() functions are needed for 2)
+      (add to builder.c when needed)
+  * unit tests to builder
+  * poisoning of mappings is specified, but not implemented
+  * keymat 1,2,3,.. (check validity in interop test with Ericsson)
+  * write a draft about HIP API issues?
+
+* Kristian
+  * unit test suite for the ported crypto
+
+* Janne:
+  * xx
+
+* unassigned/all:
+  * handle ESP code is almost the same for initiator and responder; unifify
+  * we should have different kind of dh keys (one for each group because
+    the responder effectively decides the group number)
+  * the dh keys should be recreated at some time points
+  * retransmission timers for base exchange and rea
+  * the first packet sent is always dropped: implement one packet buffer (old ?)
+  * Validate state transitions and whether to send a reply or not according
+    to the state
+  * hip_sdb -> hip_hadb (hip host association database)
+  * piggypacking to R2/I2
+  * unify storing format (network byte order vs. host by order) of sdb
+    and other kernel data structures
+  * HIP_WARN macro? (hmm..no)
+  * HIP header checksum: use IP addresses, not HITs
+   - see drafts
+  * hip.c: if null-cipher registration fails, ignore?
+  * check that the kernel builds with hipmod disabled
+  * IPv4 support
+  * handoff
+    * return routability (unspecified)
+    * fine tuning (ifconfig add del etc.)
+    * problem: two hosts (A, B) in the same LAN and A changes LAN => B
+      probably still sends packets to wrong link address
+    * answer: when a REA is received, *something* must be deallocated
+     * from Sep 24: REA with 0 addresses means "delete all addresses which has this Interface ID".
+       This is not in specifications, but we test this to see if it is usable workaround fix.
+  * handle special and error situations in the kernel
+  * check lockings in the kernel
+  * #includes
+    * problem when #including ip.h
+    * check content of include files and file locations, reorganize ?
+  * test/conntest-server-hip
+  * use errno.h everywhere (do not use sysexits ?)
+  * typedef sockaddr_in6 = hit (research problem)
+  * snapshot patches to web (against the base kernel)
+  * javadoc like C-based documentation ?
+   * DocBook is used currently
+  * HIP related #defines not beginning with HIP to HIP_..
+  * hip module should really depend on other modules (make config, Config.in)
+  * change Host Identity -> Host Identifier in source code (arch
+    draft chapter 3)
+  * db.c: locking issues = add to function's comment block: "if this
+    function uses some database, tell if it does the locking by itself
+    or does the caller need to hold the lock before calling this
+    function"
+  * fixed size arrays -> change to use struct list_head
+  * common functions/macros for variables of type struct list_head
+  * status page: collect all MUST/SHOULD/etc from drafts and see if we comply to the drafts
+
+*** Moved linux/net/ipv6/hip/*.c header TODO items here ****
+
+ * input.c TODO:
+ * - hip_inbound: the state should be changed in hip_inbound, not in the
+ *   functions that are called from hip_inbound!
+ * - If a function returns a value, we MUST NOT ignore it
+ * - hip_handle_i2_finish_sig, hip_handle_r2_finish: check return values of
+ *   hip_setup_ipsec
+ * - make null-cipher optional, so that the module can be loaded without it
+ * - decrypt encrypted field in handle_i2
+ * - check buffer overflow (ctx->htpr) issues in building of R1
+ * - convert building of r1 to use only builder functions
+ * - later on everything should be built/parsed using builder
+ * - separate the tlv checking code into an own function from handle_r1?
+ *
+ * BUGS:
+ * - old: possible kernel panic if module is rmmod'd and REA timer
+ *   expires after that
+ * - It should be signalled somehow when building of R1 is 100 %
+ *   complete. Otherwise an incomplete packet could be sent for
+ *   the initiator?
+ * - handle_i2 trusts the source HIT in the received I2 packet: DoS?
+ * - the functions in this file probably leak memory (skbs?)
+ *
+
+ * output.c TODO:
+ * - If a function returns a value, we MUST NOT ignore it
+ * - make null-cipher optional, so that the module can be loaded without it
+ * - timeouts to cookies
+ * - LOCKING TO REA/AC sent lists
+ * - document hip_getfrag using docbook
+ *
+ * BUGS:
+ * - It should be signalled somehow when building of R1 is 100 % 
+ *   complete. Otherwise an incomplete packet could be sent for
+ *   the initiator?
+ *
+
+ * builder.c TODO:
+ * - add validation functions for host_id, host_id_eid
+ * - move hip_builder.h to this dir
+ * - a separate function for accessing parameters with same id (i.e. you
+ *   give the "current" point of searching in the message)
+ * - consider embbedding hip_tlv_common in all parameter structs in hip.h?
+ * - alignment
+ *   - Building of generic parameter should be done using array copy instead
+ *     of memcpy()? Memcpy might involve some performance penalties when
+ *     trying to read/write unaligned data.
+ *   - should we have a get_sizeof_param(param_type) function instead
+ *     of just relying on packed structures?
+ * - consider supporting vararg for build_param()?
+ *   - this complicates things too much.. especially in parsing
+ * - unit tests for builder.c
+ * - set the version number to something bizarre in hip daemon header builder
+ *   so that e.g. dumper can tell the difference between daemon and network
+ *   headers
+ * - hip_dump_msg() should display also network headers
+ * - uncomment commented assertions and test them
+ * - Can {daemon|network} header be built before other headers?
+ * - fix: get/set msg type err network byte order
+ * - some of the builder functions could be named better
+ *
+
+ * db.c TODO:
+ * - change all of these functions to static
+ * - sdb accessors and locking
+ *   - all accessors should use get_first and get_next functions
+ *   - each sdb state can have its own lock and the get_first/get_next
+ *     functions use that lock
+ * - host id accessors and locking
+ *   - use the lock macro!
+ *   - use the get_first and get_next accessors, not directly!
+ *
+ * BUGS:
+ * - hip_built_r1 has no acquire_lock
+
+
+ * hip.c TODO:
+ * - sdb accessors and locking
+ * - hip_init and unit: check and rewrite!
+ * - Mika: locks are missing from proc_xx functions
+ * - add, find, del host id: modify to take care of peer addresses also
+ * - lhi naming convention is used incorrectly in peer_info stuff?
+ * - check network byte ordering in hip_{add|del|get}_lhi
+ * - separate the tlv checking code into an own function from handle_r1?
+ * - All context->{hip_in|hip_out}->pointers are not filled. Currently
+ *   this is not a problem, but may cause bugs later?
+ * - locking to hip_proc_read_lhi and others
+ * - EEXIST -> ENOMSG ?
+ */
+
+ * socket.c Todo:
+ * - Do we need separate proto ops for dgrams?
+ * - What functions should return just zero?
+ *
+
+ * unit.c TODO:
+ * - Space, suite and case structures are somewhat the same; this could
+ *   better exploited by combining the several almost-the-same-copy-paste
+ *   functions into one, signle function.
+

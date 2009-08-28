@@ -1,0 +1,277 @@
+\appchapter{Design Choices Catalogue}
+\label{sec:catalogue}
+
+% Design choice catalogue (rules of thumb):
+%
+% - Do not concentrate on architectural details.
+% - Put more stuff about decisions here: why have we done things
+%   using this way and not that way, even subconsciously. The decision
+%   may have been noticed immediately or afterwards? Include all decisions
+%   and especially those which made us change our minds afterwards. -pnr
+
+\appsection{Kernel Model}
+\label{sec:kernel_model_design_choices}
+
+\begin{designchoice}{Distribution of intelligence between the kernel module
+and the userspace daemon}
+
+\alt{Intelligent daemon or intelligent kernel module}
+
+\select{Intelligent kernel module}
+
+\record{20020312}
+
+\background{The overall functionality needs to be distributed between
+the daemon and the kernel module. Intelligent kernel module approach
+means that most of the responsibility is in the kernel and the daemon
+is used as a ``slave'' of the kernel. Intelligent daemon means that
+the daemon maintains the state machine and the kernel is used merely
+as a packet forwarder.}
+
+\comparison{A short comparison of the two models of operation is
+listed in \autoref{tbl:architecture_comparison}.
+\\&
+The kernel based implementation tries to handle incoming and outgoing
+packets in the kernel and calls the daemon only when needed. The
+packets in the base exchange require many cryptographic operations
+that cannot be handled in the kernel. This implies many ``small''
+exchanges of information between the kernel and the daemon to process
+a single HIP header. Many context switches occur because of many small
+messages between the userspace and the kernel. The time required for a
+context switch in the Linux kernel is known to be lower than in many other
+operating systems (\cite{unixbenchmark}).
+\\&
+The small exchanges of information in the kernel based implementation
+imply ``bump-in-the-stack'' code in the kernel, meaning that the control
+flow bounces back and forth between userspace and kernelspace. The
+chained code requires saving and restoring of the current state of the
+HIP header being processed. The chained code is a bit awkward to use but
+it is necessary in the kernel based approach.
+\\&
+On the other hand, the daemon based implementation captures HIP
+headers in the kernel and forwards them as they are to the daemon for
+processing. This implies just a few ``big'' messages between the
+userspace and the daemon to process a HIP header.
+\\&
+In the kernel based implementation, the daemon has no state in the
+kernel because the state is stored in the kernel. The daemon based
+implementation stores the state in the daemon. The choice of the model
+of operation strongly affects the interface between the daemon and
+the kernel.
+\\&
+\textit{PF\_KEY} is a standard protocol to exchange cryptographic
+key information between the userspace and the kernel. The kernel based
+implementation does not need to communicate \textit{PF\_KEY} related data to
+the daemon because it can be done directly inside the kernel.
+\\&
+One practical property is not listed in
+\autoref{tbl:architecture_comparison} but is still worth mentioning. It is
+related to the actual development process itself: debugging is usually
+considered to be easier in the userspace than in the kernel. The
+source of a bug is harder to trace if the operating system crashes
+before debugging messages appear on a terminal or a disk device.}
+
+\revision{On 20031016, the kernel based approach was revised. The DSA and
+Diffie-Hellman functionality, that was used in the HIP daemon, were
+ported into kernelspace. This obviates the need for userspace
+callbacks. The most important benifit is that the kernel module code
+could be simplified because the control flow is more linear in this
+style.}
+
+\end{designchoice}
+
+\bottomcaption{Comparison of kernel based and userspace based HIP
+               architectures}
+\label{tbl:architecture_comparison}
+\begin{supertabular}{|p{0.6\textwidth}|p{0.15\textwidth}|p{0.15\textwidth}|} \hline
+\textbf{Property} & \textbf{Kernel based} & \textbf{Userspace based}\\\hline
+communication between userspace and kernel is minimized & no & yes \\\hline
+amount of context switches is minimized & no & yes \\\hline
+stateless daemon & yes & no \\\hline
+\textit{PF\_KEY} messages are sent between kernel and userspace & no & yes \\\hline
+\end{supertabular}
+
+\appsection{Networking Stack}
+\label{sec:networking_stack_design_choices}
+
+\begin{designchoice}{Interface to networking stack}
+
+\alt{Refactoring of networking stack or hooks}
+
+\select{Hooks}
+
+\record{20020316}
+
+\background{
+Originally there were two options for interfacing with the Linux
+networking stack. One option was to refactor the Linux networking stack to
+have a unified interface between the network and the transport layers and
+then to install a new layer between. The other option was to place
+``hooks'' in networking stack that would capture both inbound and
+outbound network traffic. The layout of hooking model is visualized in
+\autoref{fig:input_hooks} and \autoref{fig:output_hooks}.
+}
+
+\comparison{ The interface with the Linux networking stack was
+selected to be based on the hooks for two reasons. First reason was
+that unifying the interfaces by refactoring did not succeed because
+it would have been too time consuming. The second reason was that
+MIPL \cite{mipl} project had already had positive experience with
+hooks in their experimentations with the Linux networking stack.  }
+
+\revision{The implementation was revised by moving the hooks from the
+TCP layer to the IPv6 layer. It simplified the implementation and UDP
+support was gained with no extra effort.}
+
+\revision{20040501 Some of the hooks were changed due to transition to the
+          Linux kernel 2.6 series.}
+
+\end{designchoice}
+
+% XX FIXME: Add Kristian's thesis stuff here
+% - implementation.tex, \section{HIP modifications}, summary
+
+\appsection{Sockets API}
+
+\begin{designchoice}{HIT socket structure}
+
+\alt{\textit{sockaddr\_hip} or \textit{sockaddr\_in6}}
+
+\select{\textit{sockaddr\_in6}}
+
+\record{20020730}
+
+\background{ Two different alternatives to store HITs were
+considered. First alternative was to recycle the structure used for
+storing IPv6 addresses, \textit{sockaddr\_in6}, because HIT address
+size equals IPv6 address size. The second alternative was to create a
+new structure, \textit{sockaddr\_hip}, for storing HITs. The new
+structure had also some extra space to store a mapping to an IPv6
+address. }
+
+\comparison{
+
+\textit{sockaddr\_hip} was implemented in the beginning of the
+project. A mapping to an IPv6 address was stored in the same
+structure. The benefit of this alternative was that the mapping was
+communicated to the kernel directly in a \textit{connect} call and no
+separate mechanism was needed for communicating the mapping to the
+kernel.
+\\&
+\textit{sockaddr\_hip} was later dropped in favor of recycling
+\textit{sockaddr\_in6}. \textit{sockaddr\_hip} was considered a bad
+way to store HITs. Transparent mode (see
+page~\pageref{sec:api_architecture}) would have been virtually impossible to
+implement if \textit{sockaddr\_hip} had been used. }
+
+\revision{20040901 Native HIP API \cite{hipapithesis} was finished. It is the
+          cleanest way to use the sockets API.}
+
+\end{designchoice}
+
+\appsection{Mappings}
+
+\begin{designchoice}{Poisoning of mapping tables}
+
+\alt{Mappings are communicated to the kernel directly or through the daemon}
+
+\select{Mappings are communicated directly to kernel}
+
+\record{20021212}
+
+\background{ There is a local security problem related to
+communicating HIT-to-IPv6 mappings to the kernel using the resolver (see
+page~\pageref{sec:mapping_architecture}). All users must be allowed to
+communicate mappings with the resolver to the kernel and this could be
+exploited by a local attacker in the system. The local attacker could
+forge some mapping messages and poison the mapping tables in the kernel.
+\\&
+The resolver could send mapping messages to the daemon and daemon
+could verify the validity of mappings from DNS. This way, kernel would
+receive only valid mappings. The other alternative is to send mappings
+directly to kernel and tag them with the UID of the sender of the mapping
+to prevent poisoning of the kernel mapping tables.  }
+
+\comparison{
+
+The idea of communicating mappings through daemon was dropped
+basically because it was inefficient and more complicated to
+implement. Inefficiency is consequence of extra context switches and
+an extra call to the resolver. The extra context switches are required
+because the daemon is an intermediary between the kernel and the
+resolver. An extra call to the resolver is needed to validate the mapping
+from DNS. A new interface would have had to be opened in the daemon, for
+example an UNIX domain socket, to listen for incoming mappings.
+\\&
+Communicating the mappings directly to the kernel was considered more
+efficient and easier to implement. The overhead of the tagging
+alternative was considered to be small. Direct communication with the
+kernel can then use existing interfaces that the daemon already
+used. Creating a new interface for listening for incoming mappings can
+be also avoided in the daemon. }
+
+%\revision{xx}
+
+\end{designchoice}
+
+% XX TODO: Miika, fix this. Add also the HIP socket option.
+%
+\begin{designchoice}{Userspace messaging format}
+
+\alt{Extended HIP TLV format, extended \textit{PF\_KEY} format or in-house}
+
+\select{Extended HIP TLV format}
+
+\record{20020723}
+
+\background{ The daemon and the kernel need to communicate information
+somehow. Four different alternatives were considered. The first
+alternative, \textit{PF\_KEY}, was already present in USAGI and it was
+mainly used for exchanging cryptographic key information with the
+kernel and an userspace IKE daemon. The second alternative, HIP packet
+format \cite{hip}, could also be recycled for this task. Both
+\textit{PF\_KEY} and HIP packet format would have required some
+extensioning to fit for the job. The third option would have been to
+invent an ``in-house'' format optimized for the task. The fourth
+alternative would have been \textit{NETLINK} \cite{netlink}.}
+
+\comparison{ An in-house format specialized to sharing information
+between the kernel and the userspace could have been more efficient
+and compact than the other alternatives. It was mainly dropped because
+it seemed that it was not worth to reinvent the wheel. The other
+alternatives were more attractive because they could be used with just
+some minor extensions to accommodate the task.
+\\&
+\textit{PF\_KEY} was considered for two reasons in the beginning of
+the project: it was already available in the USAGI project and there
+seemed to be a need to communicate key material related to IPSec
+between the HIP daemon and the kernel. \textit{PF\_KEY} was dropped
+because it would have needed too many changes to accommodate for the
+task because it was just used for exchanging key information. It was
+also noticed later when base exchange was almost finished that IPSec
+related \textit{PF\_KEY} keying operations could be done directly
+inside the kernel. The reason for this was the kernel-oriented model
+that was discussed in \autoref{sec:kernel_model_architecture}.
+\\&
+\textit{NETLINK} can only be used for transferring network packets
+between the userspace and the kernel. It was rejected in the design
+for two reasons. First, the userspace daemon does not need to know
+anything about the network packets headers, such as IPv6 headers, and
+the unneeded headers would also cause more overhead. Second, the
+request-response scheme used in the daemon architecture requires also
+something more than just the packet headers.
+\\&
+HIP packet format was selected for two reasons. First, the information
+communicated between the kernel and the userspace contained mainly the
+same parameters used in HIP \cite{hip}. The second reason is a
+consequence of the first one: it would have been silly to develop
+separate message builders and parsers for kernel-to-daemon and
+peer-to-peer communication if the message format was essentially the
+same. One single message builder/parser saves development time and
+increases code quality.
+}
+
+\revision{20041101 The userspace applications communication using
+          \texttt{PF\_HIP} sockets with the kernelspace.}
+
+\end{designchoice}

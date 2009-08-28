@@ -1,0 +1,74 @@
+#!/bin/sh
+#
+### BEGIN INIT INFO
+# Provides:		hipd
+# Required-Start:	$remote_fs $syslog
+# Required-Stop:	$remote_fs $syslog
+# Default-Start:	2 3 4 5
+# Default-Stop:		1
+# Short-Description:	HIP DNS proxy
+### END INIT INFO
+
+DNSPROXY_OPTS="-bk"
+PID_FILE=/var/run/hipdnsproxy.pid
+EXEC=/usr/sbin/hipdnsproxy
+
+export PATH=/usr/sbin:$PATH
+
+set -e
+
+. /lib/lsb/init-functions
+
+test -x $EXEC || exit 0
+
+if test -f /etc/default/hipdnsproxy; then
+    . /etc/default/hipdnsproxy
+fi
+
+start_dnsproxy() {
+        log_daemon_msg "Starting hip dnsproxy"
+	if start-stop-daemon --start --quiet --exec $EXEC -- $DNSPROXY_OPTS; then
+	    log_end_msg 0
+	else
+	    log_end_msg 1
+	fi
+}
+
+stop_dnsproxy() {
+    log_daemon_msg "Stopping hip dnsproxy"
+    if test -r $PID_FILE && ps `head -1 $PID_FILE` >/dev/null # see bug id 812
+    then
+	if start-stop-daemon --stop --pidfile $PID_FILE --quiet -- $DNSPROXY_OPTS; then
+	    log_end_msg 0
+	else
+	    log_end_msg 1
+	fi
+    else
+	log_end_msg 1
+    fi
+}
+
+case "$1" in
+  start)
+	start_dnsproxy
+	;;
+  stop)
+	stop_dnsproxy
+	;;
+
+  restart)
+	stop_dnsproxy
+	sleep 3
+	start_dnsproxy
+	;;
+
+  status)
+	status_of_proc -p $PID_FILE /usr/sbin/hipdnsproxy hipdnsproxy && exit 0 || exit $?
+	;;
+
+  *)
+	echo "Usage: /etc/init.d/dnsproxy {start|stop|reload|force-reload|restart}"
+	exit 1
+esac
+
+exit 0

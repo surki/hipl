@@ -1,0 +1,110 @@
+# git-ls-files --others --exclude-from=.git/info/exclude
+# Lines that start with '#' are comments.
+# For a project mostly in C, the following would be a good set of
+# exclude patterns (uncomment them if you want to use them):
+# *.[oa]
+# *~
+
+# The actual Makefiles produced
+Makefile
+Makefile.in
+
+# The local aclocal.m4 file
+aclocal.m4
+
+# The output of the configure script
+config.guess
+config.log
+config.status
+config.sub
+
+# The configure script itself
+configure
+
+# The include directory artifacts
+include/config.h
+include/stamp-h1
+
+# Various scripts used for libtool and the like
+install-sh
+libtool
+ltmain.sh
+missing
+depcomp
+
+# Not sure what this one is for
+autom4te.cache/*
+
+*.[oa]
+*.deps
+*.libs
+*.lo
+*.la
+*.pj*
+libinet6/include
+pjproject/build.mak
+pjproject/build/os-auto.mak
+pjproject/pjlib-util/bin/
+pjproject/pjlib-util/build/os-auto.mak
+pjproject/pjlib/bin/
+pjproject/pjlib/build/os-auto.mak
+pjproject/pjlib/include/pj/compat/m_auto.h
+pjproject/pjlib/include/pj/compat/os_auto.h
+pjproject/pjmedia/build/os-auto.mak
+pjproject/pjmedia/include/pjmedia-codec/config_auto.h
+pjproject/pjmedia/include/pjmedia/config_auto.h
+pjproject/pjnath/bin/
+pjproject/pjsip/build/os-auto.mak
+pjproject/pjsip/include/pjsip/sip_autoconf.h
+pjproject/third_party/build/os-auto.mak
+pjproject/third_party/build/portaudio/os-auto.mak
+py-compile
+test/debug.c
+test/debug.h
+test/hipconftool.c
+test/hipconftool.h
+agent/hipagent
+firewall/hipfw
+hipd/hipd
+i3/chord/chord_getfingers
+i3/chord/chord_traceroute
+i3/chord/gen_conf
+i3/chord/gen_conf_same
+i3/chord/test
+libinet6/include_glibc21/bits/in.h
+libinet6/include_glibc21/netinet/icmp6.h
+libinet6/include_glibc21/netinet/ip6.h
+libinet6/include_glibc22/bits/in.h
+libinet6/include_glibc22/bits/sockaddr.h
+libinet6/include_glibc22/netinet/icmp6.h
+libinet6/include_glibc22/netinet/ip6.h
+libinet6/include_glibc23/bits/in.h
+libinet6/include_glibc23/bits/sockaddr.h
+libinet6/include_glibc23/netinet/icmp6.h
+libinet6/include_glibc23/netinet/ip6.h
+test/auth_performance
+test/certteststub
+test/conntest-client-hip
+test/conntest-client-native
+test/conntest-client-native-user-key
+test/conntest-client-opp
+test/conntest-server
+test/conntest-server-native
+test/cookietest
+test/first_test
+test/hashtest
+test/hc_performance
+test/hipsetup
+test/keygentest
+test/libinet6test
+test/listifaces
+test/listtest
+test/load
+test/opendhtteststub
+test/sqliteteststub
+tools/hipconf
+tools/hipdnskeyparse
+tools/hipdnsproxy
+
+
+TAGS

@@ -1,0 +1,35 @@
+In this directory, patch, compile and install daemontools:
+
+sh patch-and-compile.sh
+sh install.sh
+
+This should create directory /etc/daemontools/service and start
+svscanboot under init.
+
+Create another directory /etc/daemontools/daemons:
+mkdir -p /etc/daemontools/daemons/dnsproxy
+
+Next, in directory hipl--userspace--2.6/tools/, rsync necessary files
+in place:
+
+rsync -avH dnsproxy.py hosts.py pyip6.py util.py DNS /etc/daemontools/daemons/dnsproxy/
+
+and also extract other necessary files in place:
+
+Next, in directory /etc/daemontools/service, make a symbolic link:
+
+ln -s ../daemons/dnsproxy .
+
+Now daemontools should automatically start dnsproxy and log all its
+output to log files in directory /var/log/dnsproxy/
+
+dnsproxy can be stopped with:
+
+/usr/sbin/svc -d /etc/daemontools/service/dnsproxy/
+
+and restarted with 
+
+/usr/sbin/svc -u /etc/daemontools/service/dnsproxy/
+
+To prevent automatic start in boot, add file
+/etc/daemontools/service/dnsproxy/down

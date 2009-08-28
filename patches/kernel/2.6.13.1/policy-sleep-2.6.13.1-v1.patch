@@ -1,0 +1,39 @@
+diff -urN linux-2.6.13.1-beet/include/linux/xfrm.h linux-2.6.13.1-sleep/include/linux/xfrm.h
+--- linux-2.6.13.1-beet/include/linux/xfrm.h	2006-01-16 18:38:57.000000000 +0200
++++ linux-2.6.13.1-sleep/include/linux/xfrm.h	2006-01-16 18:39:59.000000000 +0200
+@@ -109,6 +109,11 @@
+ 	XFRM_MODE_BEET
+ };
+ 
++enum
++{
++	XFRM_POLICY_FLAG_SLEEP = 1
++};
++
+ /* Netlink configuration messages.  */
+ enum {
+ 	XFRM_MSG_BASE = 0x10,
+diff -urN linux-2.6.13.1-beet/include/net/xfrm.h linux-2.6.13.1-sleep/include/net/xfrm.h
+--- linux-2.6.13.1-beet/include/net/xfrm.h	2006-01-16 18:39:03.000000000 +0200
++++ linux-2.6.13.1-sleep/include/net/xfrm.h	2006-01-16 18:46:38.000000000 +0200
+@@ -196,7 +196,7 @@
+ extern void km_policy_notify(struct xfrm_policy *xp, int dir, struct km_event *c);
+ extern void km_state_notify(struct xfrm_state *x, struct km_event *c);
+ 
+-#define XFRM_ACQ_EXPIRES	30
++#define XFRM_ACQ_EXPIRES	3
+ 
+ struct xfrm_tmpl;
+ struct xfrm_state_afinfo {
+diff -urN linux-2.6.13.1-beet/net/xfrm/xfrm_policy.c linux-2.6.13.1-sleep/net/xfrm/xfrm_policy.c
+--- linux-2.6.13.1-beet/net/xfrm/xfrm_policy.c	2006-01-16 18:39:03.000000000 +0200
++++ linux-2.6.13.1-sleep/net/xfrm/xfrm_policy.c	2006-01-16 18:39:59.000000000 +0200
+@@ -794,7 +794,7 @@
+ 
+ 		if (unlikely(nx<0)) {
+ 			err = nx;
+-			if (err == -EAGAIN && flags) {
++			if (err == -EAGAIN && (flags || policy->flags)) {
+ 				DECLARE_WAITQUEUE(wait, current);
+ 
+ 				add_wait_queue(&km_waitq, &wait);

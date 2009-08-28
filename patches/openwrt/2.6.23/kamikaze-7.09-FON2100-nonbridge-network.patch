@@ -1,0 +1,56 @@
+diff -Naur a/kamikaze_7.09/package/base-files/files/etc/config/network b/kamikaze_7.09/package/base-files/files/etc/config/network
+--- a/kamikaze_7.09/package/base-files/files/etc/config/network	2007-09-20 11:54:42.000000000 +0300
++++ b/kamikaze_7.09/package/base-files/files/etc/config/network	2008-06-26 10:52:49.000000000 +0300
+@@ -6,9 +6,14 @@
+ 	option ipaddr	127.0.0.1
+ 	option netmask	255.0.0.0
+ 
+-config interface lan
+-	option ifname	eth0
+-	option type 	bridge
++config interface eth0
++	option ifname 	eth0
++        option proto    static
++	option ipaddr   192.168.1.1
++	option netmask  255.255.255.0
++
++config interface ath0
++	option ifname	ath0
+ 	option proto	static
+-	option ipaddr	192.168.1.1
+-	option netmask	255.255.255.0
++	option ipaddr	192.168.0.1
++	option netmask  255.255.255.0
+diff -Naur a/kamikaze_7.09/package/iptables/files/firewall.user b/kamikaze_7.09/package/iptables/files/firewall.user
+--- a/kamikaze_7.09/package/iptables/files/firewall.user	2007-09-20 11:54:37.000000000 +0300
++++ b/kamikaze_7.09/package/iptables/files/firewall.user	2008-06-26 10:58:13.000000000 +0300
+@@ -16,8 +16,13 @@
+ 
+ ### Open port to WAN
+ ## -- This allows port 22 to be answered by (dropbear on) the router
+-# iptables -t nat -A prerouting_wan -p tcp --dport 22 -j ACCEPT 
+-# iptables        -A input_wan      -p tcp --dport 22 -j ACCEPT
++# By default we need this to be enabled otherwise you will never get 
++# to router
++iptables -t nat -A prerouting_wan -p tcp --dport 22 -j ACCEPT 
++iptables        -A input_wan      -p tcp --dport 22 -j ACCEPT
++
++### Enable NAT for WIFI -> LAN subnetworks
++#iptables -t -A prerouting_wan -o $WAN -j MASQUERADE
+ 
+ ### Port forwarding
+ ## -- This forwards port 8080 on the WAN to port 80 on 192.168.1.2
+diff -Naur a/kamikaze_7.09/package/madwifi/files/lib/wifi/madwifi.sh b/kamikaze_7.09/package/madwifi/files/lib/wifi/madwifi.sh
+--- a/kamikaze_7.09/package/madwifi/files/lib/wifi/madwifi.sh	2007-09-30 21:03:49.000000000 +0300
++++ b/kamikaze_7.09/package/madwifi/files/lib/wifi/madwifi.sh	2008-06-26 10:55:44.000000000 +0300
+@@ -265,7 +265,9 @@
+ 	option channel  5
+ 
+ 	# REMOVE THIS LINE TO ENABLE WIFI:
+-	option disabled 1
++	#option disabled 1
++	# LET DEFAULT BE ENABLE
++	option disabled 0
+ 
+ config wifi-iface
+ 	option device	$dev

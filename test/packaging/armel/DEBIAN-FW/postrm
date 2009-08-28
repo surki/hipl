@@ -1,0 +1,6 @@
+#!/bin/sh
+
+update-rc.d -f hipfw remove 
+
+
+

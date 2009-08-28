@@ -1,0 +1,165 @@
+diff -urN showip-0.8.02-fx-mz.xpi/content/ipv6ident.css showip-0.8.02-fx-hip-mz.xpi/content/ipv6ident.css
+--- showip-0.8.02-fx-mz.xpi/content/ipv6ident.css	2008-04-30 13:05:46.000000000 +0300
++++ showip-0.8.02-fx-hip-mz.xpi/content/ipv6ident.css	2008-01-28 12:53:01.000000000 +0200
+@@ -3,6 +3,23 @@
+ 	width: 12ex !important; */
+ 	-moz-binding: url("chrome://ipv6ident/content/ipv6ident.xml#statusbarpanel") !important;
+ }
++
++#urlbar[level="hip"] > .autocomplete-textbox-container {
++        background-color: #D2E6FF; 
++        color: #000000;
++}
++
++#security-button[level="hip"] {
++        list-style-image: url("chrome://ipv6ident/content/Secure2.png");
++        -moz-image-region: rect(36px, 18px, 54px, 0px);
++        display: -moz-box;
++}
++
++#urlbar[level="hip"] #lock-icon {
++	-moz-image-region: rect(0px, 18px, 18px, 0px);
++	list-style-image: url("chrome://ipv6ident/content/Secure2.png");
++}
++
+ /*
+ label#showip_status_text {
+ 	color: black;
+diff -urN showip-0.8.02-fx-mz.xpi/content/ipv6ident.js showip-0.8.02-fx-hip-mz.xpi/content/ipv6ident.js
+--- showip-0.8.02-fx-mz.xpi/content/ipv6ident.js	2008-04-30 13:05:46.000000000 +0300
++++ showip-0.8.02-fx-hip-mz.xpi/content/ipv6ident.js	2008-01-28 12:53:01.000000000 +0200
+@@ -1,4 +1,13 @@
+ 
++const PREFS_CID = "@mozilla.org/preferences;1";
++const PREFS_I_PREF = "nsIPref";
++const PREF_STRING = "browser.dom.window.dump.enabled";
++try {
++	var Pref =new Components.Constructor(PREFS_CID, PREFS_I_PREF); 
++	var pref =new Pref( );
++	pref.SetBoolPref(PREF_STRING, true);
++} catch(e) {}
++
+ const IPV6_NOTIFY_STATE_DOCUMENT =
+ 	Components.interfaces.nsIWebProgress.NOTIFY_STATE_DOCUMENT;
+ const IPV6_NOTIFY_LOCATION =
+@@ -19,6 +28,8 @@
+ 	this.dnscache = new Array();
+ 	this.rdnscache = new Array();
+ 	this.localip = null;
++	this.hipUsed = 1;
++	this.currentLocation = "";
+ 	this.dnscache['none'] = new Array();
+ 	this.strings = document.getElementById("showip_strings");
+ 	// shamelessly taken from flagfox extension 
+@@ -46,7 +57,9 @@
+ 	},
+ 	onProgressChange:function(a,b,c,d,e,f){},
+ 	onStatusChange:function(a,b,c,d){},
+-	onSecurityChange:function(a,b,c){},
++	onSecurityChange:function(aWebProgress, aRequest, aState){
++		this.parent.updateHipStatus(aState);
++	},
+ 	onLinkIconAvailable:function(a){}
+ 	}; // this.Listener
+ 	this.Listener.parent = this;
+@@ -180,6 +193,7 @@
+ 
+ // update the statusbar panel
+ updatestatus: function(host) {
++	dump("updatestatus\n");
+ 	if (!host)
+ 		return;
+ 	var panel = document.getElementById("showip_status_text");
+@@ -249,14 +263,65 @@
+ 	panel.setAttribute("value", text);
+ 	panel.setAttribute("tooltiptext", this.strings.getFormattedString("localips",  [this.getLocalIp()])); 
+ 	panel.setAttribute("status", status);
+-	panel.setAttribute("style", "color:" + this.prefs.color[status]+";");
+-
++	
++	// Check if HIP is used
++	this.hipUsed = isHipUsed(ips);
++	if (this.hipUsed == 1) {
++		panel.setAttribute("value", ips[0]);
++		this.currentLocation = "HIP";
++		//panel.setAttribute("style", "color:#6030f0");
++	}
++	else {
++		this.currentLocation = text;
++		//panel.setAttribute("style", "color:" + this.prefs.color[status]+";");
++	}
++	
+ 	var popup = document.getElementById("showip_ipmenu");
+ 	if (popup)
+ 		// re-arm
+ 		popup.onpopupshowing = function() {showipExt.AddIPItems(this);};
+ },
+ 
++updateHipStatus: function(aState) {
++	dump("updateHipStatus\n");
++	var urlbar = document.getElementById("urlbar"); //TODO
++	var securityButton = document.getElementById("security-button");
++	const wpl = Components.interfaces.nsIWebProgressListener;
++	//securityButton.removeAttribute("label");
++
++	var hipToUrlbar = 1;
++	switch (aState) {
++	case wpl.STATE_IS_SECURE | wpl.STATE_SECURE_HIGH:
++		hipToUrlbar = 0;
++	break;
++	case wpl.STATE_IS_SECURE | wpl.STATE_SECURE_LOW:
++		hipToUrlbar = 0;
++	break;
++	case wpl.STATE_IS_BROKEN:
++		hipToUrlbar = 0;
++	break;
++	case wpl.STATE_IS_INSECURE:
++		hipToUrlbar = 1;
++	default:
++	break;
++	}
++	if (this.hipUsed == 1) {
++		if (urlbar && (hipToUrlbar == 1)) {
++			urlbar.setAttribute("level", "hip");
++			var lockIcon = document.getElementById("lock-icon");
++			if (lockIcon)
++				lockIcon.setAttribute("tooltiptext", "Host Identity Protocol");
++		
++		}
++		if (securityButton) {
++			securityButton.setAttribute("level", "hip");
++			securityButton.setAttribute("tooltiptext", "Host Identity Protocol");
++			securityButton.setAttribute("label", this.currentLocation);
++		}
++		
++	}
++},
++
+ // build popup menu
+ // @ident 4, 6 or H
+ // @hostname IP or Hostname
+@@ -429,3 +494,24 @@
+ }
+ 
+ }; // showipExt
++
++function isHipUsed(aIps) {
++        // Try to detect, whether using HIP...
++        var iphip = aIps.join(',');
++        var i = iphip.indexOf(':');
++        var iship = 0;
++        if (i != -1)
++        {
++                var v1 = iphip.substring(0, i);
++                var v2 = iphip.substring(i + 1, i + 5);
++                var i1 = parseInt(v1, 16);
++                var i2 = parseInt(v2, 16) & 0xfff0;
++                if (i1 == 0x2001) iship = 1;
++                if (i2 != 0x0010) iship = 0;
++        }
++        //return iship;
++	return iship;
++}
++
++
++
