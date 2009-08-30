@@ -52,7 +52,6 @@ LOCAL_SRC_FILES :=  update.c \
 
 
 LOCAL_CFLAGS := -include $(BASE_PATH)/libhipandroid/libhipandroid.h \
-                -g -O0 \
                 -DICMP6_FILTER=1 \
                 -DANDROID_CHANGES \
                 -DCONFIG_HIP_LIBHIPTOOL \
@@ -68,7 +67,10 @@ LOCAL_CFLAGS := -include $(BASE_PATH)/libhipandroid/libhipandroid.h \
                 -DCONFIG_HIP_OPPORTUNISTIC \
                 -DCONFIG_SAVAH_IP_OPTION \
                 -DCONFIG_HIP_DEBUG \
-                -DHIP_LOGFMT_LONG
+                -DHIP_LOGFMT_LONG \
+                -g
+
+
 # -DCONFIG_HIP_AGENT \
 # -DCONFIG_HIP_OPENDHT \
 # -DCONFIG_HIP_I3
@@ -99,7 +101,8 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES :=  hipconftool.c
 
 LOCAL_CFLAGS := -include $(BASE_PATH)/libhipandroid/libhipandroid.h \
-                -DANDROID_CHANGES
+                -DANDROID_CHANGES \
+                -g
 
 LOCAL_C_INCLUDES := $(BASE_C_INCLUDES) \
                     external/openssl/include
@@ -128,8 +131,8 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES :=  libhipandroid.c \
                     regex.c
 
-LOCAL_CFLAGS := -g -O0 \
-                -DANDROID_CHANGES
+LOCAL_CFLAGS := -DANDROID_CHANGES \
+                -g
 
 LOCAL_SHARED_LIBRARIES :=
 
@@ -173,7 +176,7 @@ LOCAL_CFLAGS += -include $(BASE_PATH)/libhipandroid/libhipandroid.h \
                 -DCONFIG_HIP_LIBHIPTOOL \
                 -DCONFIG_HIP_RVS \
                 -DHIP_TRANSPARENT_API \
-                -g -O0
+                -g
 
 LOCAL_C_INCLUDES := $(BASE_C_INCLUDES) \
                     $(BASE_PATH)/libinet6/include_glibc23 \
@@ -216,8 +219,9 @@ LOCAL_CFLAGS := -include $(BASE_PATH)/libhipandroid/libhipandroid.h \
                 -DCONFIG_HIP_LIBHIPTOOL \
                 -DPJ_LINUX \
                 -DHIPL_DEFAULT_PREFIX=\"/system/\" \
-                -g -O0 \
-                -DANDROID_CHANGES
+                -DANDROID_CHANGES \
+                -g \
+                -O0 # TODO nlink.c::xfrm_fill_selector() does an unaligned memcpy when optimized
 
 LOCAL_C_INCLUDES := $(BASE_C_INCLUDES) \
                     external/openssl/include
@@ -281,8 +285,8 @@ LOCAL_SRC_FILES :=  activesock.c \
                     sock_select.c
 
 LOCAL_CFLAGS := -DPJ_LINUX \
-                -g -O0 \
-                -DANDROID_CHANGES
+                -DANDROID_CHANGES \
+                -g
 
 LOCAL_C_INCLUDES := $(BASE_PATH)/pjproject/pjlib/include
 
@@ -316,7 +320,8 @@ LOCAL_SRC_FILES :=  errno.c \
                     turn_sock.c
 
 LOCAL_CFLAGS := -DPJ_LINUX \
-                -DANDROID_CHANGES
+                -DANDROID_CHANGES \
+                -g
 
 LOCAL_C_INCLUDES := $(BASE_PATH)/pjproject/pjlib/include \
                     $(BASE_PATH)/pjproject/pjnath/include \
@@ -359,7 +364,8 @@ LOCAL_SRC_FILES :=  base64.c \
                     xml.c
 
 LOCAL_CFLAGS := -DPJ_LINUX \
-                -DANDROID_CHANGES
+                -DANDROID_CHANGES \
+                -g
 
 LOCAL_C_INCLUDES := $(BASE_PATH)/pjproject/pjlib/include \
                     $(BASE_PATH)/pjproject/pjnath/include \
@@ -370,3 +376,4 @@ LOCAL_MODULE:= libpjlib-util-hipl
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 
 include $(BUILD_STATIC_LIBRARY)
+
