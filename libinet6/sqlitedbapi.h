@@ -17,7 +17,11 @@
 #include "debug.h"
 #include "ife.h"
 
-#define HIP_CERT_DB_PATH_AND_NAME "/etc/hip/certdb.db"
+#ifdef ANDROID_CHANGES
+#    define HIP_CERT_DB_PATH_AND_NAME "/data/hip/certdb.db"
+#else
+#    define HIP_CERT_DB_PATH_AND_NAME "/etc/hip/certdb.db"
+#endif
 
 #define HIP_CERT_DB_CREATE_TBLS "CREATE TABLE hits (" \
                                  "lhit VARCHAR(41), " \

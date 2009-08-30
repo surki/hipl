@@ -27,6 +27,12 @@
 #include <pj/compat/socket.h>
 
 
+/* undef the sin_zero, defined at bionic/libc/kernel/common/linux/in.h */
+/* because it is also used in pj_sockaddr_in */
+#ifdef ANDROID_CHANGES
+#undef sin_zero
+#endif
+
 /*
  * Convert address string with numbers and dots to binary IP address.
  */ 

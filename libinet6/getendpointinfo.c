@@ -87,6 +87,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "hadb.h"
 #include "user.h"
 
+#ifdef ANDROID_CHANGES
+#include "getendpointinfo.h"
+#endif
+
 //#include <ifaddrs.h>
 
 // needed due to missing system inlcude for openWRT
@@ -136,6 +140,7 @@ char* hip_in6_ntop(const struct in6_addr *in6, char *buf)
         return buf;
 }
 #endif
+
 int setmyeid(struct sockaddr_eid *my_eid,
 	     const char *servname,
 	     const struct endpoint *endpoint,
@@ -498,7 +503,7 @@ int load_hip_endpoint_pem(const char *filename,
   else if(findsubstring(first_key_line, "DSA"))
     algo = HIP_HI_DSA;
   else {
-    HIP_ERROR("Wrong kind of key file: %s\n",basename);
+    HIP_ERROR("Wrong kind of key file: %s\n",filename);
     err = -ENOMEM;
     goto out_err;
   }
@@ -535,7 +540,6 @@ int load_hip_endpoint_pem(const char *filename,
 
   return err;
 }
-
 
 void free_endpointinfo(struct endpointinfo *res)
 {
@@ -1647,7 +1651,6 @@ int get_localhost_endpoint_no_setmyeid(const char *basename,
 
   return err;
 }
-
 
 int get_localhost_endpoint(const char *basename,
 			    const char *servname,

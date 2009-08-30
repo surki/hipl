@@ -1334,7 +1334,11 @@ int hip_icmp_recvmsg(int sockfd) {
 	struct iovec iov[1];
 	u_char cmsgbuf[CMSG_SPACE(sizeof(struct in6_pktinfo))];
 	u_char iovbuf[HIP_MAX_ICMP_PACKET];
+#ifdef ANDROID_CHANGES
+	struct icmp6_hdr * icmph = NULL;
+#else
 	struct icmp6hdr * icmph = NULL;
+#endif
 	struct in6_pktinfo * pktinfo, * pktinfo_in6;
 	struct sockaddr_in6 src_sin6;
 	struct in6_addr * src = NULL, * dst = NULL;
@@ -1398,6 +1402,18 @@ int hip_icmp_recvmsg(int sockfd) {
 	gettimeofday(rtval, (struct timezone *)NULL);
 
 	/* Check if the process identifier is ours and that this really is echo response */
+#ifdef ANDROID_CHANGES
+	icmph = (struct icmp6_hdr *)&iovbuf;
+	if (icmph->icmp6_type != ICMP6_ECHO_REPLY) {
+		err = 0;
+		goto out_err;
+	}
+	identifier = getpid() & 0xFFFF;
+	if (identifier != icmph->icmp6_id) {
+		err = 0;
+		goto out_err;
+	}
+#else
 	icmph = (struct icmpv6hdr *)&iovbuf;
 	if (icmph->icmp6_type != ICMPV6_ECHO_REPLY) {
 		err = 0;
@@ -1408,6 +1424,7 @@ int hip_icmp_recvmsg(int sockfd) {
 		err = 0;
 		goto out_err;
 	}
+#endif
 
 	/* Get the timestamp as the sent time*/
 	ptr = (struct timeval *)(icmph + 1);

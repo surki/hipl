@@ -1712,7 +1712,11 @@ out_err:
  */
 int hip_send_icmp(int sockfd, hip_ha_t *entry) {
 	int err = 0, i = 0, identifier = 0;
+#ifdef ANDROID_CHANGES
+	struct icmp6_hdr * icmph = NULL;
+#else
 	struct icmp6hdr * icmph = NULL;
+#endif
 	struct sockaddr_in6 dst6;
 	u_char cmsgbuf[CMSG_SPACE(sizeof (struct in6_pktinfo))];
 	u_char * icmp_pkt = NULL;
@@ -1752,12 +1756,23 @@ int hip_send_icmp(int sockfd, hip_ha_t *entry) {
 	dst6.sin6_flowinfo = 0;
 
 	/* build icmp header */
+#ifdef ANDROID_CHANGES
+	icmph = (struct icmp6_hdr *)icmp_pkt;
+	icmph->icmp6_type = ICMP6_ECHO_REQUEST;
+#else
 	icmph = (struct icmp6hdr *)icmp_pkt;
-        icmph->icmp6_type = ICMPV6_ECHO_REQUEST;
-        icmph->icmp6_code = 0;
+	icmph->icmp6_type = ICMPV6_ECHO_REQUEST;
+#endif
+	icmph->icmp6_code = 0;
 	entry->heartbeats_sent++;
-        icmph->icmp6_sequence = htons(entry->heartbeats_sent);
-        icmph->icmp6_identifier = identifier;
+
+#ifdef ANDROID_CHANGES
+	icmph->icmp6_seq = htons(entry->heartbeats_sent);
+	icmph->icmp6_id = identifier;
+#else
+	icmph->icmp6_sequence = htons(entry->heartbeats_sent);
+	icmph->icmp6_identifier = identifier;
+#endif
 
 	gettimeofday(&tval, NULL);
 
@@ -1767,8 +1782,11 @@ int hip_send_icmp(int sockfd, hip_ha_t *entry) {
 
 	/* put the icmp packet to the io vector struct for the msghdr */
 	iov[0].iov_base = icmp_pkt;
+#ifdef ANDROID_CHANGES
+	iov[0].iov_len  = sizeof(struct icmp6_hdr) + sizeof(struct timeval);
+#else
 	iov[0].iov_len  = sizeof(struct icmp6hdr) + sizeof(struct timeval);
-
+#endif
 	/* build the msghdr for the sendmsg, put ancillary data also*/
 	mhdr.msg_name = &dst6;
 	mhdr.msg_namelen = sizeof(struct sockaddr_in6);

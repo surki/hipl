@@ -9,7 +9,9 @@
 #include <sys/time.h>
 #include <time.h>
 #include <stdint.h>
+#ifndef ANDROID_CHANGES
 #include <sys/un.h>
+#endif
 #include <netinet/udp.h>
 #include <sys/socket.h>
 

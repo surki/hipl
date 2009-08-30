@@ -17,11 +17,13 @@
 #  include "kerncompat.h"
 #  include "hidb.h"
 #  include <string.h>
+#ifndef ANDROID_CHANGES
 #ifndef s6_addr
 #  define s6_addr                 in6_u.u6_addr8
 #  define s6_addr16               in6_u.u6_addr16
 #  define s6_addr32               in6_u.u6_addr32
 #endif /* s6_addr */
+#endif /* ANDROID_CHANGES */
 #endif /* __KERNEL__ */
 
 #include "registration.h"

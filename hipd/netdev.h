@@ -12,9 +12,10 @@
 #endif
 #include <linux/netlink.h>      /* get_my_addresses() support   */
 #include <linux/rtnetlink.h>    /* get_my_addresses() support   */
+#ifndef ANDROID_CHANGES
 #include <netinet/ip6.h>
+#endif
 #include <openssl/rand.h>
-
 #include "nlink.h"
 #include "list.h"
 #include "debug.h"

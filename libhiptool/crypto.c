@@ -646,7 +646,11 @@ RSA *create_rsa_key(int bits) {
   } Checked before calling function */
 
   /* generate private and public keys */
+#ifdef ANDROID_CHANGES
+  rsa = RSA_generate_key_ex(bits, RSA_F4, NULL, NULL);
+#else
   rsa = RSA_generate_key(bits, RSA_F4, NULL, NULL);
+#endif
   if (!rsa) {
     HIP_ERROR("create_rsa_key failed (RSA_generate_key): %s\n",
 	     			ERR_error_string(ERR_get_error(), NULL));

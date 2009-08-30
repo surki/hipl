@@ -10,6 +10,9 @@
 #ifndef HIP_OPPDB_H
 #define HIP_OPPDB_H
 
+#ifdef ANDROID_CHANGES
+#include <sys/socket.h>
+#endif
 #include <sys/un.h>
 #include "debug.h"
 #include "misc.h"

@@ -12,6 +12,9 @@
  *          a response from kernel.
  */
 #include "message.h"
+#ifdef ANDROID_CHANGES
+#include <netinet/in.h>
+#endif
 
 /**
  * Finds out how much data is coming from a socket

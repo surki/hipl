@@ -25,13 +25,31 @@
 #include "nat.h"
 #include "registration.h"
 #include <netinet/ip.h>
+#ifndef ANDROID_CHANGES
 #include <netinet/ip6.h>
+#endif
 #include <netinet/tcp.h>
 #include <unistd.h>
+#ifndef ANDROID_CHANGES
 #include <linux/icmpv6.h>
+#endif
 /* #include <libiptc/libiptc.h> */
 #include "esp_prot_hipd_msg.h"
 
+#ifdef ANDROID_CHANGES
+#ifndef in6_pktinfo
+/* IPv6 packet information.  */
+struct in6_pktinfo
+{
+  struct in6_addr     ipi6_addr;    /* src/dst IPv6 address */
+  unsigned int        ipi6_ifindex; /* send/recv interface index */
+};
+#endif
+
+#include <linux/coda.h>
+#include "icmp6.h"
+
+#endif
 //#include "i3_id.h"
 
 #define HIP_MAX_ICMP_PACKET 512

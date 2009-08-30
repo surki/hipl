@@ -29,8 +29,10 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#ifndef ANDROID_CHANGES
 #include <netinet/ip6.h>
 #include <sysexits.h>
+#endif
 #include <assert.h>
 #include <openssl/dh.h>
 #include <openssl/dsa.h>
@@ -187,7 +189,11 @@
 #define OPT_HI_FILE 2
 #define OPT_HI_KEYLEN 3
 
-#define HIPD_CONFIG_FILE     "/etc/hip/hipd_config"
+#ifdef ANDROID_CHANGES
+#    define HIPD_CONFIG_FILE     "/data/hip/hipd_config"
+#else
+#    define HIPD_CONFIG_FILE     "/etc/hip/hipd_config"
+#endif
 #define HIPD_CONFIG_FILE_EX \
 "# Format of this file is as with hipconf, but without hipconf prefix\n\
 # add hi default    # add all four HITs (see bug id 522)\n\
@@ -208,7 +214,11 @@ opendht on # turn DHT support on (use /etc/hip/dhtservers to define the used ser
 nat plain-udp       # use UDP capsulation (for NATted environments)\n\
 debug medium        # debug verbosity: all, medium or none\n"
 
-#define HIPD_HOSTS_FILE     "/etc/hip/hosts"
+#ifdef ANDROID_CHANGES
+#    define HIPD_HOSTS_FILE     "/data/hip/hosts"
+#else
+#    define HIPD_HOSTS_FILE     "/etc/hip/hosts"
+#endif
 #define HOSTS_FILE "/etc/hosts"
 #define HIPD_HOSTS_FILE_EX \
 "# This file stores the HITs of the hosts, in a similar fashion to /etc/hosts.\n\
@@ -216,7 +226,11 @@ debug medium        # debug verbosity: all, medium or none\n"
 #2001:1e:361f:8a55:6730:6f82:ef36:2fff kyle kyle.com # This is a HIT with alias\n\
 #2001:17:53ab:9ff1:3cba:15f:86d6:ea2e kenny       # This is a HIT without alias\n"
 
-#define HIPD_NSUPDATE_CONF_FILE     "/etc/hip/nsupdate.conf"
+#ifdef ANDROID_CHANGES
+#    define HIPD_NSUPDATE_CONF_FILE     "/data/hip/nsupdate.conf"
+#else
+#    define HIPD_NSUPDATE_CONF_FILE     "/etc/hip/nsupdate.conf"
+#endif
 #define HIPD_NSUPDATE_CONF_FILE_EX \
 "##########################################################\n"\
 "# configuration examples\n"\

@@ -8,9 +8,15 @@
 #include "libdht/libhipopendht.h"
 #include "debug.h"
 #include "libinet6/util.h"
+#ifndef ANDROID_CHANGES
 #include "libinet6/include/netdb.h"
+#endif
 #include "libinet6/hipconf.h"
 #include <netinet/in.h>
+
+#ifdef ANDROID_CHANGES
+#include "include_glibc23/ifaddrs.h"
+#endif
 
 extern struct addrinfo *opendht_serving_gateway;
 extern struct addrinfo *opendht_serving_port;
@@ -154,7 +160,7 @@ int exists_address_family_in_list(struct in6_addr *addr) {
 		int map;
 		n = list_entry(tmp);
 		
-		if (IN6_IS_ADDR_V4MAPPED(hip_cast_sa_addr(&n->addr)) == mapped)
+		if (IN6_IS_ADDR_V4MAPPED((struct in6_addr *)hip_cast_sa_addr(&n->addr)) == mapped)
 			return 1;
 	}
 	

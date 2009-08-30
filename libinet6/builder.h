@@ -24,6 +24,9 @@
 #  include "misc.h"
 #  include "icomm.h"
 #  include "certtools.h"
+#ifdef ANDROID_CHANGES
+#  include "getendpointinfo.h"
+#endif
 #endif
 #include "registration.h"
 #include "state.h"

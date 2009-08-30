@@ -33,7 +33,11 @@
 #include "hashtable.h"
 
 /** Defines **/
-#define HIP_CERT_CONF_PATH "/etc/hip/hip_cert.cnf"
+#ifdef ANDROID_CHANGES
+#    define HIP_CERT_CONF_PATH "/data/hip/hip_cert.cnf"
+#else
+#    define HIP_CERT_CONF_PATH "/etc/hip/hip_cert.cnf"
+#endif
 
 /* Needed if the configuration file for certs did not exist  */
 #define HIP_CERT_INIT_DAYS 10

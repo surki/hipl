@@ -8,7 +8,9 @@
 #include <asm/types.h>
 #include <sys/errno.h>
 #include <sys/socket.h>
+#ifndef ANDROID_CHANGES
 #include <ifaddrs.h>
+#endif
 #include <arpa/inet.h>
 #include <string.h>
 
