@@ -24,8 +24,17 @@
  * @note    All Doxygen comments have been added in version 1.1.
  */ 
 #include "nat.h"
-
 #include <string.h>
+
+//Pollutes libc namespace by undefining s6_addr (pj/sock.h)
+#include "pjnath.h"
+#include "pjlib.h"
+
+#ifndef s6_addr
+#  define s6_addr                 in6_u.u6_addr8
+#  define s6_addr16               in6_u.u6_addr16
+#  define s6_addr32               in6_u.u6_addr32
+#endif /* s6_addr */
 
 //add by santtu
 /** the database for all the ha */

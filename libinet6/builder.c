@@ -1744,7 +1744,7 @@ int hip_build_param_hmac_contents(struct hip_common *msg,
 			 struct hip_crypto_key *key)
 {
 
-	hip_build_param_hmac(msg, key, HIP_PARAM_HMAC);
+	return hip_build_param_hmac(msg, key, HIP_PARAM_HMAC);
 };
 
 int hip_create_msg_pseudo_hmac2(const struct hip_common *msg,

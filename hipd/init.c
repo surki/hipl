@@ -1009,11 +1009,12 @@ void hip_probe_kernel_modules()
 		else if (err == 0)
 		{
 			/* Redirect stderr, so few non fatal errors wont show up. */
-			stderr = freopen("/dev/null", "w", stderr);
+			freopen("/dev/null", "w", stderr);
 			execlp("/sbin/modprobe", "/sbin/modprobe", mod_name[count], (char *)NULL);
 		}
 		else waitpid(err, &status, 0);
 	}
+
 	HIP_DEBUG("Probing completed\n");
 }
 

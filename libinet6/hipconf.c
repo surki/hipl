@@ -2353,6 +2353,7 @@ int hip_conf_print_info_ha(struct hip_hadb_user_info_state *ha)
 	if (ha->peer_controls & HIP_HA_CTRL_PEER_REFUSED_UNSUP)
 		HIP_DEBUG(" Peer has refused to grant us an unknown service\n");
 
+    return 0;
 }
 
 int hip_conf_handle_handoff(hip_common_t *msg, int action,const char *opt[], int optc, int send_only)

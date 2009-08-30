@@ -14,13 +14,14 @@
 #include <openssl/sha.h>
 #include <errno.h>
 #include <signal.h>
-#include "libhipopendht.h"
-#include "libhipopendhtxml.h"
 #include "debug.h"
-#include "fcntl.h"
+#include <fcntl.h>
 #include "ife.h"
 #include "icomm.h"
 #include "misc.h"
+
+#include "libhipopendht.h"
+#include "libhipopendhtxml.h"
 
 
 /**

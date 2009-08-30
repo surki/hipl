@@ -25,7 +25,7 @@
 #endif /* __KERNEL__ */
 
 #include "registration.h"
-#include "utils.h"
+#include "libinet6/utils.h"
 #include "icomm.h"
 
 #ifdef CONFIG_HIP_LIBHIPTOOL

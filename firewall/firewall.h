@@ -1,6 +1,7 @@
 #ifndef HIP_FIREWALL_H
 #define HIP_FIREWALL_H
 
+#include <limits.h>
 #include <netinet/in.h>
 #include <linux/types.h>
 #include <linux/netfilter.h>

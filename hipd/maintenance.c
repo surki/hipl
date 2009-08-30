@@ -388,6 +388,8 @@ int hip_agent_update(void)
 	//add by santtu
 	hip_agent_update_status(hip_get_nat_mode(), NULL, 0);
 	//end add
+
+	return 0;
 }
 
 
@@ -1310,10 +1312,10 @@ static int hip_sqlite_callback(void *NotUsed, int argc, char **argv, char **azCo
 int publish_certificates ()
 {
 #ifdef CONFIG_HIP_AGENT
-	 int err = 0 ;
-	 
-	 err = hip_sqlite_select(daemon_db, HIP_CERT_DB_SELECT_HITS,hip_sqlite_callback);
+	 return hip_sqlite_select(daemon_db, HIP_CERT_DB_SELECT_HITS,hip_sqlite_callback);
 #endif
+
+     return 0;
 }
 
 /**

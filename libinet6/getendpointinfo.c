@@ -1150,7 +1150,7 @@ int get_peer_endpointinfo(const char *hostsfile,
   hosts = fopen(hostsfile, "r");
   if (!hosts) {
     err = EEI_SYSTEM;
-    HIP_ERROR("Failed to open %s\n", _PATH_HIP_HOSTS);
+    HIP_ERROR("Failed to open %s\n", hostsfile);
     goto out_err;
   }
 
