@@ -647,7 +647,15 @@ RSA *create_rsa_key(int bits) {
 
   /* generate private and public keys */
 #ifdef ANDROID_CHANGES
-  rsa = RSA_generate_key_ex(bits, RSA_F4, NULL, NULL);
+  BIGNUM *bn;
+  if (!(bn = BN_new()))
+    goto err_out;
+  if (!BN_set_word(bn, RSA_F4))
+    goto err_out;
+  if (!(rsa = RSA_new()))
+    goto err_out;
+  if (RSA_generate_key_ex(rsa, bits, bn, NULL) == -1)
+    goto err_out;
 #else
   rsa = RSA_generate_key(bits, RSA_F4, NULL, NULL);
 #endif
