@@ -2,7 +2,7 @@
 
 BASE_PATH := $(call my-dir)
 
-BASE_C_INCLUDES := $(addprefix $(BASE_PATH)/, . hipd libhipandroid libinet6 libhiptool libdht i3 i3/i3_client pjproject/pjlib/include pjproject/pjlib-util/include pjproject/pjnath/include)
+BASE_C_INCLUDES := $(addprefix $(BASE_PATH)/, . hipd firewall libhipandroid libinet6 libhiptool libdht i3 i3/i3_client pjproject/pjlib/include pjproject/pjlib-util/include pjproject/pjnath/include)
 
 
 ###########################################################
@@ -118,6 +118,64 @@ LOCAL_MODULE_CLASS := EXECUTABLES
 include $(BUILD_EXECUTABLE)
 
 
+
+###########################################################
+# hipfw
+###########################################################
+
+
+LOCAL_PATH:= $(BASE_PATH)/firewall
+
+include $(CLEAR_VARS)
+
+LOCAL_SRC_FILES :=  firewall.c \
+                    conntrack.c \
+                    rule_management.c \
+                    helpers.c \
+                    firewall_control.c \
+                    esp_decrypt.c \
+                    proxydb.c \
+                    conndb.c \
+                    dlist.c \
+                    hslist.c \
+                    user_ipsec_api.c \
+                    user_ipsec_esp.c \
+                    user_ipsec_sadb.c \
+                    user_ipsec_fw_msg.c \
+                    esp_prot_api.c \
+                    esp_prot_fw_msg.c \
+                    esp_prot_conntrack.c \
+                    proxy.c \
+                    opptcp.c \
+                    firewalldb.c \
+                    lsi.c \
+                    fw_stun.c \
+                    sava_api.c \
+                    cache.c \
+                    cache_port.c
+
+LOCAL_CFLAGS := -include $(BASE_PATH)/libhipandroid/libhipandroid.h \
+                -DANDROID_CHANGES \
+                -DPJ_LINUX \
+                -DCONFIG_HIP_DEBUG \
+                -DHIP_LOGFMT_LONG \
+                -g -O0
+
+LOCAL_C_INCLUDES := $(BASE_C_INCLUDES) \
+                    external/openssl/include \
+                    external/iptables/include/libipq
+
+LOCAL_SHARED_LIBRARIES := libcrypto
+
+LOCAL_STATIC_LIBRARIES := libinet6 libhiptool libhipandroid libpjnath-hipl libpj-hipl libpjlib-util-hipl
+
+LOCAL_MODULE:= hipfw
+
+LOCAL_MODULE_CLASS := EXECUTABLES
+
+include $(BUILD_EXECUTABLE)
+
+
 ##########################################################
 # libhipandroid
 ##########################################################
@@ -129,10 +187,14 @@ include $(CLEAR_VARS)
 
 # TODO ifaddrs.c or getifaddrs.c?
 LOCAL_SRC_FILES :=  libhipandroid.c \
-                    regex.c
+                    regex.c \
+                    libipq.c \
+                    getline.c
 
 LOCAL_CFLAGS := -DANDROID_CHANGES \
                 -g
+
+LOCAL_C_INCLUDES := external/iptables/include
 
 LOCAL_SHARED_LIBRARIES :=
 

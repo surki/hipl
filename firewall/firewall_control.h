@@ -3,6 +3,9 @@
 
 #include <stdio.h>
 //#include <glib/gthread.h>
+#ifdef ANDROID_CHANGES
+#include <sys/socket.h>
+#endif
 #include <sys/un.h>
 #include <errno.h>
 #include <stddef.h>

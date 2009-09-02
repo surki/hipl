@@ -956,7 +956,7 @@ int esp_prot_conntrack_verify_branch(struct tuple * tuple,
 
 int esp_prot_conntrack_cache_cumulative_hashes()
 {
-
+  return 0;
 }
 
 struct esp_tuple * esp_prot_conntrack_find_esp_tuple(struct tuple * tuple,

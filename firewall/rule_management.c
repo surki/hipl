@@ -1211,6 +1211,8 @@ int flush(int hook)
       temp = temp->next;
     }
   free_list(temp);
+
+  return 0;
 }
 
 void test_rule_management(){

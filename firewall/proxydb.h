@@ -9,7 +9,13 @@
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <netinet/ip_icmp.h>
+#ifndef ANDROID_CHANGES
 #include <linux/icmpv6.h>
+#else
+#include <linux/coda.h>
+#include "icmp6.h"
+#include <linux/icmp.h>
+#endif
 
 #include "debug.h"
 #include "hidb.h"

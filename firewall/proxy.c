@@ -676,8 +676,15 @@ int hip_proxy_send_pkt(struct in6_addr *local_addr, struct in6_addr *peer_addr,	
 	{
 		//TODO
 		HIP_DEBUG("ICMPV6 packet\n");
+
+#ifndef ANDROID_CHANGES
 		((struct icmp6hdr*)msg)->icmp6_cksum = htons(0);
 		((struct icmp6hdr*)msg)->icmp6_cksum = ipv6_checksum(IPPROTO_ICMPV6, &src6->sin6_addr, &dst6->sin6_addr, msg, len);
+#else
+		((struct icmp6_hdr*)msg)->icmp6_cksum = htons(0);
+		((struct icmp6_hdr*)msg)->icmp6_cksum = ipv6_checksum(IPPROTO_ICMPV6, &src6->sin6_addr, &dst6->sin6_addr, msg, len);
+#endif
+
 	}
 	
 	/* Handover may cause e.g. on-link duplicate address detection
@@ -741,7 +748,11 @@ int hip_proxy_send_to_client_pkt(struct in6_addr *local_addr,
 	struct tcphdr* tcp = NULL;
 	struct udphdr* udp = NULL;
 	struct icmphdr* icmp = NULL;
+#ifndef ANDROID_CHANGES
 	struct icmp6hdr* icmpv6 = NULL;
+#else
+	struct icmp6_hdr* icmpv6 = NULL;
+#endif
 	u8 *msg;
 	/* Points either to v4 or v6 raw sock */
 	int hip_raw_sock = 0;
@@ -769,7 +780,11 @@ int hip_proxy_send_to_client_pkt(struct in6_addr *local_addr,
 	tcp = (struct tcphdr *) (buff + 40); //sizeof ip6_hdr is 40
 	udp = (struct udphdr *) (buff + 40); //sizeof ip6_hdr is 40
 	icmp = (struct icmphdr *) (buff + 40); //sizeof ip6_hdr is 40
+#ifndef ANDROID_CHANGES
 	icmpv6 = (struct icmp6hdr *) (buff + 40); //sizeof ip6_hdr is 40
+#else
+	icmpv6 = (struct icmp6_hdr *) (buff + 40); //sizeof ip6_hdr is 40
+#endif
 
 	memset(&src, 0, sizeof(src));
 	memset(&dst, 0, sizeof(dst));
@@ -1100,7 +1115,8 @@ int hip_proxy_send_inbound_icmp_pkt(struct in6_addr* src_addr, struct in6_addr* 
 			  sent, (len + sizeof(struct ip6_hdr) -  ip->ip_hl), 0);
 		HIP_DEBUG("Packet sent ok\n");
 	}
-	
+
+    return 0;
 }
 
 

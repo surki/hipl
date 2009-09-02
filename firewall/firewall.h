@@ -10,7 +10,9 @@
 #include <linux/netfilter_ipv4.h>
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
+#ifndef ANDROID_CHANGES
 #include <netinet/ip6.h>
+#endif
 #include <stdint.h>
 #include <stdio.h>
 
@@ -33,7 +35,7 @@
 #include "debug.h"
 #include "helpers.h"
 #include "conntrack.h"
-#include "utils.h"
+#include "libinet6/utils.h"
 #include "misc.h"
 #include "netdev.h"
 #include "lsi.h"
@@ -42,6 +44,12 @@
 #include "esp_prot_api.h"
 #include "esp_prot_conntrack.h"
 // include of "user_ipsec.h" at the bottom due to dependency
+
+#ifndef s6_addr
+#  define s6_addr                 in6_u.u6_addr8
+#  define s6_addr16               in6_u.u6_addr16
+#  define s6_addr32               in6_u.u6_addr32
+#endif /* s6_addr */
 
 #define HIP_FW_DEFAULT_RULE_FILE "/etc/hip/firewall_conf"
 
@@ -88,7 +96,12 @@ typedef struct hip_conn_t{
 
 typedef int (*hip_fw_handler_t)(hip_fw_context_t *);
 
+#ifndef ANDROID_CHANGES
 #define HIP_FIREWALL_LOCK_FILE	"/var/lock/hip_firewall.lock"
+#else
+#define HIP_FIREWALL_LOCK_FILE	"/data/hip_firewall.lock"
+#endif
+
 struct in6_addr proxy_hit;
 extern int hipproxy;
 extern struct in6_addr default_hit;

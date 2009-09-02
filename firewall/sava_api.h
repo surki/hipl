@@ -12,7 +12,9 @@
 #include <openssl/md5.h>
 #include <openssl/des.h>
 #include <openssl/aes.h>
+#ifndef ANDROID_CHANGES
 #include <openssl/blowfish.h>
+#endif
 
 #include <netinet/ip.h>
 

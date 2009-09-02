@@ -540,11 +540,13 @@ int hip_sa_entry_set(hip_sa_entry_t *entry, int direction, uint32_t spi,
 			entry->aes_key = NULL;
 
 			break;
+#ifndef ANDROID_CHANGES
 		case HIP_ESP_BLOWFISH_SHA1:
 			entry->bf_key = (BF_KEY *) malloc(sizeof(BF_KEY));
 			BF_set_key(entry->bf_key, hip_enc_key_length(ealg), enc_key->key);
 
 			break;
+#endif
 		case HIP_ESP_NULL_SHA1:
 			// same encryption chiper as next transform
 		case HIP_ESP_NULL_MD5:
@@ -737,9 +739,10 @@ void hip_sa_entry_free(hip_sa_entry_t * entry)
 			free(entry->enc_key);
 		if (entry->aes_key)
 			free(entry->aes_key);
+#ifndef ANDROID_CHANGES
 		if (entry->bf_key)
 			free(entry->bf_key);
-
+#endif
 		// also free all hchain related members
 		esp_prot_sa_entry_free(entry);
 	}

@@ -8,7 +8,14 @@
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <netinet/ip_icmp.h>
+#ifndef ANDROID_CHANGES
 #include <linux/icmpv6.h>
+#else
+#include <linux/icmp.h>
+#include <linux/coda.h>
+#include "icmp6.h"
+#define icmp6hdr icmp6_hdr
+#endif
 #include "ife.h"
 #include "state.h"
 #include "debug.h"

@@ -644,9 +644,7 @@ struct in6_addr * hip_sava_find_ip_by_enc(struct in6_addr * src_enc) {
 
 
 hip_common_t * hip_sava_get_keys_build_msg(const struct in6_addr * hit) {
-
-
-
+  return NULL;
 }
 
 hip_common_t * hip_sava_make_keys_request(const struct in6_addr * hit, 
