@@ -51,7 +51,11 @@
 #  define s6_addr32               in6_u.u6_addr32
 #endif /* s6_addr */
 
+#ifndef ANDROID_CHANGES
 #define HIP_FW_DEFAULT_RULE_FILE "/etc/hip/firewall_conf"
+#else
+#define HIP_FW_DEFAULT_RULE_FILE "/data/hip/firewall_conf"
+#endif
 
 #define HIP_FW_FILTER_TRAFFIC_BY_DEFAULT 1
 #define HIP_FW_ACCEPT_HIP_ESP_TRAFFIC_BY_DEFAULT 0
