@@ -119,7 +119,7 @@ typedef struct hip_stateless_info
 	int hi3_in_use; /**< A boolean to indicate whether this message was
                              sent through I3 or not .*/
 #endif
-} __attribute__ ((packed)) hip_portpair_t;
+}hip_portpair_t;
 
 /**
  * A data structure for handling retransmission. Used inside host association
@@ -131,7 +131,7 @@ typedef struct hip_msg_retrans{
 	struct in6_addr saddr;
 	struct in6_addr daddr;
 	struct hip_common *buf;
-} __attribute__ ((packed)) hip_msg_retrans_t;
+} hip_msg_retrans_t;
 
 /**
  * A binder structure for storing an IPv6 address and transport layer port
@@ -176,7 +176,7 @@ struct hip_context
 	
 	char hip_nat_key[HIP_MAX_KEY_LEN];
 	int use_ice;
-} __attribute__ ((packed));
+};
 
 /*
  * Fixed start of this struct must match to struct hip_locator_info_addr_item
@@ -208,7 +208,7 @@ struct hip_peer_addr_list_item
 	
 	uint8_t			kind;
 //end NAT branch
-} __attribute__ ((packed));
+};
 
 /* for HIT-SPI hashtable only */
 struct hip_hit_spi {
@@ -218,7 +218,7 @@ struct hip_hit_spi {
 	hip_hit_t        hit_our;
 	hip_hit_t        hit_peer;
 	uint32_t         spi; /* this SPI spi belongs to the HIT hit */
-} __attribute__ ((packed));
+};
 
 struct hip_spi_in_item
 {
@@ -245,7 +245,7 @@ struct hip_spi_in_item
         /* our addresses this SPI is related to, reuse struct to ease coding */
 	struct hip_locator_info_addr_item *addresses;
 	int addresses_n; /* number of addresses */
-} __attribute__ ((packed));
+};
 
 #ifndef __KERNEL__
 struct hip_spi_out_item
@@ -257,8 +257,8 @@ struct hip_spi_out_item
 					 * NOT OUTBOUND SPIS *//* the Update ID in SEQ parameter these SPI are related to */
 
 	HIP_HASHTABLE *peer_addr_list; /* Peer's IPv6 addresses */
-	struct in6_addr  preferred_address; /* check */
-}__attribute__ ((packed));
+	struct in6_addr	 preferred_address;
+};
 #endif
 
 /* this struct is here instead of hidb.h to avoid some weird compilation
@@ -279,7 +279,7 @@ struct hip_host_id_entry {
 	/* Handler to call before remove with an argument, return 0 if OK*/
 	int (*remove)(struct hip_host_id_entry *, void **arg);
 	void *arg;
-} __attribute__ ((packed));
+};
 #ifndef __KERNEL__
 /* If you need to add a new boolean type variable to this structure, consider
    adding a control value to the local_controls and/or peer_controls bitmask
@@ -555,7 +555,7 @@ struct hip_hadb_state
 	int outbound_sa_count;
 	int inbound_sa_count;
 
-}__attribute__ ((packed));
+};
 #endif /* __KERNEL__ */
 
 /** A data structure defining host association information that is sent
@@ -578,14 +578,14 @@ struct hip_hadb_user_info_state
 	in_port_t	nat_udp_port_local;
 	in_port_t	nat_udp_port_peer;
 	hip_controls_t  peer_controls;
-}__attribute__ ((packed));
+};
 
 struct hip_turn_info
 {
 	uint32_t spi;
 	struct in6_addr peer_address;
 	in_port_t peer_port;
-}__attribute__ ((packed));
+};
 
 /** @addtogroup hadb_func
  * @{
