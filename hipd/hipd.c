@@ -248,6 +248,7 @@ void usage() {
 	fprintf(stderr, "  -b run in background\n");
 	fprintf(stderr, "  -k kill existing hipd\n");
 	fprintf(stderr, "  -N do not flush ipsec rules on exit\n");
+	fprintf(stderr, "  -a fix alignment issues automatically(ARM)\n");
 	fprintf(stderr, "\n");
 }
 
@@ -410,8 +411,8 @@ int hipd_main(int argc, char *argv[])
 	int ch, killold = 0;
 	//	char buff[HIP_MAX_NETLINK_PACKET];
 	fd_set read_fdset;
-        fd_set write_fdset;
-	int foreground = 1, highest_descriptor = 0, s_net, err = 0;
+	fd_set write_fdset;
+	int foreground = 1, highest_descriptor = 0, s_net, err = 0, fix_alignment = 0;
 	struct timeval timeout;
 	struct hip_work_order ping;
 
@@ -426,7 +427,7 @@ int hipd_main(int argc, char *argv[])
 	struct msghdr msg;
 
 	/* Parse command-line options */
-	while ((ch = getopt(argc, argv, ":bkNch")) != -1)
+	while ((ch = getopt(argc, argv, ":bkNcha")) != -1)
 	{
 		switch (ch)
 		{
@@ -442,6 +443,9 @@ int hipd_main(int argc, char *argv[])
 		case 'c':
 			create_configs_and_exit = 1;
 			break;
+		case 'a':
+			fix_alignment = 1;
+			break;
 		case '?':
 		case 'h':
 		default:
@@ -451,6 +455,12 @@ int hipd_main(int argc, char *argv[])
 	}
 
 	hip_set_logfmt(LOGFMT_LONG);
+
+	if(fix_alignment)
+	{
+		system("echo 3 > /proc/cpu/alignment");
+		HIP_DEBUG("Setting alignment traps to 3(fix+ warn)\n");
+	}
 
 	/* Configuration is valid! Fork a daemon, if so configured */
 	if (foreground)
