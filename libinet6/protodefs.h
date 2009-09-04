@@ -444,8 +444,8 @@ struct hip_host_id {
  */
 struct hip_lhi
 {
-	uint16_t           anonymous; /**< Is this an anonymous HI */
 	struct in6_addr    hit;
+	uint16_t           anonymous; /**< Is this an anonymous HI */
 	uint16_t           algo; /**< HIP_HI_RSA or HIP_HI_DSA */
 } __attribute__ ((packed));
 
