@@ -159,7 +159,7 @@ LOCAL_CFLAGS := -include $(BASE_PATH)/libhipandroid/libhipandroid.h \
                 -DPJ_LINUX \
                 -DCONFIG_HIP_DEBUG \
                 -DHIP_LOGFMT_LONG \
-                -g -O0
+                -g
 
 LOCAL_C_INCLUDES := $(BASE_C_INCLUDES) \
                     external/openssl/include \
@@ -282,8 +282,7 @@ LOCAL_CFLAGS := -include $(BASE_PATH)/libhipandroid/libhipandroid.h \
                 -DPJ_LINUX \
                 -DHIPL_DEFAULT_PREFIX=\"/system/\" \
                 -DANDROID_CHANGES \
-                -g \
-                -O0 # TODO nlink.c::xfrm_fill_selector() does an unaligned memcpy when optimized
+                -g
 
 LOCAL_C_INCLUDES := $(BASE_C_INCLUDES) \
                     external/openssl/include

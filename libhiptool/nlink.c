@@ -126,6 +126,7 @@ int hip_netlink_receive(struct rtnl_handle *nl,
 		/* All messages processed */
 		return 0;
 	}
+	return 0;
 }
 
 /**
