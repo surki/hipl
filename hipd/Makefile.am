@@ -34,16 +34,17 @@ hipd_LDFLAGS = -lcrypto $(HIPL_XMLL) -lm -DHIPL_HIPD
 
 # For some weird reason, you cannot use $(HIPL_LIBINET6_LIB_STATIC) below
 if HIP_FORCE_SHLIB
-hipd_LDFLAGS += -L$(HIPL_LIBINET6_LIB)
-hipd_LDADD = $(OPENWRT_LIB_STATIC) -linet6
+hipd_LDFLAGS += -L$(HIPL_LIBINET6_LIB) 
+hipd_LDADD = $(OPENWRT_LIB_STATIC) -linet6 ../libhipcore/.libs/libhipcore.a
 else
-hipd_LDADD = $(OPENWRT_LIB_STATIC) ../libinet6/.libs/libinet6.a
+hipd_LDADD = $(OPENWRT_LIB_STATIC) ../libinet6/.libs/libinet6.a ../libhipcore/.libs/libhipcore.a
 endif
 
 if HIP_FORCE_SHLIB
-  hipd_LDFLAGS += -L$(HIPL_LIBHIPTOOL_LIB)
-  hipd_LDADD += -lhiptool
+  hipd_LDFLAGS += -L$(HIPL_LIBHIPTOOL_LIB) -L$(HIPL_LIBHIPTOOL_LIB)
+  hipd_LDADD += -lhiptool -lhipcore
 else
+  hipd_LDADD += ../libhipcore/.libs/libhipcore.a
   hipd_LDADD += ../libhiptool/.libs/libhiptool.a
 endif
 
@@ -62,9 +63,9 @@ hipd_LDADD += ../pjproject/pjlib-util/lib/libpjlib-util-hipl.a
 
 if HIP_PRIVSEP
 if HIP_ALTSEP
-  hipd_LDFLAGS += 
+  hipd_LDFLAGS += ../libhipcore/.libs/libhipcore.a
 else
-  hipd_LDFLAGS += -lcap
+  hipd_LDFLAGS += -lcap ../libhipcore/.libs/libhipcore.a
 endif
 endif
 

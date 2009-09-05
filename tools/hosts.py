@@ -81,8 +81,12 @@ class Hosts:
             return True
 
     def str_is_hit(self, addr_str):
-        if addr_str.startswith('2001:001') or addr_str.startswith('2001:1'):
+	# These are HITs: 2001:001x:xx 2001:1x:xx
+        # This is not a HIT 2001:1yyy:xxxx (where y is not zero)
+        if addr_str.startswith('2001:001'):
             return True
+	elif addr_str.startswith('2001:1') and addr_str[7] == ':':
+	    return True
         else:
             return False
 
@@ -222,7 +226,6 @@ class Hosts:
                 return None
         return (a[0], ttl)
 
-    # Overload hosts file as cache for hostname->HIT/LSI
     def cache_name(self, hostname, addr, ttl):
         valid_to = int(time.time()) + ttl
         if self.str_is_hit(addr):

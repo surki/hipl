@@ -244,8 +244,9 @@ int hip_get_hi3_status(){
 
 void usage() {
   //	fprintf(stderr, "HIPL Daemon %.2f\n", HIPL_VERSION);
-        fprintf(stderr, "Usage: hipd [options]\n\n");
+	fprintf(stderr, "Usage: hipd [options]\n\n");
 	fprintf(stderr, "  -b run in background\n");
+	fprintf(stderr, "  -i <device name> add interface to the white list. Use additional -i for additional devices.\n");
 	fprintf(stderr, "  -k kill existing hipd\n");
 	fprintf(stderr, "  -N do not flush ipsec rules on exit\n");
 	fprintf(stderr, "  -a fix alignment issues automatically(ARM)\n");
@@ -427,12 +428,19 @@ int hipd_main(int argc, char *argv[])
 	struct msghdr msg;
 
 	/* Parse command-line options */
-	while ((ch = getopt(argc, argv, ":bkNcha")) != -1)
+	while ((ch = getopt(argc, argv, ":bi:kNcha")) != -1)
 	{
 		switch (ch)
 		{
 		case 'b':
 			foreground = 0;
+			break;
+		case 'i':
+			if(hip_netdev_white_list_add(optarg))
+				HIP_INFO("Successfully added device <%s> to white list.\n",optarg);
+			else
+				HIP_DIE("Error adding device <%s> to white list. Dying...\n",optarg);	
+		
 			break;
 		case 'k':
 			killold = 1;

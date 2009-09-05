@@ -388,10 +388,8 @@ int firewall_send_incoming_pkt(struct in6_addr *src_hit,
 	struct tcphdr *tcp = NULL;
 	struct icmphdr *icmp = NULL;
 	struct icmp6hdr *icmpv6 = NULL;
-
 	struct sockaddr_storage src, dst;
 	struct sockaddr_in6 *sock_src6, *sock_dst6;
-
 	struct sockaddr_in *sock_src4, *sock_dst4;
 	struct in_addr src_aux, dst_aux;
 	struct in6_addr any = IN6ADDR_ANY_INIT;
@@ -414,7 +412,7 @@ int firewall_send_incoming_pkt(struct in6_addr *src_hit,
 		HIP_DEBUG_LSI("src4 addr ",&(sock_src4->sin_addr));
 		HIP_DEBUG_LSI("dst4 addr ",&(sock_dst4->sin_addr));
 
-	}else{
+	} else {
 		sock_src6->sin6_family = AF_INET6;
 		ipv6_addr_copy(&sock_src6->sin6_addr, src_hit);
 		sock_dst6->sin6_family = AF_INET6;
@@ -460,7 +458,11 @@ int firewall_send_incoming_pkt(struct in6_addr *src_hit,
 			  	firewall_raw_sock = firewall_raw_sock_tcp_v4;
 			  	
 				tcp->check = ipv4_checksum(IPPROTO_TCP, &(sock_src4->sin_addr), 
-							   &(sock_dst4->sin_addr), tcp, len);		
+							   &(sock_dst4->sin_addr), tcp, len);
+				_HIP_DEBUG("checksum %x, len=%d\n", htons(tcp->check), len);
+				_HIP_DEBUG_LSI("src", &(sock_src4->sin_addr));
+				_HIP_DEBUG_LSI("dst", &(sock_dst4->sin_addr));
+				
 				memmove((msg+sizeof(struct ip)), (u8*)tcp, len);
 			}	
 			break;
@@ -483,10 +485,6 @@ int firewall_send_incoming_pkt(struct in6_addr *src_hit,
 
 	if (!is_ipv6){
 		iphdr = (struct ip *) msg;	
-
-		/* @todo: move the socket option to fw initialization */
-		if (setsockopt(firewall_raw_sock, IPPROTO_IP, IP_HDRINCL, &on, sizeof(on)))
-		        HIP_IFEL(err, -1, "setsockopt IP_HDRINCL ERROR\n");  
 		iphdr->ip_v = 4;
 		iphdr->ip_hl = sizeof(struct ip) >> 2;
 		iphdr->ip_tos = 0;
@@ -499,6 +497,11 @@ int firewall_send_incoming_pkt(struct in6_addr *src_hit,
 		iphdr->ip_dst = sock_dst4->sin_addr;
 		iphdr->ip_sum = htons(0);
 			
+		/* @todo: move the socket option to fw initialization */
+		if (setsockopt(firewall_raw_sock, IPPROTO_IP, IP_HDRINCL, &on, sizeof(on)))
+		        HIP_IFEL(err, -1, "setsockopt IP_HDRINCL ERROR\n");  
+
+
 		_HIP_HEXDUMP("hex", iphdr, (len + sizeof(struct ip)));
 		sent = sendto(firewall_raw_sock, iphdr, 
 			      iphdr->ip_len, 0,

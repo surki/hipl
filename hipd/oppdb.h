@@ -20,7 +20,7 @@
 #include "hashtable.h"
 #include "builder.h"
 #include "util.h"
-#include "libinet6/utils.h"
+#include "libhipcore/utils.h"
 #include "oppipdb.h"
 
 #define HIP_LOCK_OPP_INIT(entry)

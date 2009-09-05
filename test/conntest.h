@@ -16,6 +16,7 @@
 #include <sys/uio.h>
 #include "debug.h"
 #include "ife.h"
+#include "libhipandroid/getendpointinfo.h"
  
 int create_socket(int proto);
 int create_serversocket(int type, in_port_t port);

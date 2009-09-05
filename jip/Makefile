@@ -19,9 +19,9 @@ JAVA_SOURCES=HipAddress.java HipSocket.java HipSocketFactory.java \
 C_SOURCES=hip-address.c hip-socket-impl.c hip-socket.c native-stream.c
 JAVA_CLASSES=$(patsubst %.java,jip/%.class,$(JAVA_SOURCES))
 JAVA_HEADERS=jip_HipAddress.h jip_HipSocketImpl.h jip_HipSocket.h jip_NativeInputStream.h jip_NativeOutputStream.h
-CFLAGS+=-Wall -W -I../tools -I../libinet6/include -I../libhiptool/include -I.. -I../linux/include -I../linux/net/ipv6/hip -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/linux
+CFLAGS+=-Wall -W -I../libhipcore/ -I../tools -I../libinet6/include -I../libhiptool/include -I.. -I../linux/include -I../linux/net/ipv6/hip -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/linux
 
-LDFLAGS+=-L../libinet6/.libs -L../libhiptool/.libs
+LDFLAGS+=-L../libhipcore/.libs -L../libinet6/.libs -L../libhiptool/.libs
 
 APIDOCDIR=../doc/jip-api
 
@@ -34,8 +34,8 @@ jip.jar: $(JAVA_SOURCES)
 	javac $(JAVA_SOURCES)
 	cd ..; jar cf jip/jip.jar $(JAVA_CLASSES)
 
-libjip.so: $(C_SOURCES) $(JAVA_HEADERS) ../libinet6/.libs/libinet6.so ../libhiptool/.libs/libhiptool.so
-	gcc $(CFLAGS) $(LDFLAGS) -shared $(C_SOURCES) -linet6 -lhiptool -o $@
+libjip.so: $(C_SOURCES) $(JAVA_HEADERS) ../libhipcore/.libs/libhipcore.so ../libinet6/.libs/libinet6.so ../libhiptool/.libs/libhiptool.so
+	gcc $(CFLAGS) $(LDFLAGS) -shared $(C_SOURCES) -hipcore -linet6 -lhiptool -o $@
 
 $(JAVA_HEADERS): jip_%.h: jip.jar %.class
 	javah -classpath jip.jar jip.$*

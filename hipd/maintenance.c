@@ -12,6 +12,13 @@
 
 #include "maintenance.h"
 
+/* @todo: why the heck do we need this here on linux? */
+struct in6_pktinfo
+{
+  struct in6_addr ipi6_addr;  /* src/dst IPv6 address */
+  unsigned int ipi6_ifindex;  /* send/recv interface index */
+};
+
 int hip_firewall_sock_lsi_fd = -1;
 
 float retrans_counter = HIP_RETRANSMIT_INIT;
@@ -623,6 +630,10 @@ int periodic_maintenance()
 		hip_agent_send_remote_hits();
 	}
 #endif
+
+	/* If some HAs are still remaining after certain grace period
+	   in closing or closed state, delete them */
+	hip_for_each_ha(hip_purge_closing_ha, NULL);
 	
 #ifdef HIP_USE_ICE
 	if (hip_nat_get_control(NULL) == HIP_NAT_MODE_ICE_UDP)
@@ -1090,6 +1101,7 @@ int verify_hdrr (struct hip_common *msg,struct in6_addr *addrkey)
 	int is_hit_verified  = -1;
 	int is_sig_verified  = -1;
 	int err = 0 ;
+	void *key;
 		
 	hostid = hip_get_param (msg, HIP_PARAM_HOST_ID);
 	if ( addrkey == NULL)
@@ -1116,12 +1128,14 @@ int verify_hdrr (struct hip_common *msg,struct in6_addr *addrkey)
     HIP_IFEL(!(hit_from_hostid = malloc(sizeof(struct in6_addr))), -1, "Malloc for HIT failed\n");
 	switch (alg) {
 		case HIP_HI_RSA:
-			is_sig_verified = hip_rsa_verify(hostid, msg);
+			key = hip_key_rr_to_rsa(hostid, 0);
+			is_sig_verified = hip_rsa_verify(key, msg);
 			err = hip_rsa_host_id_to_hit (hostid, hit_from_hostid, HIP_HIT_TYPE_HASH100);
 			is_hit_verified = memcmp(hit_from_hostid, hit_used_as_key, sizeof(struct in6_addr)) ;
 			break;
 		case HIP_HI_DSA:
-			is_sig_verified = hip_dsa_verify(hostid, msg);
+			key = hip_key_rr_to_dsa(hostid, 0);
+			is_sig_verified = hip_dsa_verify(key, msg);
 			err = hip_dsa_host_id_to_hit (hostid, hit_from_hostid, HIP_HIT_TYPE_HASH100);
 			is_hit_verified = memcmp(hit_from_hostid, hit_used_as_key, sizeof(struct in6_addr)) ; 
 			break;

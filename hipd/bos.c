@@ -41,21 +41,14 @@ int hip_create_bos_signature(void *priv, int algo, struct hip_common *bos)
  */
 int hip_send_bos(const struct hip_common *msg)
 {
-	int err = 0, i;
 	struct hip_common *bos = NULL;
 	struct in6_addr hit_our;
 	struct in6_addr daddr;
  	struct hip_host_id  *host_id_pub = NULL;
-	//struct hip_host_id *host_id_private = NULL;
-	//u8 signature[HIP_RSA_SIGNATURE_LEN]; // assert RSA > DSA
-	//struct net_device *saddr_dev;
-	//struct inet6_dev *idev;
-	//int addr_count = 0;
-	//struct inet6_ifaddr *ifa = NULL;
-	//struct hip_xfrm_t *x;
 	struct netdev_address *n;
 	hip_list_t *item, *tmp;
 	void *private_key;
+	int err = 0, i;
 	
 	HIP_DEBUG("\n");
 	
@@ -77,7 +70,7 @@ int hip_send_bos(const struct hip_common *msg)
 	}
 
 	/* Determine our HIT */
-	if (hip_get_any_localhost_hit(&hit_our, HIP_HI_DEFAULT_ALGO, 0) < 0)
+	if (hip_get_any_localhost_hit(&hit_our, HIP_HI_DEFAULT_ALGO, 0))
 	{
 		HIP_ERROR("Our HIT not found\n");
 		err = -EINVAL;
@@ -86,7 +79,7 @@ int hip_send_bos(const struct hip_common *msg)
 	HIP_DEBUG_IN6ADDR("hit_our = ", &hit_our);
 
 	/* Get our public host ID and private key */
-	err = hip_get_host_id_and_priv_key(HIP_DB_LOCAL_HID, NULL,
+	err = hip_get_host_id_and_priv_key(HIP_DB_LOCAL_HID, &hit_our,
 				HIP_HI_DEFAULT_ALGO, &host_id_pub, &private_key);
 	if (err) {
 		HIP_ERROR("No local host ID found\n");
@@ -191,15 +184,29 @@ out_err:
 int hip_verify_packet_signature(struct hip_common *bos, 
 				struct hip_host_id *peer_host_id)
 {
-	int err;
+	int err = 0;
+	struct hip_host_id *peer_pub = NULL;
+	int len = hip_get_param_total_len(peer_host_id);
+	char *key = NULL;
+
+	HIP_IFEL(!(peer_pub = HIP_MALLOC(len, GFP_KERNEL)),
+		 -ENOMEM, "Out of memory\n");
+
+	memcpy(peer_pub, peer_host_id, len);
+
 	if (peer_host_id->rdata.algorithm == HIP_HI_DSA){
-		err = hip_dsa_verify(peer_host_id, bos);
+	        key = (char *) hip_key_rr_to_rsa(peer_pub, 0);
+		err = hip_dsa_verify((DSA *) key, bos);
 	} else if(peer_host_id->rdata.algorithm == HIP_HI_RSA){
-		err = hip_rsa_verify(peer_host_id, bos);
+		key = (char *) hip_key_rr_to_rsa(peer_pub, 0);
+		err = hip_rsa_verify((RSA *) key, bos);
 	} else {
 		HIP_ERROR("Unknown algorithm\n");
 		err = -1;
 	}
+
+ out_err:
+
 	return err;
 }
 

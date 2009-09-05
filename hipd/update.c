@@ -16,11 +16,13 @@
 #include "update.h"
 #include "pjnath.h"
 
+#if 0
 #ifndef s6_addr
 #  define s6_addr                 in6_u.u6_addr8
 #  define s6_addr16               in6_u.u6_addr16
 #  define s6_addr32               in6_u.u6_addr32
 #endif /* s6_addr */
+#endif
 
 /* All Doxygen function comments are now moved to the header file. Some comments
    are inadequate. */
@@ -2396,8 +2398,8 @@ int hip_update_src_address_list(struct hip_hadb_state *entry,
 #endif
 
  out_err:
-	HIP_DEBUG_IN6ADDR("Saddr: ", &entry->our_addr);
-	HIP_DEBUG_IN6ADDR("Daddr: ", &entry->peer_addr);
+	_HIP_DEBUG_IN6ADDR("Saddr: ", &entry->our_addr);
+	_HIP_DEBUG_IN6ADDR("Daddr: ", &entry->peer_addr);
 	return err;
 }
 

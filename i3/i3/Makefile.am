@@ -4,6 +4,7 @@ CFLAGS= $(hipl_common_cflags) $(HIPL_XMLI)
 CFLAGS += $(OPTIMIZATIONS_CFLAGS)
 CFLAGS += $(GPROF_CFLAGS)
 INCLUDES = $(hipl_common_include_paths) -I$(HIPL_LIBINET6_INCLUDE)
+INCLUDES += -I$(HIPL_LIBHIPCORE_INCLUDE)
 
 noinst_LIBRARIES = libi3.a
 noinst_HEADERS = i3_config.h  i3_header.h  i3_options.h \

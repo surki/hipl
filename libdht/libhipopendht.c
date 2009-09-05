@@ -19,6 +19,10 @@
 #include "ife.h"
 #include "icomm.h"
 #include "misc.h"
+#include "libhipandroid/getendpointinfo.h"
+
+#include "libhipopendht.h"
+#include "libhipopendhtxml.h"
 
 #include "libhipopendht.h"
 #include "libhipopendhtxml.h"

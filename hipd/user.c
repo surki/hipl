@@ -110,7 +110,7 @@ int hip_handle_user_msg(hip_common_t *msg, struct sockaddr_in6 *src)
 		break;
 	case SO_HIP_RST:
 		//send_response = 0;
-	  err = hip_send_close(msg, 1);
+		err = hip_send_close(msg, 1);
 		break;
 	case SO_HIP_BOS:
 		err = hip_send_bos(msg);
@@ -967,8 +967,24 @@ int hip_handle_user_msg(hip_common_t *msg, struct sockaddr_in6 *src)
 				register_to_dht();
 			}
 		}
+
+		/* Workaround for bug id 880 until bug id 589 is implemented.
+		   -miika  */
+		if (entry->state != HIP_STATE_NONE || HIP_STATE_UNASSOCIATED) {
+			hip_common_t *msg = malloc(HIP_MAX_PACKET);
+			HIP_IFE((msg == 0), -1);
+			HIP_IFE(hip_build_user_hdr(msg, SO_HIP_RST, 0), -1);
+			HIP_IFE(hip_build_param_contents(msg,
+							 &entry->hit_peer,
+							 HIP_PARAM_HIT,
+							 sizeof(hip_hit_t)),
+				-1);
+			hip_send_close(msg, 0);
+			free(msg);
+		}
 		
 		/* Send a I1 packet to the server (registrar). */
+
 		/** @todo When registering to a service or cancelling a service,
 		    we should first check the state of the host association that
 		    is registering. When it is ESTABLISHED or R2-SENT, we have

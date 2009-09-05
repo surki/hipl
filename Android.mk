@@ -69,8 +69,6 @@ LOCAL_CFLAGS := -include $(BASE_PATH)/libhipandroid/libhipandroid.h \
                 -DCONFIG_HIP_DEBUG \
                 -DHIP_LOGFMT_LONG \
                 -g
-
-
 # -DCONFIG_HIP_AGENT \
 # -DCONFIG_HIP_OPENDHT \
 # -DCONFIG_HIP_I3
@@ -116,7 +114,6 @@ LOCAL_MODULE:= hipconf
 LOCAL_MODULE_CLASS := EXECUTABLES
 
 include $(BUILD_EXECUTABLE)
-
 
 
 ###########################################################
@@ -437,4 +434,3 @@ LOCAL_MODULE:= libpjlib-util-hipl
 LOCAL_MODULE_CLASS := STATIC_LIBRARIES
 
 include $(BUILD_STATIC_LIBRARY)
-

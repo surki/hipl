@@ -211,8 +211,6 @@ int hip_handle_close(struct hip_common *close, hip_ha_t *entry)
 	     }
 	}
 #endif
-
-	
 	
 	HIP_IFEL(hip_del_peer_info(&entry->hit_our, &entry->hit_peer), -1,
 				   "Deleting peer info failed.\n");
@@ -361,6 +359,24 @@ int hip_receive_close_ack(struct hip_common *close_ack,
 	default:
 		HIP_ERROR("Internal state (%d) is incorrect\n", state);
 		break;
+	}
+
+ out_err:
+	return err;
+}
+
+int hip_purge_closing_ha(hip_ha_t *ha, void *notused)
+{
+	int err = 0;
+
+	if ((ha->state == HIP_STATE_CLOSING || ha->state == HIP_STATE_CLOSED)) {
+		if (ha->purge_timeout <= 0) {
+			HIP_DEBUG("Purging HA (state=%d)\n", ha->state);
+			HIP_IFEL(hip_del_peer_info(&ha->hit_our, &ha->hit_peer), -1,
+				 "Deleting peer info failed.\n");
+		} else {
+			ha->purge_timeout--;
+		}
 	}
 
  out_err:

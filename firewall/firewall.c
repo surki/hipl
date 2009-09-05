@@ -1441,7 +1441,6 @@ int hip_fw_handle_other_output(hip_fw_context_t *ctx){
 	hip_lsi_t src_ip, dst_ip;
 	struct sockaddr_in6 dst_hit;
 	hip_lsi_t defaultLSI;
-
 	struct hip_common * msg;
 	struct ip      *iphdr;
 	struct tcphdr  *tcphdr;
