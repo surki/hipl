@@ -37,8 +37,6 @@
 #include <ctype.h>
 #include <openssl/dsa.h>
 
-#include "libhipandroid/getendpointinfo.h"
-
 #include "builder.h"
 #include "crypto.h"
 #include "libinet6/util.h"

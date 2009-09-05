@@ -2,7 +2,7 @@
 
 BASE_PATH := $(call my-dir)
 
-BASE_C_INCLUDES := $(addprefix $(BASE_PATH)/, . hipd firewall libhipandroid libinet6 libhiptool libdht i3 i3/i3_client pjproject/pjlib/include pjproject/pjlib-util/include pjproject/pjnath/include)
+BASE_C_INCLUDES := $(addprefix $(BASE_PATH)/, . hipd firewall libhipandroid libhipcore libinet6 libhiptool libdht i3 i3/i3_client pjproject/pjlib/include pjproject/pjlib-util/include pjproject/pjnath/include)
 
 
 ###########################################################
@@ -69,16 +69,17 @@ LOCAL_CFLAGS := -include $(BASE_PATH)/libhipandroid/libhipandroid.h \
                 -DCONFIG_HIP_DEBUG \
                 -DHIP_LOGFMT_LONG \
                 -g
-# -DCONFIG_HIP_AGENT \
-# -DCONFIG_HIP_OPENDHT \
+# -DCONFIG_HIP_AGENT
+# -DCONFIG_HIP_OPENDHT
 # -DCONFIG_HIP_I3
 
 LOCAL_C_INCLUDES := $(BASE_C_INCLUDES) \
-                    external/openssl/include
+                    external/openssl/include \
+                    $(BASE_PATH)/libinet6/include_glibc23 # for ifaddrs.h
 
 LOCAL_SHARED_LIBRARIES := libcrypto
 
-LOCAL_STATIC_LIBRARIES := libinet6 libhiptool libhipandroid libpjnath-hipl libpj-hipl libpjlib-util-hipl
+LOCAL_STATIC_LIBRARIES := libhipcore libhiptool libhipandroid libinet6 libpjnath-hipl libpj-hipl libpjlib-util-hipl
 
 LOCAL_MODULE:= hipd
 
@@ -107,7 +108,7 @@ LOCAL_C_INCLUDES := $(BASE_C_INCLUDES) \
 
 LOCAL_SHARED_LIBRARIES := libcrypto
 
-LOCAL_STATIC_LIBRARIES := libinet6 libhiptool libhipandroid libpjnath-hipl libpj-hipl libpjlib-util-hipl
+LOCAL_STATIC_LIBRARIES := libhipcore libhiptool libhipandroid libinet6 libpjnath-hipl libpj-hipl libpjlib-util-hipl
 
 LOCAL_MODULE:= hipconf
 
@@ -164,7 +165,7 @@ LOCAL_C_INCLUDES := $(BASE_C_INCLUDES) \
 
 LOCAL_SHARED_LIBRARIES := libcrypto
 
-LOCAL_STATIC_LIBRARIES := libinet6 libhiptool libhipandroid libpjnath-hipl libpj-hipl libpjlib-util-hipl
+LOCAL_STATIC_LIBRARIES := libhipcore libhiptool libhipandroid libinet6 libpjnath-hipl libpj-hipl libpjlib-util-hipl
 
 LOCAL_MODULE:= hipfw
 
@@ -182,13 +183,13 @@ LOCAL_PATH:= $(BASE_PATH)/libhipandroid
 
 include $(CLEAR_VARS)
 
-# TODO ifaddrs.c or getifaddrs.c?
 LOCAL_SRC_FILES :=  libhipandroid.c \
                     regex.c \
                     libipq.c \
                     getline.c
 
-LOCAL_CFLAGS := -DANDROID_CHANGES \
+LOCAL_CFLAGS := -include $(BASE_PATH)/libhipandroid/libhipandroid.h \
+                -DANDROID_CHANGES \
                 -g
 
 LOCAL_C_INCLUDES := external/iptables/include
@@ -203,25 +204,28 @@ include $(BUILD_STATIC_LIBRARY)
 
 
 # ###########################################################
-# ## libinet6
+# ## libhipcore
 # ###########################################################
 
 
-LOCAL_PATH:= $(BASE_PATH)/libinet6
+LOCAL_PATH:= $(BASE_PATH)/libhipcore
 
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES :=  getendpointinfo.c \
-                    util.c \
                     debug.c \
                     builder.c \
                     misc.c \
                     hipconf.c \
                     message.c \
                     certtools.c \
+                    linkedlist.c \
                     sqlitedbapi.c \
-                    ifaddrs.c \
-                    ifnames.c
+                    hip_statistics.c \
+                    esp_prot_common.c \
+                    hashchain_store.c \
+                    hashchain.c \
+                    hashtree.c
 
 LOCAL_CFLAGS += -include $(BASE_PATH)/libhipandroid/libhipandroid.h \
                 -DANDROID_CHANGES \
@@ -238,13 +242,37 @@ LOCAL_CFLAGS += -include $(BASE_PATH)/libhipandroid/libhipandroid.h \
                 -g
 
 LOCAL_C_INCLUDES := $(BASE_C_INCLUDES) \
+                    external/openssl/include
+
+LOCAL_STATIC_LIBRARIES := libhiptool libhipandroid
+
+LOCAL_MODULE:= libhipcore
+
+LOCAL_MODULE_CLASS := STATIC_LIBRARIES
+
+include $(BUILD_STATIC_LIBRARY)
+
+##########################################################
+# libinet6
+##########################################################
+
+
+LOCAL_PATH:= $(BASE_PATH)/libinet6
+
+include $(CLEAR_VARS)
+
+LOCAL_SRC_FILES :=  util.c \
+                    ifaddrs.c
+
+LOCAL_CFLAGS := -include $(BASE_PATH)/libhipandroid/libhipandroid.h \
+                -DANDROID_CHANGES \
+                -g
+
+LOCAL_C_INCLUDES := $(BASE_C_INCLUDES) \
                     $(BASE_PATH)/libinet6/include_glibc23 \
                     external/openssl/include
 
-# TODO Do we need crypto here
-#LOCAL_SHARED_LIBRARIES := libcrypto
-
-LOCAL_STATIC_LIBRARIES := libhiptool libhipandroid
+LOCAL_SHARED_LIBRARIES :=
 
 LOCAL_MODULE:= libinet6
 
@@ -265,14 +293,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES :=  crypto.c \
                     pk.c \
                     nlink.c \
-                    esp_prot_common.c \
-                    hashchain_store.c \
-                    hashchain.c \
-                    linkedlist.c \
-                    hip_statistics.c \
-                    hashtree.c \
                     xfrmapi.c
-
 
 LOCAL_CFLAGS := -include $(BASE_PATH)/libhipandroid/libhipandroid.h \
                 -DCONFIG_HIP_LIBHIPTOOL \
@@ -284,7 +305,7 @@ LOCAL_CFLAGS := -include $(BASE_PATH)/libhipandroid/libhipandroid.h \
 LOCAL_C_INCLUDES := $(BASE_C_INCLUDES) \
                     external/openssl/include
 
-LOCAL_STATIC_LIBRARIES := libinet6
+LOCAL_STATIC_LIBRARIES := libhipcore
 
 LOCAL_MODULE:= libhiptool
 

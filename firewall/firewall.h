@@ -35,7 +35,7 @@
 #include "debug.h"
 #include "helpers.h"
 #include "conntrack.h"
-#include "libinet6/utils.h"
+#include "libhipcore/utils.h"
 #include "misc.h"
 #include "netdev.h"
 #include "lsi.h"

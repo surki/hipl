@@ -12,12 +12,14 @@
 
 #include "maintenance.h"
 
+#ifndef ANDROID_CHANGES
 /* @todo: why the heck do we need this here on linux? */
 struct in6_pktinfo
 {
   struct in6_addr ipi6_addr;  /* src/dst IPv6 address */
   unsigned int ipi6_ifindex;  /* send/recv interface index */
 };
+#endif
 
 int hip_firewall_sock_lsi_fd = -1;
 

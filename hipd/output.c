@@ -14,12 +14,14 @@
 
 enum number_dh_keys_t number_dh_keys = TWO;
 
+#ifndef ANDROID_CHANGES
 /* @todo: why the heck do we need this here on linux? */
 struct in6_pktinfo
 {
   struct in6_addr ipi6_addr;  /* src/dst IPv6 address */
   unsigned int ipi6_ifindex;  /* send/recv interface index */
 };
+#endif
 
 /**
 * Standard BSD internet checksum routine from nmap
