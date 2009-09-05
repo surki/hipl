@@ -200,10 +200,19 @@
                 <itemizedlist>
                   <title>The IPv6 Protocol (CONFIG_IPV6) ---&gt;</title>
                   <listitem>
+                    <para>IP6: AH transformation (CONFIG_INET6_AH)</para>
+                  </listitem>
+                  <listitem>
                     <para>IPv6: ESP transformation (CONFIG_INET6_ESP)</para>
                   </listitem>
                   <listitem>
                     <para>IPv6: IPcomp transformation (CONFIG_INET6_IPCOMP)</para>
+                  </listitem>
+                  <listitem>
+                    <para>IPv6: IPsec transport mode (CONFIG_INET6_XFRM_MODE_TRANSPORT)</para>
+                  </listitem>
+                  <listitem>
+                    <para>IPv6: IPsec tunnel mode (CONFIG_INET6_XFRM_MODE_TUNNEL)</para>
                   </listitem>
                   <listitem>
                     <para>IPv6: IPsec BEET mode (CONFIG_INET6_XFRM_MODE_BEET)</para>
@@ -218,12 +227,37 @@
               </listitem>
               <listitem>
                 <itemizedlist>
-                  <title>Network packet filtering framework (Netfilter) Core ---&gt; (CONFIG_NETFILTER)</title>
+                  <title>Network packet filtering framework (Netfilter) ---&gt; (CONFIG_NETFILTER)</title>
+                  <listitem>
+                    <para>Advanced netfilter configurationIPv6(CONFIG_NETFILTER_ADVANCED)</para>
+                  </listitem>
                   <listitem>
                     <itemizedlist>
                       <title>Core Netfilter Configuration  ---&gt;</title>
                       <listitem>
                         <para>Netfilter NFQUEUE over NFNETLINK interface(CONFIG_NETFILTER_NETLINK_QUEUE)</para>
+                      </listitem>
+                    </itemizedlist>
+                  </listitem>
+                  <listitem>
+                    <itemizedlist>
+                      <title>IP: Netfilter Configuration  ---&gt;</title>
+                      <listitem>
+                        <para>IP Userspace queueing via NETLINK (OBSOLETE)(CONFIG_IP_NF_QUEUE)</para>
+                      </listitem>
+                      <listitem>
+                        <para>IP tables support (required for filtering/masq/NAT)(CONFIG_IP_NF_IPTABLES)</para>
+                      </listitem>
+                    </itemizedlist>
+                  </listitem>
+                  <listitem>
+                    <itemizedlist>
+                      <title>IPv6: Netfilter Configuration  ---&gt;</title>
+                      <listitem>
+                        <para>IP6 Userspace queueing via NETLINK (OBSOLETE)(CONFIG_IP6_NF_QUEUE)</para>
+                      </listitem>
+                      <listitem>
+                        <para>IP6 tables support (required for filtering/masq/NAT)(CONFIG_IP6_NF_IPTABLES)</para>
                       </listitem>
                     </itemizedlist>
                   </listitem>
@@ -262,7 +296,7 @@
 
       <listitem>
         <itemizedlist>
-          <title>Cryptographic options ---&gt; (CONFIG_CRYPTO)</title>
+          <title>Cryptographic API ---&gt; (CONFIG_CRYPTO)</title>
           <listitem>
             <para> Null algorithms (CONFIG_CRYPTO_NULL)</para>
           </listitem>
