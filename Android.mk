@@ -239,7 +239,7 @@ LOCAL_CFLAGS += -include $(BASE_PATH)/libhipandroid/libhipandroid.h \
                 -DCONFIG_HIP_LIBHIPTOOL \
                 -DCONFIG_HIP_RVS \
                 -DHIP_TRANSPARENT_API \
-                -g
+                -g -O0 #TODO High optimization produces a crash at simulator, but not at the device?!
 
 LOCAL_C_INCLUDES := $(BASE_C_INCLUDES) \
                     external/openssl/include
@@ -262,7 +262,8 @@ LOCAL_PATH:= $(BASE_PATH)/libinet6
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES :=  util.c \
-                    ifaddrs.c
+                    ifaddrs.c \
+                    ifnames.c
 
 LOCAL_CFLAGS := -include $(BASE_PATH)/libhipandroid/libhipandroid.h \
                 -DANDROID_CHANGES \
