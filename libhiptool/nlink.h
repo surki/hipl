@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
-
+#include <net/if.h>
 
 #include "builder.h"
 #include "debug.h"

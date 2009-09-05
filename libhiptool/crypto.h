@@ -55,7 +55,11 @@
 #define DSA_KEY_DEFAULT_BITS    1024
 #define RSA_KEY_DEFAULT_BITS    1024
 
-#define DEFAULT_CONFIG_DIR        "/etc/hip"
+#ifdef ANDROID_CHANGES
+#   define DEFAULT_CONFIG_DIR        "/data/hip"
+#else
+#   define DEFAULT_CONFIG_DIR        "/etc/hip"
+#endif
 #define DEFAULT_CONFIG_DIR_MODE   0755
 #define DEFAULT_HOST_DSA_KEY_FILE_BASE "hip_host_dsa_key"
 #define DEFAULT_HOST_RSA_KEY_FILE_BASE "hip_host_rsa_key"

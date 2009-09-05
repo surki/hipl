@@ -4,6 +4,7 @@ CFLAGS= $(hipl_common_cflags) $(HIPL_XMLI)
 CFLAGS += $(OPTIMIZATIONS_CFLAGS)
 CFLAGS += $(GPROF_CFLAGS)
 AM_INCLUDES = $(hipl_common_include_paths) -I$(HIPL_LIBINET6_INCLUDE)
+AM_INCLUDES += -I$(HIPL_LIBHIPCORE_INCLUDE)
 
 noinst_LIBRARIES = libutils.a
 noinst_HEADERS =    byteorder.h  \

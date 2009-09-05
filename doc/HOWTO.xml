@@ -173,6 +173,15 @@
                 <para>IP: tunneling (CONFIG_NET_IPIP)</para>
               </listitem>
               <listitem>
+                <para>IP: AH transformation (CONFIG_INET_AH)</para>
+              </listitem>
+              <listitem>
+                <para>IP: AH transformation (CONFIG_INET_AH)</para>
+              </listitem>
+              <listitem>
+                <para>IP: AH transformation (CONFIG_INET_AH)</para>
+              </listitem>
+              <listitem>
                 <para>IP: ESP transform (CONFIG_INET_ESP)</para>
               </listitem>
               <listitem>

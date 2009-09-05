@@ -426,20 +426,23 @@ int hip_hadb_add_peer_info_complete(hip_hit_t *local_hit,
 	HIP_IFEL(hip_hidb_get_lsi_by_hit(local_hit, &entry->lsi_our), -1,
 		 "Unable to find local hit");
 
-	/*Copying peer_lsi*/
-	if (peer_lsi != NULL && peer_lsi->s_addr != 0){
+	/* Copying peer_lsi */
+	if (peer_lsi != NULL && peer_lsi->s_addr != 0) {
 		ipv4_addr_copy(&entry->lsi_peer, peer_lsi);
-	}
-	else{
-	        //Check if exists an entry in the hadb with the peer_hit given
+	} else {
+		/* Check if exists an entry in the hadb with the
+		   peer_hit given */
 	        aux = hip_hadb_try_to_find_by_peer_hit(peer_hit);
 		if (aux && &(aux->lsi_peer).s_addr != 0){
-		        // Exists: Assign its lsi to the new entry created
+		        /* Exists: Assign its lsi to the new entry created */
 		        ipv4_addr_copy(&entry->lsi_peer, &aux->lsi_peer);
 		} else if (!hip_map_hit_to_lsi_from_hosts_files(peer_hit, &lsi_aux)) {
 			ipv4_addr_copy(&entry->lsi_peer, &lsi_aux);
+		} else if (hip_hidb_hit_is_our(peer_hit)) {
+			/* Loopback (see bug id 893) */
+			entry->lsi_peer = entry->lsi_our;
 		} else {
-		  	// No exists: Call to the automatic generation
+		  	/* Not exists: Call to the automatic generation */
 		        hip_generate_peer_lsi(&lsi_aux);
 			ipv4_addr_copy(&entry->lsi_peer, &lsi_aux);
 		}
@@ -655,6 +658,7 @@ hip_ha_t *hip_hadb_create_state(int gfpmask)
 
 	entry->state = HIP_STATE_UNASSOCIATED;
 	entry->hastate = HIP_HASTATE_INVALID;
+	entry->purge_timeout = HIP_HA_PURGE_TIMEOUT;
 
 	/* Function pointer sets which define HIP behavior in respect to the
 	   hadb_entry. */
@@ -3214,6 +3218,7 @@ int hip_hadb_find_lsi(hip_ha_t *entry, void *lsi)
 	exist_lsi = hip_lsi_are_equal(&entry->lsi_peer,(hip_lsi_t *)lsi);
 	if (exist_lsi)
 	        memset(lsi, 0, sizeof(lsi));
+	return 0;
 }
 
 
@@ -3376,61 +3381,41 @@ int hip_hadb_add_udp_addr_to_spi(hip_ha_t *entry, uint32_t spi,
 	   for the program to run corrctly. This purely optimization part can be changed
 	   latter. - Andrey.
 	*/
-#if 0
-	if (!new)
+
+	if (is_bex_address)
 	{
-		switch (new_addr->address_state)
-		{
-		case PEER_ADDR_STATE_DEPRECATED:
-			new_addr->address_state = PEER_ADDR_STATE_UNVERIFIED;
-			HIP_DEBUG("updated address state DEPRECATED->UNVERIFIED\n");
-			break;
- 		case PEER_ADDR_STATE_ACTIVE:
-			HIP_DEBUG("address state stays in ACTIVE\n");
-			break;
-		default:
-			// Does this mean that unverified cant be here? Why?
-			HIP_ERROR("state is UNVERIFIED, shouldn't even be here ?\n");
-			break;
-		}
-	}
-	else
-	{
-#endif
-             if (is_bex_address)
-		{
-			/* workaround for special case */
- 			HIP_DEBUG("address is base exchange address, setting state to ACTIVE\n");
-			new_addr->address_state = PEER_ADDR_STATE_ACTIVE;
-			HIP_DEBUG("setting bex addr as preferred address\n");
-			ipv6_addr_copy(&entry->peer_addr, addr);
-			new_addr->seq_update_id = 0;
-		} else {
-			HIP_DEBUG("address's state is set in state UNVERIFIED\n");
-			new_addr->address_state = PEER_ADDR_STATE_UNVERIFIED;
+		/* workaround for special case */
+		HIP_DEBUG("address is base exchange address, setting state to ACTIVE\n");
+		new_addr->address_state = PEER_ADDR_STATE_ACTIVE;
+		HIP_DEBUG("setting bex addr as preferred address\n");
+		ipv6_addr_copy(&entry->peer_addr, addr);
+		new_addr->seq_update_id = 0;
+	} else {
+		HIP_DEBUG("address's state is set in state UNVERIFIED\n");
+		new_addr->address_state = PEER_ADDR_STATE_UNVERIFIED;
 //modify by santtu
-			if(hip_nat_get_control(entry) != HIP_NAT_MODE_ICE_UDP && hip_relay_get_status() != HIP_RELAY_ON){
-
-				err = entry->hadb_update_func->hip_update_send_echo(entry, spi, new_addr);
-
-				/** @todo: check! If not acctually a problem (during Handover). Andrey. */
-				if( err==-ECOMM ) err = 0;
-			}
-//end modify
+		if(hip_nat_get_control(entry) != HIP_NAT_MODE_ICE_UDP && hip_relay_get_status() != HIP_RELAY_ON){
+			
+			err = entry->hadb_update_func->hip_update_send_echo(entry, spi, new_addr);
+			
+			/** @todo: check! If not acctually a problem (during Handover). Andrey. */
+			if( err==-ECOMM ) err = 0;
 		}
-		//}
+//end modify
+	}
+	//}
 
 	do_gettimeofday(&new_addr->modified_time);
 	new_addr->is_preferred = is_preferred_addr;
 	if(is_preferred_addr){
-            //HIP_DEBUG("Since the address is preferred, we set the entry preferred_address as such\n");
-              ipv6_addr_copy(&entry->peer_addr, &new_addr->address);
-              entry->peer_udp_port = new_addr->port;
+		//HIP_DEBUG("Since the address is preferred, we set the entry preferred_address as such\n");
+		ipv6_addr_copy(&entry->peer_addr, &new_addr->address);
+		entry->peer_udp_port = new_addr->port;
 	}
 	if (new) {
 		HIP_DEBUG("adding new addr to SPI list\n");
 		list_add(new_addr, spi_list->peer_addr_list);
-
+		
 		HIP_DEBUG("new peer list item address: %d ",new_addr);
 	}
 

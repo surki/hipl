@@ -149,6 +149,9 @@ out_err:
       err = -1;
     }
 
+    if (msg)
+      free(msg);
+
     return err;
 }
 

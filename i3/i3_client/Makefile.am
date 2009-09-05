@@ -4,6 +4,7 @@ CFLAGS= $(hipl_common_cflags) $(HIPL_XMLI)
 CFLAGS += $(OPTIMIZATIONS_CFLAGS)
 CFLAGS += $(GPROF_CFLAGS)
 INCLUDES = $(hipl_common_include_paths) -I$(HIPL_LIBINET6_INCLUDE) 
+INCLUDES += -I$(HIPL_LIBHIPCORE_INCLUDE)
 
 noinst_LIBRARIES = libi3client.a
 noinst_HEADERS =  downhill_simplex.h coordinates.h i3_client_api.h \

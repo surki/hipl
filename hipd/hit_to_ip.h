@@ -15,7 +15,7 @@
 
 #include "list.h"
 #include "debug.h"
-#include "utils.h"
+#include "libhipcore/utils.h"
 
 #define HIT_TO_IP_ZONE_DEFAULT "hit-to-ip.infrahip.net"
 

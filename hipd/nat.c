@@ -24,8 +24,19 @@
  * @note    All Doxygen comments have been added in version 1.1.
  */ 
 #include "nat.h"
-
 #include <string.h>
+
+//Pollutes libc namespace by undefining s6_addr (pj/sock.h)
+#include "pjnath.h"
+#include "pjlib.h"
+
+#if 0
+#ifndef s6_addr
+#  define s6_addr                 in6_u.u6_addr8
+#  define s6_addr16               in6_u.u6_addr16
+#  define s6_addr32               in6_u.u6_addr32
+#endif /* s6_addr */
+#endif
 
 //add by santtu
 /** the database for all the ha */
@@ -579,10 +590,10 @@ void  hip_on_ice_complete(pj_ice_sess *ice, pj_status_t status) {
 	
 	//	hip_print_lsi("set prefered the peer_addr : ", &addr.ipv4.sin_addr.s_addr );
 	
-	peer_addr.in6_u.u6_addr32[0] = (uint32_t)0;
-	peer_addr.in6_u.u6_addr32[1] = (uint32_t)0;
-	peer_addr.in6_u.u6_addr32[2] = (uint32_t)htonl (0xffff);
-	peer_addr.in6_u.u6_addr32[3] = (uint32_t)addr.ipv4.sin_addr.s_addr;
+	peer_addr.s6_addr32[0] = (uint32_t)0;
+	peer_addr.s6_addr32[1] = (uint32_t)0;
+	peer_addr.s6_addr32[2] = (uint32_t)htonl (0xffff);
+	peer_addr.s6_addr32[3] = (uint32_t)addr.ipv4.sin_addr.s_addr;
 	
 	//tobe checked. the address type can be fatched. I put 0 here as a hack.
 	hip_hadb_add_udp_addr_to_spi(entry, spi_out, &peer_addr, 1, 0, 1,addr.ipv4.sin_port, HIP_LOCATOR_LOCATOR_TYPE_ESP_SPI_PRIORITY,0);
@@ -673,10 +684,10 @@ pj_status_t hip_on_tx_pkt(pj_ice_sess *ice, unsigned comp_id, unsigned transport
 	hip_build_param_contents(msg,pkt,HIP_PARAM_STUN,size);
 	
 	addr =(pj_sockaddr_in *) dst_addr;
-	peer_addr.in6_u.u6_addr32[0] = (uint32_t)0;
-	peer_addr.in6_u.u6_addr32[1] = (uint32_t)0;
-	peer_addr.in6_u.u6_addr32[2] = (uint32_t)htonl (0xffff);
-	peer_addr.in6_u.u6_addr32[3] = (uint32_t)addr->sin_addr.s_addr;
+	peer_addr.s6_addr32[0] = (uint32_t)0;
+	peer_addr.s6_addr32[1] = (uint32_t)0;
+	peer_addr.s6_addr32[2] = (uint32_t)htonl (0xffff);
+	peer_addr.s6_addr32[3] = (uint32_t)addr->sin_addr.s_addr;
 	
 	dst_port = ntohs(addr->sin_port);
 	

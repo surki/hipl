@@ -22,6 +22,7 @@ conntest_client_opp_LDADD =
 if HIP_OPPORTUNISTIC
   # currently opp. library does not work with conntest-client-hip
 if HIP_FORCE_SHLIB
+  conntest_client_opp_LDADD += -linet6 -lhipcore
   conntest_client_opp_LDFLAGS += -L$(HIPL_LIBOPPHIP_LIB)
   conntest_client_opp_LDADD += -lopphip
 else
@@ -31,16 +32,18 @@ endif
 
 if HIP_FORCE_SHLIB
 conntest_client_opp_LDFLAGS += -L$(HIPL_LIBINET6_LIB)
-conntest_client_opp_LDADD += -linet6
 else
+conntest_client_opp_LDADD += ../libhipcore/.libs/libhipcore.a
 conntest_client_opp_LDADD += ../libinet6/.libs/libinet6.a
 endif
 
 if HIP_FORCE_SHLIB
   conntest_client_opp_LDFLAGS += -L$(HIPL_OPENDHT_LIB) -L$(HIPL_LIBHIPTOOL_LIB)
-  conntest_client_opp_LDADD += -lhipopendht -lhiptool
+  conntest_client_opp_LDADD += -lhipopendht -lhiptool -lhipcore
 else
-  conntest_client_opp_LDADD += ../libdht/.libs/libhipopendht.a ../libhiptool/.libs/libhiptool.a
+  conntest_client_opp_LDADD += ../libhipcore/.libs/libhipcore.a
+  conntest_client_opp_LDADD += ../libhiptool/.libs/libhiptool.a
+  conntest_client_opp_LDADD += ../libdht/.libs/libhipopendht.a
 endif
 
 CFLAGS += $(HIPL_XMLL)
@@ -49,13 +52,15 @@ opendhtteststub_LDFLAGS = -lcrypto $(HIP_XMLL)
 opendhtteststub_LDADD = 
 
 if HIP_FORCE_SHLIB
-  opendhtteststub_LDFLAGS += -L$(HIPL_OPENDHT_LIB)
+  opendhtteststub_LDFLAGS += -L$(HIPL_OPENDHT_LIB)  -L$(HIPL_LIBHIPCORE_LIB)
   opendhtteststub_LDFLAGS += -L$(HIPL_LIBINET6_LIB) -L$(HIPL_LIBHIPTOOL_LIB)
+  opendhtteststub_LDADD += -lhipcore -linet6 -lhiptool
   opendhtteststub_LDADD += -lhipopendht
-  opendhtteststub_LDADD += -linet6 -lhiptool
 else
+  opendhtteststub_LDADD += ../libhipcore/.libs/libhipcore.a
+  opendhtteststub_LDADD += ../libinet6/.libs/libinet6.a
+  opendhtteststub_LDADD += ../libhiptool/.libs/libhiptool.a
   opendhtteststub_LDADD += ../libdht/.libs/libhipopendht.a
-  opendhtteststub_LDADD += ../libinet6/.libs/libinet6.a ../libhiptool/.libs/libhiptool.a
 endif
 
 # For some weird reason, you cannot use $(HIPL_LIBINET6_LIB_STATIC) below
@@ -70,10 +75,15 @@ endif
 if HIP_FORCE_SHLIB
   LDADD += -linet6 -lhiptool
 else
-  LDADD += ../libinet6/.libs/libinet6.a ../libhiptool/.libs/libhiptool.a
+  LDADD += ../libhipcore/.libs/libhipcore.a
+  LDADD += ../libinet6/.libs/libinet6.a
+  LDADD += ../libhiptool/.libs/libhiptool.a
+if HIP_OPENDHT
+  LDADD += ../libdht/.libs/libhipopendht.a
+endif
 endif
 
-LDFLAGS = @LDFLAGS@ -L$(HIPL_LIBINET6_LIB) -L$(HIPL_LIBHIPTOOL_LIB)
+LDFLAGS = @LDFLAGS@ -L$(HIPL_LIBINET6_LIB) -L$(HIPL_LIBHIPTOOL_LIB) -L$(HIPL_LIBHIPTOOL_LIB)
 
 if HIP_OPENWRT
 LDFLAGS += $(OPENWRT)
@@ -87,7 +97,7 @@ bin_PROGRAMS += conntest-client-native-user-key
 bin_PROGRAMS += conntest-server-native
 #bin_PROGRAMS += unittest
 bin_PROGRAMS += hipsetup
-bin_PROGRAMS += libinet6test
+#bin_PROGRAMS += libinet6test
 bin_PROGRAMS += listifaces
 bin_PROGRAMS += first_test
 #sbin_PROGRAMS = modtest
@@ -129,7 +139,7 @@ listtest_SOURCES = listtest.c
 opendhtteststub_SOURCES = opendhtteststub.c
 certteststub_SOURCES = certteststub.c
 sqliteteststub_SOURCES = sqliteteststub.c
-hc_performance_SOURCES = hc_performance.c debug.c
+hc_performance_SOURCES = hc_performance.c
 auth_performance_SOURCES = auth_performance.c
 load_SOURCES = load.c
 
@@ -144,10 +154,10 @@ hipconftool.h:
 	$(LN_S) -f $(HIPL_TOOLS)/hipconftool.h .
 hipconftool.c: hipconftool.h
 	$(LN_S) -f $(HIPL_TOOLS)/hipconftool.c .
-debug.h:
-	$(LN_S) -f $(HIPL_LIBINET6)/debug.h .
-debug.c: debug.h
-	$(LN_S) -f $(HIPL_LIBINET6)/debug.c .
+#debug.h:
+#	$(LN_S) -f $(HIPL_LIBINET6)/debug.h .
+#debug.c: debug.h
+#	$(LN_S) -f $(HIPL_LIBINET6)/debug.c .
 $(HIPL_LIBINET6_LIB_STATIC):
 	$(MAKE) -C $(HIPL)/libinet6
 

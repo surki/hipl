@@ -39,20 +39,12 @@ lib_LTLIBRARIES = libinet6.la
 # Original sources
 libinet6_la_SOURCES  = usagi.c getaddrinfo.c getnameinfo.c ip6opt.c rthdr.c
 libinet6_la_SOURCES += ifaddrs.c ifnames.c cmsg_nxthdr.c rcmd.c rexec.c
-libinet6_la_SOURCES += sa_len.c tempname.c
-
-# HIP additions
-libinet6_la_SOURCES += getendpointinfo.c util.c debug.c builder.c misc.c
-libinet6_la_SOURCES += hipconf.c message.c certtools.c sqlitedbapi.c
-if HIP_PRIVSEP
-libinet6_la_SOURCES += capability.c
-endif
+libinet6_la_SOURCES += sa_len.c tempname.c util.c
 
 # Original flags.
 CFLAGS  = -D_LIBC_REENTRANT -D_USAGI -D_GNU_SOURCE
 CFLAGS += -DCOMPAT_RFC2292 -Iinclude -D__ss_family=ss_family -D__ss_len=ss_len
 CFLAGS += -D_USAGI_LIBINET6=$(usagi_libc) -Iinclude_glibc$(usagi_libc)
-CFLAGS += -DHIPL_DEFAULT_PREFIX=\"$(prefix)\"
 CFLAGS += $(OPTIMIZATIONS_CFLAGS)
 CFLAGS += $(GPROF_CFLAGS)
 
@@ -67,9 +59,7 @@ CFLAGS += -DHIP_TRANSPARENT_API
 # HIP library added
 LDADD  = #../libhiptool/.libs/libhiptool.a
 
-include_HEADERS = libc-compat.h util.h debug.h builder.h misc.h hipconf.h
-include_HEADERS += message.h icomm.h ife.h kerncompat.h protodefs.h state.h
-include_HEADERS += utils.h hashtable.h list.h certtools.h sqlitedbapi.h
+include_HEADERS = libc-compat.h util.h 
 
 EXTRA_DIST = include_glibc21 include_glibc22 include_glibc23 include_glibc
 
@@ -78,7 +68,7 @@ LDADD += ../libdht/.libs/libhipopendht.a
 
 INCLUDES += -I../i3/i3_client -I../i3/utils -I../i3/i3
 
-getendpointinfo.c: include/netdb.h
+#getendpointinfo.c: include/netdb.h
 
 include/netdb.h:
 	$(LN_S) -f include_glibc$(usagi_libc) include

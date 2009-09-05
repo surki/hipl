@@ -34,6 +34,7 @@
 #include <net/if.h>
 #include "debug.h"
 #include "ife.h"
+#include "libhipandroid/getendpointinfo.h"
 
 int main(int argc,char *argv[]) {
   struct endpointinfo hints, *epinfo, *res = NULL;

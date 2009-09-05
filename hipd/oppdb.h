@@ -10,6 +10,9 @@
 #ifndef HIP_OPPDB_H
 #define HIP_OPPDB_H
 
+#ifdef ANDROID_CHANGES
+#include <sys/socket.h>
+#endif
 #include <sys/un.h>
 #include "debug.h"
 #include "misc.h"
@@ -17,7 +20,7 @@
 #include "hashtable.h"
 #include "builder.h"
 #include "util.h"
-#include "utils.h"
+#include "libhipcore/utils.h"
 #include "oppipdb.h"
 
 #define HIP_LOCK_OPP_INIT(entry)

@@ -4,6 +4,7 @@ CFLAGS= $(hipl_common_cflags) $(HIPL_XMLI)
 CFLAGS += $(OPTIMIZATIONS_CFLAGS)
 CFLAGS += $(GPROF_CFLAGS)
 INCLUDES = $(hipl_common_include_paths) -I$(HIPL_LIBINET6_INCLUDE)
+INCLUDES += -I$(HIPL_LIBHIPCORE_LIB)
 
 # chord compilation
 noinst_LIBRARIES = libchord.a

@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <string.h>
+#include <errno.h>
 #ifndef _WIN32
 	#include <unistd.h>
 #endif

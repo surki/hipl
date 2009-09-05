@@ -12,13 +12,14 @@
 #endif
 #include <linux/netlink.h>      /* get_my_addresses() support   */
 #include <linux/rtnetlink.h>    /* get_my_addresses() support   */
+#ifndef ANDROID_CHANGES
 #include <netinet/ip6.h>
+#endif
 #include <openssl/rand.h>
-
 #include "nlink.h"
 #include "list.h"
 #include "debug.h"
-#include "utils.h"
+#include "libhipcore/utils.h"
 
 #define HIP_RTDS_TAB_LEN 256
 
@@ -43,5 +44,5 @@ void hip_attach_locator_addresses(struct hip_common * in_msg,
 void hip_get_suitable_locator_address(struct hip_common * in_msg,
 				      struct in6_addr *addr);
 
-
+int hip_netdev_white_list_add(char* device_name);
 #endif /* NETDEV_H */

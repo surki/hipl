@@ -1,5 +1,12 @@
 #include "conntest.h"
 
+/* @todo: why the heck do we need this here on linux? */
+struct in6_pktinfo
+{
+  struct in6_addr ipi6_addr;  /* src/dst IPv6 address */
+  unsigned int ipi6_ifindex;  /* send/recv interface index */
+};
+
 /**
  * create_serversocket - given the port and the protocol
  * it binds the socket and listen to it

@@ -35,7 +35,9 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netpacket/packet.h>
+#ifndef ANDROID_CHANGES
 #include <net/ethernet.h>	/* the L2 protocols */
+#endif
 #include <sys/uio.h>
 #include <net/if.h>
 #include <net/if_arp.h>
@@ -44,6 +46,10 @@
 
 #ifdef _USAGI_LIBINET6
 #include "libc-compat.h"
+#endif
+
+#ifdef ANDROID_CHANGES
+#include <netinet/in6.h>
 #endif
 
 /* ====================================================================== */
@@ -111,7 +117,7 @@ ifa_make_sockaddr (sa_family_t family,
       break;
     case AF_INET6:
       memcpy (&((struct sockaddr_in6 *) sa)->sin6_addr, (char *) p, len);
-      if (IN6_IS_ADDR_LINKLOCAL (p) || IN6_IS_ADDR_MC_LINKLOCAL (p))
+      if (IN6_IS_ADDR_LINKLOCAL ((struct in6_addr *)p) || IN6_IS_ADDR_MC_LINKLOCAL ((struct in6_addr *)p))
 	{
 	  ((struct sockaddr_in6 *) sa)->sin6_scope_id = scopeid;
 	}

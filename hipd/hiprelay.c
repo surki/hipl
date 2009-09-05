@@ -1080,10 +1080,6 @@ int hip_relay_handle_relay_to_in_client(struct hip_common * msg,
 	
 	HIP_DEBUG("handle relay_to in client is on\n");
 	// check if the relay has been registered
-	
-
-	
-
   	
 	//check if there is a relay_to parameter	    
 	relay_to = (struct hip_relay_to *) hip_get_param(msg, HIP_PARAM_RELAY_TO);

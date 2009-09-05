@@ -6,8 +6,10 @@
  
 #include "hit_to_ip.h"
 #include "maintenance.h"
-#include "libinet6/include/netdb.h"
-#include "libinet6/hipconf.h"
+#ifndef ANDROID_CHANGES
+//#include "libinet6/include/netdb.h"
+#endif
+#include "libhipcore/hipconf.h"
 #include <netinet/in.h>
 #include <string.h>
 
