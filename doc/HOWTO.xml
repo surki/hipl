@@ -1464,6 +1464,7 @@ $ make V=99
     </section>
   </chapter>
 
+
   <chapter id="maemo">
       <title>Installing HIPL on the Nokia N810 Internet tablet (version 4.1.x, aka. 'diablo')</title>
 
@@ -1550,6 +1551,236 @@ $ make V=99
       </section>
 
   </chapter>
+
+  <chapter id="android"> <!-- android -->
+    <title>HIPL on Android</title>
+    <para>
+        This section explains how to install HIP on Android (emulator or a real device)
+    </para>
+
+    <section> <!-- Prerequisites -->
+      <title>Prerequisites</title>
+      <orderedlist>
+        <listitem>
+          <para>
+            The kernel needs to be updated to support the various
+            features required by HIPL that aren't present in the
+            standard distribution. These include ipv6 support and
+            various IPSec- and packet filtering related options
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            iptables and ip6tables tool. Android ships with iptables,
+            so we would also need ip6tables
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Any ip6 ready tool for testing connectivity. Like ping6 or wget
+          </para>
+        </listitem>
+      </orderedlist>
+    </section> <!-- Prerequisites -->
+
+    <section> <!-- Precompiled binaries -->
+      <title>Installing/Running from pre-compiled binaries</title>
+
+      <para>
+        We are providing precompiled images for emulator and Android "HTC Dream" G1, though
+        they may not be always uptodate, so compiling from source is recommended.
+      </para>
+      <orderedlist>
+        <listitem>
+          <para>Emulator</para>
+          <orderedlist>
+            <listitem>
+              <para>
+                Download and install Android SDK as mentioned
+                <ulink url="http://developer.android.com/index.html">here</ulink>
+              </para>
+            </listitem>
+            <listitem>
+              <para>Download the pre-compiled images</para>
+              <para><ulink url="Fixme">system.img</ulink></para>
+              <para><ulink url="Fixme">kernel</ulink></para>
+              <para><ulink url="Fixme">ram.img</ulink></para>
+              <para><ulink url="Fixme">userdata.img</ulink></para>
+            </listitem>
+            <listitem>
+              <para>
+                Test the connection as mentioned
+                <link linkend="testing_setup">here</link>
+              </para>
+            </listitem>
+          </orderedlist>
+        </listitem>
+
+        <listitem>
+          <para>Device - Android "HTC Dream" G1</para>
+          <orderedlist>
+            <listitem>
+              <para>Download the pre-compiled images</para>
+              <para><ulink url="Fixme">system.img</ulink></para>
+              <para><ulink url="Fixme">ram.img</ulink></para>
+              <para><ulink url="Fixme">boot.img</ulink></para>
+            </listitem>
+            <listitem>
+              <para>
+                Test the connection as mentioned
+                <link linkend="testing_setup">here</link>
+              </para>
+            </listitem>
+          </orderedlist>
+        </listitem>
+
+      </orderedlist>
+    </section> <!-- Precompiled binaries -->
+
+    <section> <!-- Compiling from source -->
+      <title>Compiling from source</title>
+      <para>This section explains how to compile HIP either for emulator or a device</para>
+      <orderedlist>
+
+        <listitem> <!-- Compiling for emulator -->
+          <para>Compiling for emulator</para>
+          <orderedlist>
+            <listitem>
+              <para>
+                Get source by following the guidelines specified at
+                <ulink url="http://source.android.com/download">android.com</ulink>. Use "cupcake" branch
+              </para>
+            </listitem>
+            <listitem>
+              <para>Inside .repo directory(within android source directory), create a file called
+                "local_manifest.xml". This file contains description of extra packages required for
+                HIP support
+                <programlisting><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <remote  name="surki-github" fetch="git://github.com/surki/" />
+
+  <remove-project name="platform/external/iptables" />
+
+  <project path="kernel" name="kernel/common" revision="refs/heads/android-goldfish-2.6.29" />
+  <project path="external/iptables" name="iptables" revision="refs/heads/android-hipl" remote="surki-github" />
+  <project path="external/wget" name="wget" revision="refs/heads/android-hipl" remote="surki-github" />
+  <project path="external/hipl" name="hipl" revision="refs/heads/android-hipl" remote="surki-github" />
+</manifest>]]></programlisting>and do a <programlisting>repo sync</programlisting>
+                which will bring all the HIPL specific changes into local repository
+              </para>
+            </listitem>
+            <listitem>
+              <para>Compile the source</para>
+              <para>
+                <programlisting>
+$ cd ~/src/mydroid #Android source directory
+$ source build/envsetup.sh
+$ lunch generic-eng #Chooses a generic build for emulator and sets up the required env. variables
+$ make TARGET_PRODUCT:=generic</programlisting>
+              </para>
+            </listitem>
+            <listitem>
+              <para>Compile the kernel
+              <programlisting>
+$ cd ~/src/mydroid #Android source directory
+$ source build/envsetup.sh
+$ lunch generic-eng #Chooses a generic build and sets up the required env. variables
+$ cd kernel # Kernel source
+$ export CROSS_COMPILE=arm-eabi- ARCH=arm
+$ make goldfish_defconfig
+$ make menuconfig #To select HIPL specific kernel options</programlisting>
+              Select the HIP specific kernel options as mentioned in HIP
+              <link linkend="ch_kernel">"Compiling the Kernel"</link> page.
+              <programlisting>$ make</programlisting>
+              </para>
+            </listitem>
+          </orderedlist>
+        </listitem> <!-- Compiling for emulator -->
+
+        <listitem> <!-- Compiling for device -->
+          <para>Compiling for device Android "HTC Dream" G1</para>
+          <para>Please refer to Android site for more generic details</para>
+          <orderedlist>
+            <listitem><para>Get the source(follow it up from Android site). Cupcake</para></listitem>
+            <listitem>
+              <para>Apply this local manifest
+                <programlisting>
+                  <![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <remote  name="surki-github" fetch="git://github.com/surki/" />
+
+  <remove-project name="platform/external/iptables" />
+
+  <project path="kernel" name="kernel/common" revision="refs/heads/android-msm-2.6.29" />
+  <project path="external/iptables" name="iptables" revision="refs/heads/android-hipl" remote="surki-github" />
+  <project path="external/wget" name="wget" revision="refs/heads/android-hipl" remote="surki-github" />
+  <project path="external/hipl" name="hipl" revision="refs/heads/android-hipl" remote="surki-github" />
+</manifest>]]></programlisting>and do a <programlisting>repo sync</programlisting>
+              </para>
+            </listitem>
+            <listitem><para>Compile the kernel</para></listitem>
+            <listitem>
+              <para>
+                <programlisting>make TARGET_PRODUCT:=dream TARGET_PREBUILT_KERNEL:=kernel/arch/arm/boot/zImage</programlisting>
+              </para>
+            </listitem>
+          </orderedlist>
+        </listitem> <!-- Compiling for device -->
+
+        <listitem id="testing_setup"> <!-- Testing -->
+          <para>
+            Testing the setup
+            <programlisting>
+$ export PATH=$PATH:~/src/mydroid/out/host/linux-x86/bin
+$ emulator -kernel kernel/arch/arm/boot/zImage -system out/target/product/generic/system.img -data out/target/product/generic/userdata.img &amp;
+$ adb shell # Log into emulator shell
+# hipd -k 2>/dev/null &amp;
+# hipfw -klpF 2>/dev/null &amp;
+# hipconf add map 2001:1b:a9be:c6a6:34e5:8361:c07f:a990 193.167.187.134 # We don't have dns proxy
+# wget http://[2001:001b:a9be:c6a6:34e5:8361:c07f:a990] -O- #LSI also can be used here</programlisting>
+            If you need to debug, run each binary in its own "adb shell".
+          </para>
+        </listitem> <!-- Testing -->
+
+        <listitem> <!-- Notes -->
+          <para>Notes</para>
+          <orderedlist>
+            <listitem>
+              <para>
+                During development, to update hip binaries, you will have to use "adb".
+                So use something like
+                <programlisting>$ adb sync</programlisting>
+                from the android source directory
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                During development, to update hip binaries, you will have to remount
+                /system partition read/write(by default system directory is readonly).
+                So use something like
+                <programlisting># mount -oremount,rw /dev/block/mtdblock0 /system</programlisting>
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                HIP configuration files are located at "/data/hip/"
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                hipd crashes sometimes when run in simulator. Restarting will be
+                required if it crashes
+              </para>
+            </listitem>
+          </orderedlist>
+        </listitem> <!-- Notes -->
+
+      </orderedlist>
+    </section> <!-- Compile from source -->
+  </chapter> <!-- android -->
+
 
   <chapter id="quick">
     <title>Quick Install and Test with Binaries and Error Reporting</title>
