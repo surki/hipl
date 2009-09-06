@@ -2535,6 +2535,7 @@ int hip_build_param_diffie_hellman_contents(struct hip_common *msg,
 	                           sizeof(uint16_t) + pubkey_len2;
 	uint16_t tmp_pubkey_len2 = 0;
 
+
 	HIP_ASSERT(pubkey_len >= sizeof(struct hip_tlv_common));
 
 	_HIP_ASSERT(sizeof(struct hip_diffie_hellman) == 5);

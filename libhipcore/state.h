@@ -119,7 +119,7 @@ typedef struct hip_stateless_info
 	int hi3_in_use; /**< A boolean to indicate whether this message was
                              sent through I3 or not .*/
 #endif
-} hip_portpair_t;
+}hip_portpair_t;
 
 /**
  * A data structure for handling retransmission. Used inside host association
@@ -257,7 +257,7 @@ struct hip_spi_out_item
 					 * NOT OUTBOUND SPIS *//* the Update ID in SEQ parameter these SPI are related to */
 
 	HIP_HASHTABLE *peer_addr_list; /* Peer's IPv6 addresses */
-	struct in6_addr  preferred_address; /* check */
+	struct in6_addr  preferred_address;
 };
 #endif
 
