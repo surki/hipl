@@ -998,12 +998,12 @@ struct hip_nat_pacing {
 
 /** draft-ietf-hip-nat-traversal-02 */
 struct hip_reg_from {
+	uint8_t address[16]; /**< IPv6 address */
 	hip_tlv_type_t type; /**< Type code for the parameter. */
 	hip_tlv_len_t  length; /**< Length of the parameter contents in bytes. */
 	in_port_t port; /**< Port number. */
 	uint8_t protocol; /**< Protocol */
 	uint8_t reserved; /**< Reserved */
-	uint8_t address[16]; /**< IPv6 address */
 } __attribute__ ((packed));
 
 
