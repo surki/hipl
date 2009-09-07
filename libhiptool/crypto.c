@@ -656,7 +656,6 @@ RSA *create_rsa_key(int bits) {
     goto err_out;
   if (RSA_generate_key_ex(rsa, bits, bn, NULL) == -1)
     goto err_out;
-  rsa = RSA_generate_key_ex(bits, RSA_F4, NULL, NULL);
 #else
   rsa = RSA_generate_key(bits, RSA_F4, NULL, NULL);
 #endif
