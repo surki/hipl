@@ -1577,7 +1577,21 @@ $ make V=99
         </listitem>
         <listitem>
           <para>
-            Any ip6 ready tool for testing connectivity. Like ping6 or wget
+            Any ipv6 ready tool for testing connectivity. Like ping6 or wget
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            There is no DNS proxy support. The one in HIPL is written in python, which
+            cannot be run in Android due to lack of python support. So the mappings will
+            have to be added in "/etc/hosts" or "/data/hip/hosts" file
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            There is no LD_PRELOAD support. The reasons being: Android'd linker doesn't have support
+            for LD_PRELOAD environment variable, and also most of the Android applications are java
+            based, they are launched in a different way, not much use for LD_PRELOAD.
           </para>
         </listitem>
       </orderedlist>
@@ -1596,21 +1610,29 @@ $ make V=99
           <orderedlist>
             <listitem>
               <para>
-                Download and install Android SDK as mentioned
-                <ulink url="http://developer.android.com/index.html">here</ulink>
+                Download and unzip the SDK (android-sdk_hipl-*.zip) from the
+                <ulink url="http://infrahip.hiit.fi/index.php?index=download">infrahip page</ulink>
               </para>
             </listitem>
             <listitem>
-              <para>Download the pre-compiled images</para>
-              <para><ulink url="Fixme">system.img</ulink></para>
-              <para><ulink url="Fixme">kernel</ulink></para>
-              <para><ulink url="Fixme">ram.img</ulink></para>
-              <para><ulink url="Fixme">userdata.img</ulink></para>
+              <para>Run the emulator</para>
+              <para>
+                <programlisting>
+$ cd android-sdk
+$ tools/emulator -data platforms/android-1.5/images/userdata.img &gt;
+                </programlisting>
+              </para>
             </listitem>
             <listitem>
               <para>
-                Test the connection as mentioned
-                <link linkend="testing_setup">here</link>
+                Test the connection
+                <programlisting>
+$ tools/adb shell # Log into emulator shell
+# hipd -k 2>/dev/null &amp;
+# hipfw -klpF 2>/dev/null &amp;
+# hipconf add map 2001:1b:a9be:c6a6:34e5:8361:c07f:a990 193.167.187.134 # We don't have dns proxy
+# wget http://[2001:001b:a9be:c6a6:34e5:8361:c07f:a990] -O- #LSI also can be used here</programlisting>
+            If you need to see the output, run each binary in its own "adb shell".
               </para>
             </listitem>
           </orderedlist>
@@ -1618,17 +1640,43 @@ $ make V=99
 
         <listitem>
           <para>Device - Android "HTC Dream" G1</para>
+          <para>
+            Please see
+            <ulink url="http://source.android.com/documentation/building-for-dream">here</ulink>
+            for more generic details
+          </para>
           <orderedlist>
             <listitem>
-              <para>Download the pre-compiled images</para>
-              <para><ulink url="Fixme">system.img</ulink></para>
-              <para><ulink url="Fixme">ram.img</ulink></para>
-              <para><ulink url="Fixme">boot.img</ulink></para>
+              <para>Download the pre-compiled flashable images(android-dream_hipl*.zip) from the
+                <ulink url="http://infrahip.hiit.fi/index.php?index=download">infrahip page</ulink>
+                and unzip them
+              </para>
             </listitem>
             <listitem>
               <para>
-                Test the connection as mentioned
-                <link linkend="testing_setup">here</link>
+                Flash the downloaded images(boot.img and system.img)
+                into device by following the instructions at
+                <ulink url="http://www.htc.com/www/support/android/adp.html">HTC page</ulink>.
+                We don't need to update all the images, just the boot and system images.
+                <programlisting>
+$ ./fastboot boot boot.img
+$ ./fastboot system system.img</programlisting>
+              </para>
+              <para>
+                <emphasis role="bold">WARNING: The system and boot partitions will be
+                  overwritten, though the data partition would remain same</emphasis>
+              </para>
+            </listitem>
+            <listitem>
+              <para>Test the connection</para>
+              <para>Remember to connect the device into USB port
+                <programlisting>
+$ tools/adb shell # Log into device shell
+# hipd -k 2>/dev/null &amp;
+# hipfw -klpF 2>/dev/null &amp;
+# hipconf add map 2001:1b:a9be:c6a6:34e5:8361:c07f:a990 193.167.187.134 # We don't have dns proxy
+# wget http://[2001:001b:a9be:c6a6:34e5:8361:c07f:a990] -O- #LSI also can be used here</programlisting>
+            If you need to see the output, run each binary in its own "adb shell".
               </para>
             </listitem>
           </orderedlist>
@@ -1695,12 +1743,31 @@ $ make menuconfig #To select HIPL specific kernel options</programlisting>
               <programlisting>$ make</programlisting>
               </para>
             </listitem>
+
+            <listitem>
+              <para>
+                Test the connection
+                <programlisting>
+$ export PATH=$PATH:~/src/mydroid/out/host/linux-x86/bin
+$ emulator -kernel kernel/arch/arm/boot/zImage -system out/target/product/generic/system.img -data out/target/product/generic/userdata.img &amp;
+$ adb shell # Log into emulator shell
+# hipd -k 2>/dev/null &amp;
+# hipfw -klpF 2>/dev/null &amp;
+# hipconf add map 2001:1b:a9be:c6a6:34e5:8361:c07f:a990 193.167.187.134 # We don't have dns proxy
+# wget http://[2001:001b:a9be:c6a6:34e5:8361:c07f:a990] -O- #LSI also can be used here</programlisting>
+                If you need to debug, run each binary in its own "adb shell".
+              </para>
+            </listitem>
+
           </orderedlist>
         </listitem> <!-- Compiling for emulator -->
 
         <listitem> <!-- Compiling for device -->
           <para>Compiling for device Android "HTC Dream" G1</para>
-          <para>Please refer to Android site for more generic details</para>
+          <para>Please refer to
+            <ulink url="http://source.android.com/documentation/building-for-dream">Android site</ulink>
+            for more generic details
+          </para>
           <orderedlist>
             <listitem><para>Get the source(follow it up from Android site). Cupcake</para></listitem>
             <listitem>
@@ -1720,65 +1787,81 @@ $ make menuconfig #To select HIPL specific kernel options</programlisting>
 </manifest>]]></programlisting>and do a <programlisting>repo sync</programlisting>
               </para>
             </listitem>
-            <listitem><para>Compile the kernel</para></listitem>
+            <listitem><para>Compile the kernel as specified in the above section</para></listitem>
             <listitem>
               <para>
                 <programlisting>make TARGET_PRODUCT:=dream TARGET_PREBUILT_KERNEL:=kernel/arch/arm/boot/zImage</programlisting>
               </para>
             </listitem>
-          </orderedlist>
-        </listitem> <!-- Compiling for device -->
 
-        <listitem id="testing_setup"> <!-- Testing -->
-          <para>
-            Testing the setup
-            <programlisting>
-$ export PATH=$PATH:~/src/mydroid/out/host/linux-x86/bin
-$ emulator -kernel kernel/arch/arm/boot/zImage -system out/target/product/generic/system.img -data out/target/product/generic/userdata.img &amp;
-$ adb shell # Log into emulator shell
+            <listitem>
+              <para>
+                Flash the built images(boot.img and system.img)
+                into device by following the instructions at
+                <ulink url="http://www.htc.com/www/support/android/adp.html">HTC page</ulink>.
+                We don't need to update all the images,
+                just the boot and system images.
+                <programlisting>
+$ fastboot boot out/target/product/dream-open/boot.img
+$ fastboot system out/target/product/dream-open/system.img</programlisting>
+              </para>
+              <para>
+                <emphasis role="bold">WARNING: The system and boot partitions will be
+                  overwritten, though the data partition would remain same</emphasis>
+              </para>
+            </listitem>
+            <listitem>
+              <para>Test the connection</para>
+              <para>Remember to connect the device into USB port
+                <programlisting>
+$ tools/adb shell # Log into device shell
 # hipd -k 2>/dev/null &amp;
 # hipfw -klpF 2>/dev/null &amp;
 # hipconf add map 2001:1b:a9be:c6a6:34e5:8361:c07f:a990 193.167.187.134 # We don't have dns proxy
 # wget http://[2001:001b:a9be:c6a6:34e5:8361:c07f:a990] -O- #LSI also can be used here</programlisting>
-            If you need to debug, run each binary in its own "adb shell".
-          </para>
-        </listitem> <!-- Testing -->
-
-        <listitem> <!-- Notes -->
-          <para>Notes</para>
-          <orderedlist>
-            <listitem>
-              <para>
-                During development, to update hip binaries, you will have to use "adb".
-                So use something like
-                <programlisting>$ adb sync</programlisting>
-                from the android source directory
+            If you need to see the output, run each binary in its own "adb shell".
               </para>
             </listitem>
             <listitem>
-              <para>
-                During development, to update hip binaries, you will have to remount
-                /system partition read/write(by default system directory is readonly).
-                So use something like
-                <programlisting># mount -oremount,rw /dev/block/mtdblock0 /system</programlisting>
-              </para>
-            </listitem>
-            <listitem>
-              <para>
-                HIP configuration files are located at "/data/hip/"
-              </para>
-            </listitem>
-            <listitem>
-              <para>
-                hipd crashes sometimes when run in simulator. Restarting will be
-                required if it crashes
-              </para>
+              <para>Flashing the device</para>
             </listitem>
           </orderedlist>
-        </listitem> <!-- Notes -->
-
+        </listitem> <!-- Compiling for device -->
       </orderedlist>
     </section> <!-- Compile from source -->
+
+    <section> <!-- Notes -->
+      <title>Notes</title>
+      <orderedlist>
+        <listitem>
+          <para>
+            During development, to update hip binaries, you will have to use "adb".
+            So use something like
+            <programlisting>$ adb sync</programlisting>
+            from the android source directory
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            During development, to update hip binaries, you will have to remount
+            /system partition read/write(by default system directory is readonly).
+            So use something like
+            <programlisting># mount -oremount,rw /dev/block/mtdblock0 /system</programlisting>
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            HIP configuration files are located at "/data/hip/"
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            hipd crashes sometimes when run in simulator. Restarting will be
+            required if it crashes
+          </para>
+        </listitem>
+      </orderedlist>
+    </section> <!-- Notes -->
   </chapter> <!-- android -->
 
 
