@@ -48,7 +48,7 @@
  *	-3	line was too long
  */
 int
-getline(FILE *stream, char *buf, size_t buflen, const char **errormsg)
+getline(FILE *stream, char *buf, size_t buflen)
 {
 	int	rv, ch;
 	size_t	len;
@@ -56,12 +56,8 @@ getline(FILE *stream, char *buf, size_t buflen, const char **errormsg)
 	if (fgets(buf, buflen, stream) == NULL) {
 		if (feof(stream)) {	/* EOF */
 			rv = -2;
-			if (errormsg)
-				*errormsg = "\nEOF received";
 		} else  {		/* error */
 			rv = -1;
-			if (errormsg)
-				*errormsg = "Error encountered";
 		}
 		clearerr(stream);
 		return rv;
@@ -72,12 +68,9 @@ getline(FILE *stream, char *buf, size_t buflen, const char **errormsg)
 	} else if (len == buflen-1) {	/* line too long */
 		while ((ch = getchar()) != '\n' && ch != EOF)
 			continue;
-		if (errormsg)
-			*errormsg = "Input line is too long";
 		clearerr(stream);
 		return -3;
 	}
-	if (errormsg)
-		*errormsg = NULL;
+
 	return len;
 }
