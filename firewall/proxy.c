@@ -4,6 +4,10 @@
 
 #include "proxy.h"
 
+#ifdef ANDROID_CHANGES
+#define icmp6hdr icmp6_hdr
+#endif
+
 int hip_proxy_raw_sock_tcp_v4 = 0;
 int hip_proxy_raw_sock_tcp_v6 = 0;
 int hip_proxy_raw_sock_udp_v4 = 0;
@@ -1100,7 +1104,8 @@ int hip_proxy_send_inbound_icmp_pkt(struct in6_addr* src_addr, struct in6_addr* 
 			  sent, (len + sizeof(struct ip6_hdr) -  ip->ip_hl), 0);
 		HIP_DEBUG("Packet sent ok\n");
 	}
-	
+
+    return 0;
 }
 
 

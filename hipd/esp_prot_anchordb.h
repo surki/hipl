@@ -44,6 +44,13 @@ void anchor_db_uninit(void);
  */
 int anchor_db_update(struct hip_common *msg);
 
+/** returns number of elements for the given transform
+ *
+ * @param	transform the ESP protection extension transform
+ * @return	number of elements
+ */
+int anchor_db_get_num_anchors(uint8_t transform);
+
 /** checks if the anchorDB has more elements for the given transform
  *
  * @param	transform the ESP protection extension transform

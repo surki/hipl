@@ -8,11 +8,12 @@
 #include "libdht/libhipopendht.h"
 #include "debug.h"
 #include "libinet6/util.h"
-#ifndef ANDROID_CHANGES
-//#include "libinet6/include/netdb.h"
-#endif
-#include "libhipcore/hipconf.h"
+#include "hipconf.h"
 #include <netinet/in.h>
+
+#ifdef ANDROID_CHANGES
+#include <ifaddrs.h>
+#endif
 
 /**
  * We really don't expect more than a handfull of interfaces to be on

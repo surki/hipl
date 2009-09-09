@@ -200,10 +200,19 @@
                 <itemizedlist>
                   <title>The IPv6 Protocol (CONFIG_IPV6) ---&gt;</title>
                   <listitem>
+                    <para>IP6: AH transformation (CONFIG_INET6_AH)</para>
+                  </listitem>
+                  <listitem>
                     <para>IPv6: ESP transformation (CONFIG_INET6_ESP)</para>
                   </listitem>
                   <listitem>
                     <para>IPv6: IPcomp transformation (CONFIG_INET6_IPCOMP)</para>
+                  </listitem>
+                  <listitem>
+                    <para>IPv6: IPsec transport mode (CONFIG_INET6_XFRM_MODE_TRANSPORT)</para>
+                  </listitem>
+                  <listitem>
+                    <para>IPv6: IPsec tunnel mode (CONFIG_INET6_XFRM_MODE_TUNNEL)</para>
                   </listitem>
                   <listitem>
                     <para>IPv6: IPsec BEET mode (CONFIG_INET6_XFRM_MODE_BEET)</para>
@@ -218,12 +227,37 @@
               </listitem>
               <listitem>
                 <itemizedlist>
-                  <title>Network packet filtering framework (Netfilter) Core ---&gt; (CONFIG_NETFILTER)</title>
+                  <title>Network packet filtering framework (Netfilter) ---&gt; (CONFIG_NETFILTER)</title>
+                  <listitem>
+                    <para>Advanced netfilter configurationIPv6(CONFIG_NETFILTER_ADVANCED)</para>
+                  </listitem>
                   <listitem>
                     <itemizedlist>
                       <title>Core Netfilter Configuration  ---&gt;</title>
                       <listitem>
                         <para>Netfilter NFQUEUE over NFNETLINK interface(CONFIG_NETFILTER_NETLINK_QUEUE)</para>
+                      </listitem>
+                    </itemizedlist>
+                  </listitem>
+                  <listitem>
+                    <itemizedlist>
+                      <title>IP: Netfilter Configuration  ---&gt;</title>
+                      <listitem>
+                        <para>IP Userspace queueing via NETLINK (OBSOLETE)(CONFIG_IP_NF_QUEUE)</para>
+                      </listitem>
+                      <listitem>
+                        <para>IP tables support (required for filtering/masq/NAT)(CONFIG_IP_NF_IPTABLES)</para>
+                      </listitem>
+                    </itemizedlist>
+                  </listitem>
+                  <listitem>
+                    <itemizedlist>
+                      <title>IPv6: Netfilter Configuration  ---&gt;</title>
+                      <listitem>
+                        <para>IP6 Userspace queueing via NETLINK (OBSOLETE)(CONFIG_IP6_NF_QUEUE)</para>
+                      </listitem>
+                      <listitem>
+                        <para>IP6 tables support (required for filtering/masq/NAT)(CONFIG_IP6_NF_IPTABLES)</para>
                       </listitem>
                     </itemizedlist>
                   </listitem>
@@ -262,7 +296,7 @@
 
       <listitem>
         <itemizedlist>
-          <title>Cryptographic options ---&gt; (CONFIG_CRYPTO)</title>
+          <title>Cryptographic API ---&gt; (CONFIG_CRYPTO)</title>
           <listitem>
             <para> Null algorithms (CONFIG_CRYPTO_NULL)</para>
           </listitem>
@@ -1430,6 +1464,7 @@ $ make V=99
     </section>
   </chapter>
 
+
   <chapter id="maemo">
       <title>Installing HIPL on the Nokia N810 Internet tablet (version 4.1.x, aka. 'diablo')</title>
 
@@ -1516,6 +1551,319 @@ $ make V=99
       </section>
 
   </chapter>
+
+  <chapter id="android"> <!-- android -->
+    <title>HIPL on Android</title>
+    <para>
+        This section explains how to install HIP on Android (emulator or a real device)
+    </para>
+
+    <section> <!-- Prerequisites -->
+      <title>Prerequisites</title>
+      <orderedlist>
+        <listitem>
+          <para>
+            The kernel needs to be updated to support the various
+            features required by HIPL that aren't present in the
+            standard distribution. These include ipv6 support and
+            various IPSec- and packet filtering related options
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            iptables and ip6tables tool. Android ships with iptables,
+            so we would also need ip6tables
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            Any ipv6 ready tool for testing connectivity. Like ping6 or wget
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            There is no DNS proxy support. The one in HIPL is written in python, which
+            cannot be run in Android due to lack of python support. So the mappings will
+            have to be added in "/etc/hosts" or "/data/hip/hosts" file
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            There is no LD_PRELOAD support. The reasons being: Android'd linker doesn't have support
+            for LD_PRELOAD environment variable, and also most of the Android applications are java
+            based, they are launched in a different way, not much use for LD_PRELOAD.
+          </para>
+        </listitem>
+      </orderedlist>
+    </section> <!-- Prerequisites -->
+
+    <section> <!-- Precompiled binaries -->
+      <title>Installing/Running from pre-compiled binaries</title>
+
+      <para>
+        We are providing precompiled images for emulator and Android "HTC Dream" G1, though
+        they may not be always uptodate, so compiling from source is recommended.
+      </para>
+      <orderedlist>
+        <listitem>
+          <para>Emulator</para>
+          <orderedlist>
+            <listitem>
+              <para>
+                Download and unzip the SDK (android-sdk_hipl-*.zip) from the
+                <ulink url="http://infrahip.hiit.fi/index.php?index=download">infrahip page</ulink>
+              </para>
+            </listitem>
+            <listitem>
+              <para>Run the emulator</para>
+              <para>
+                <programlisting>
+$ cd android-sdk
+$ tools/emulator -data platforms/android-1.5/images/userdata.img &gt;
+                </programlisting>
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Test the connection
+                <programlisting>
+$ tools/adb shell # Log into emulator shell
+# hipd -k 2>/dev/null &amp;
+# hipfw -klpF 2>/dev/null &amp;
+# hipconf add map 2001:1b:a9be:c6a6:34e5:8361:c07f:a990 193.167.187.134 # We don't have dns proxy
+# wget http://[2001:001b:a9be:c6a6:34e5:8361:c07f:a990] -O- #LSI also can be used here</programlisting>
+            If you need to see the output, run each binary in its own "adb shell".
+              </para>
+            </listitem>
+          </orderedlist>
+        </listitem>
+
+        <listitem>
+          <para>Device - Android "HTC Dream" G1</para>
+          <para>
+            Please see
+            <ulink url="http://source.android.com/documentation/building-for-dream">here</ulink>
+            for more generic details
+          </para>
+          <orderedlist>
+            <listitem>
+              <para>Download the pre-compiled flashable images(android-dream_hipl*.zip) from the
+                <ulink url="http://infrahip.hiit.fi/index.php?index=download">infrahip page</ulink>
+                and unzip them
+              </para>
+            </listitem>
+            <listitem>
+              <para>
+                Flash the downloaded images(boot.img and system.img)
+                into device by following the instructions at
+                <ulink url="http://www.htc.com/www/support/android/adp.html">HTC page</ulink>.
+                We don't need to update all the images, just the boot and system images.
+                <programlisting>
+$ ./fastboot boot boot.img
+$ ./fastboot system system.img</programlisting>
+              </para>
+              <para>
+                <emphasis role="bold">WARNING: The system and boot partitions will be
+                  overwritten, though the data partition would remain same</emphasis>
+              </para>
+            </listitem>
+            <listitem>
+              <para>Test the connection</para>
+              <para>Remember to connect the device into USB port
+                <programlisting>
+$ tools/adb shell # Log into device shell
+# hipd -k 2>/dev/null &amp;
+# hipfw -klpF 2>/dev/null &amp;
+# hipconf add map 2001:1b:a9be:c6a6:34e5:8361:c07f:a990 193.167.187.134 # We don't have dns proxy
+# wget http://[2001:001b:a9be:c6a6:34e5:8361:c07f:a990] -O- #LSI also can be used here</programlisting>
+            If you need to see the output, run each binary in its own "adb shell".
+              </para>
+            </listitem>
+          </orderedlist>
+        </listitem>
+
+      </orderedlist>
+    </section> <!-- Precompiled binaries -->
+
+    <section> <!-- Compiling from source -->
+      <title>Compiling from source</title>
+      <para>This section explains how to compile HIP either for emulator or a device</para>
+      <orderedlist>
+
+        <listitem> <!-- Compiling for emulator -->
+          <para>Compiling for emulator</para>
+          <orderedlist>
+            <listitem>
+              <para>
+                Get source by following the guidelines specified at
+                <ulink url="http://source.android.com/download">android.com</ulink>. Use "cupcake" branch
+              </para>
+            </listitem>
+            <listitem>
+              <para>Inside .repo directory(within android source directory), create a file called
+                "local_manifest.xml". This file contains description of extra packages required for
+                HIP support
+                <programlisting><![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <remote  name="surki-github" fetch="git://github.com/surki/" />
+
+  <remove-project name="platform/external/iptables" />
+
+  <project path="kernel" name="kernel/common" revision="refs/heads/android-goldfish-2.6.29" />
+  <project path="external/iptables" name="iptables" revision="refs/heads/android-hipl" remote="surki-github" />
+  <project path="external/wget" name="wget" revision="refs/heads/android-hipl" remote="surki-github" />
+  <project path="external/hipl" name="hipl" revision="refs/heads/android-hipl" remote="surki-github" />
+</manifest>]]></programlisting>and do a <programlisting>repo sync</programlisting>
+                which will bring all the HIPL specific changes into local repository
+              </para>
+            </listitem>
+            <listitem>
+              <para>Compile the source</para>
+              <para>
+                <programlisting>
+$ cd ~/src/mydroid #Android source directory
+$ source build/envsetup.sh
+$ lunch generic-eng #Chooses a generic build for emulator and sets up the required env. variables
+$ make TARGET_PRODUCT:=generic</programlisting>
+              </para>
+            </listitem>
+            <listitem>
+              <para>Compile the kernel
+              <programlisting>
+$ cd ~/src/mydroid #Android source directory
+$ source build/envsetup.sh
+$ lunch generic-eng #Chooses a generic build and sets up the required env. variables
+$ cd kernel # Kernel source
+$ export CROSS_COMPILE=arm-eabi- ARCH=arm
+$ make goldfish_defconfig
+$ make menuconfig #To select HIPL specific kernel options</programlisting>
+              Select the HIP specific kernel options as mentioned in HIP
+              <link linkend="ch_kernel">"Compiling the Kernel"</link> page.
+              <programlisting>$ make</programlisting>
+              </para>
+            </listitem>
+
+            <listitem>
+              <para>
+                Test the connection
+                <programlisting>
+$ export PATH=$PATH:~/src/mydroid/out/host/linux-x86/bin
+$ emulator -kernel kernel/arch/arm/boot/zImage -system out/target/product/generic/system.img -data out/target/product/generic/userdata.img &amp;
+$ adb shell # Log into emulator shell
+# hipd -k 2>/dev/null &amp;
+# hipfw -klpF 2>/dev/null &amp;
+# hipconf add map 2001:1b:a9be:c6a6:34e5:8361:c07f:a990 193.167.187.134 # We don't have dns proxy
+# wget http://[2001:001b:a9be:c6a6:34e5:8361:c07f:a990] -O- #LSI also can be used here</programlisting>
+                If you need to debug, run each binary in its own "adb shell".
+              </para>
+            </listitem>
+
+          </orderedlist>
+        </listitem> <!-- Compiling for emulator -->
+
+        <listitem> <!-- Compiling for device -->
+          <para>Compiling for device Android "HTC Dream" G1</para>
+          <para>Please refer to
+            <ulink url="http://source.android.com/documentation/building-for-dream">Android site</ulink>
+            for more generic details
+          </para>
+          <orderedlist>
+            <listitem><para>Get the source(follow it up from Android site). Cupcake</para></listitem>
+            <listitem>
+              <para>Apply this local manifest
+                <programlisting>
+                  <![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <remote  name="surki-github" fetch="git://github.com/surki/" />
+
+  <remove-project name="platform/external/iptables" />
+
+  <project path="kernel" name="kernel/common" revision="refs/heads/android-msm-2.6.29" />
+  <project path="external/iptables" name="iptables" revision="refs/heads/android-hipl" remote="surki-github" />
+  <project path="external/wget" name="wget" revision="refs/heads/android-hipl" remote="surki-github" />
+  <project path="external/hipl" name="hipl" revision="refs/heads/android-hipl" remote="surki-github" />
+</manifest>]]></programlisting>and do a <programlisting>repo sync</programlisting>
+              </para>
+            </listitem>
+            <listitem><para>Compile the kernel as specified in the above section</para></listitem>
+            <listitem>
+              <para>
+                <programlisting>make TARGET_PRODUCT:=dream TARGET_PREBUILT_KERNEL:=kernel/arch/arm/boot/zImage</programlisting>
+              </para>
+            </listitem>
+
+            <listitem>
+              <para>
+                Flash the built images(boot.img and system.img)
+                into device by following the instructions at
+                <ulink url="http://www.htc.com/www/support/android/adp.html">HTC page</ulink>.
+                We don't need to update all the images,
+                just the boot and system images.
+                <programlisting>
+$ fastboot boot out/target/product/dream-open/boot.img
+$ fastboot system out/target/product/dream-open/system.img</programlisting>
+              </para>
+              <para>
+                <emphasis role="bold">WARNING: The system and boot partitions will be
+                  overwritten, though the data partition would remain same</emphasis>
+              </para>
+            </listitem>
+            <listitem>
+              <para>Test the connection</para>
+              <para>Remember to connect the device into USB port
+                <programlisting>
+$ tools/adb shell # Log into device shell
+# hipd -k 2>/dev/null &amp;
+# hipfw -klpF 2>/dev/null &amp;
+# hipconf add map 2001:1b:a9be:c6a6:34e5:8361:c07f:a990 193.167.187.134 # We don't have dns proxy
+# wget http://[2001:001b:a9be:c6a6:34e5:8361:c07f:a990] -O- #LSI also can be used here</programlisting>
+            If you need to see the output, run each binary in its own "adb shell".
+              </para>
+            </listitem>
+            <listitem>
+              <para>Flashing the device</para>
+            </listitem>
+          </orderedlist>
+        </listitem> <!-- Compiling for device -->
+      </orderedlist>
+    </section> <!-- Compile from source -->
+
+    <section> <!-- Notes -->
+      <title>Notes</title>
+      <orderedlist>
+        <listitem>
+          <para>
+            During development, to update hip binaries, you will have to use "adb".
+            So use something like
+            <programlisting>$ adb sync</programlisting>
+            from the android source directory
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            During development, to update hip binaries, you will have to remount
+            /system partition read/write(by default system directory is readonly).
+            So use something like
+            <programlisting># mount -oremount,rw /dev/block/mtdblock0 /system</programlisting>
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            HIP configuration files are located at "/data/hip/"
+          </para>
+        </listitem>
+        <listitem>
+          <para>
+            hipd crashes sometimes when run in simulator. Restarting will be
+            required if it crashes
+          </para>
+        </listitem>
+      </orderedlist>
+    </section> <!-- Notes -->
+  </chapter> <!-- android -->
+
 
   <chapter id="quick">
     <title>Quick Install and Test with Binaries and Error Reporting</title>
@@ -2562,6 +2910,46 @@ VPN
     this was caused by a missing command line argument to iperf, a problem
     in iperf itself or a problem in IPsec performance.
   </para>
+  </section>
+  <section id="nagios">
+  <title>Nagios Infrastructure monitoring tool</title>
+  <para>
+    <ulink url="http://www.nagios.org/">Nagios</ulink> is a web-based,
+    open source
+    Infrastructure monitoring service. Here is an example how to handle
+    the monitoring over HIP based on the instructions in <ulink
+    url="https://wiki.chpc.utah.edu/display/CHPC/Nagios+ping6+creation" />
+  </para>
+  <para>
+    Nagios supported "check_command check_http" over IPv6 and using HITs
+    without any changes. However, you will need the following tweaks
+    support HIT-based ICMPv6 (unless you are satisfied with LSIs):
+  </para>
+  <programlisting>
+    define command {
+        command_name check_ping6
+        command_line $USER1$/check_ping -6 -H $HOSTADDRESS$ -w 3000.0,80% -c 5000.0,100% -p 5
+    }
+
+    define command {
+        command_name check-ipv6-alive
+        command_line $USER1$/check_ping -6 -H $HOSTADDRESS$ -w 3000.0,80% -c 5000.0,100% -p 1
+    }
+
+    define service {
+        use                             local-service
+        host_name                       crossroads.infrahip.net
+        service_description             PING
+        check_command                   check_ping6 
+    }
+
+    define host {
+        use                     linux-server
+        host_name               crossroads.infrahip.net
+        alias                   crossroads
+        address                 2001:1b:a9be:c6a6:34e5:8361:c07f:a990
+    }
+  </programlisting>
   </section>
   </chapter>
 

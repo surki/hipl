@@ -341,7 +341,7 @@ int hcstore_fill_item(hchain_store_t *hcstore, int hash_func_id, int hash_length
 								&hcstore->hchain_shelves[hash_func_id][hash_length_id].
 								hchains[hchain_length_id][hierarchy_level - 1], j);
 
-						htree_add_data(link_tree, tmp_hchain->anchor_element->hash,
+						htree_add_data(link_tree, hchain_get_anchor(tmp_hchain),
 								hash_length);
 					}
 				}
@@ -553,7 +553,7 @@ void * hcstore_get_item_by_anchor(hchain_store_t *hcstore, int function_id,
 			{
 				hchain = (hash_chain_t *)stored_item;
 
-				if (!memcmp(anchor, hchain->anchor_element->hash, hash_length))
+				if (!memcmp(anchor, hchain_get_anchor(hchain), hash_length))
 				{
 					stored_item = hip_ll_del(&hcstore->
 							hchain_shelves[function_id][hash_length_id].

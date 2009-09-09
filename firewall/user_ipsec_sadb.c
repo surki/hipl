@@ -10,6 +10,7 @@
 #include "esp_prot_api.h"
 #include <openssl/sha.h>
 #include "firewall.h"
+#include "ife.h"
 
 /* hash functions used for calculating the entries' hashes */
 #define INDEX_HASH_FN		HIP_DIGEST_SHA1
@@ -50,7 +51,13 @@ int hip_sadb_uninit()
 {
 	int err = 0;
 
-	HIP_IFEL(hip_sadb_flush(), -1, "failed to flush sadb\n");
+	if (err = hip_sadb_flush())
+		HIP_ERROR("failed to flush sadb\n");
+
+	if (sadb)
+		free(sadb);
+	if (linkdb)
+		free(linkdb);
 
   out_err:
 	return err;
@@ -62,7 +69,8 @@ int hip_sadb_add(int direction, uint32_t spi, uint32_t mode,
 		uint8_t encap_mode, uint16_t local_port, uint16_t peer_port,
 		int ealg, struct hip_crypto_key *auth_key, struct hip_crypto_key *enc_key,
 		uint64_t lifetime, uint8_t esp_prot_transform, uint32_t hash_item_length,
-		unsigned char *esp_prot_anchor, int retransmission, int update)
+		uint16_t esp_num_anchors, unsigned char (*esp_prot_anchors)[MAX_HASH_LENGTH],
+		int retransmission, int update)
 {
 	int err = 0;
 	struct in6_addr *check_local_hit = NULL;
@@ -102,13 +110,13 @@ int hip_sadb_add(int direction, uint32_t spi, uint32_t mode,
 		HIP_IFEL(hip_sa_entry_update(direction, spi, mode, src_addr, dst_addr,
 				inner_src_addr, inner_dst_addr, encap_mode, src_port, dst_port, ealg,
 				auth_key, enc_key, lifetime, esp_prot_transform, hash_item_length,
-				esp_prot_anchor, update), -1, "failed to update sa entry\n");
+				esp_num_anchors, esp_prot_anchors, update), -1, "failed to update sa entry\n");
 	} else
 	{
 		HIP_IFEL(hip_sa_entry_add(direction, spi, mode, src_addr, dst_addr,
 				inner_src_addr, inner_dst_addr, encap_mode, src_port, dst_port, ealg,
 				auth_key, enc_key, lifetime, esp_prot_transform, hash_item_length,
-				esp_prot_anchor, update), -1, "failed to add sa entry\n");
+				esp_num_anchors, esp_prot_anchors, update), -1, "failed to add sa entry\n");
 	}
 
   out_err:
@@ -365,7 +373,8 @@ int hip_sa_entry_add(int direction, uint32_t spi, uint32_t mode,
 		uint8_t encap_mode, uint16_t src_port, uint16_t dst_port,
 		int ealg, struct hip_crypto_key *auth_key, struct hip_crypto_key *enc_key,
 		uint64_t lifetime, uint8_t esp_prot_transform, uint32_t hash_item_length,
-		unsigned char *esp_prot_anchor, int update)
+		uint16_t esp_num_anchors, unsigned char (*esp_prot_anchors)[MAX_HASH_LENGTH],
+		int update)
 {
 	hip_sa_entry_t *entry = NULL;
 	int err = 0;
@@ -401,7 +410,7 @@ int hip_sa_entry_add(int direction, uint32_t spi, uint32_t mode,
 	HIP_IFEL(hip_sa_entry_set(entry, direction, spi, mode, src_addr, dst_addr,
 			inner_src_addr, inner_dst_addr, encap_mode, src_port, dst_port, ealg,
 			auth_key, enc_key, lifetime, esp_prot_transform, hash_item_length,
-			esp_prot_anchor, update), -1, "failed to set the entry members\n");
+			esp_num_anchors, esp_prot_anchors, update), -1, "failed to set the entry members\n");
 
 	HIP_DEBUG("adding sa entry with following index attributes:\n");
 	HIP_DEBUG_HIT("inner_src_addr", entry->inner_src_addr);
@@ -441,7 +450,8 @@ int hip_sa_entry_update(int direction, uint32_t spi, uint32_t mode,
 		uint8_t encap_mode, uint16_t src_port, uint16_t dst_port,
 		int ealg, struct hip_crypto_key *auth_key, struct hip_crypto_key *enc_key,
 		uint64_t lifetime, uint8_t esp_prot_transform, uint32_t hash_item_length,
-		unsigned char *esp_prot_anchor, int update)
+		uint16_t esp_num_anchors, unsigned char (*esp_prot_anchors)[MAX_HASH_LENGTH],
+		int update)
 {
 	hip_sa_entry_t *stored_entry = NULL;
 	int err = 0;
@@ -461,7 +471,7 @@ int hip_sa_entry_update(int direction, uint32_t spi, uint32_t mode,
 	HIP_IFEL(hip_sa_entry_set(stored_entry, direction, spi, mode, src_addr, dst_addr,
 			inner_src_addr, inner_dst_addr, encap_mode, src_port, dst_port, ealg,
 			auth_key, enc_key, lifetime, esp_prot_transform, hash_item_length,
-			esp_prot_anchor, update), -1, "failed to update the entry members\n");
+			esp_num_anchors, esp_prot_anchors, update), -1, "failed to update the entry members\n");
 
 	HIP_IFEL(hip_link_entries_add(stored_entry), -1, "failed to add links\n");
 	pthread_mutex_unlock(&stored_entry->rw_lock);
@@ -478,10 +488,12 @@ int hip_sa_entry_set(hip_sa_entry_t *entry, int direction, uint32_t spi,
 		uint8_t encap_mode, uint16_t src_port, uint16_t dst_port,
 		int ealg, struct hip_crypto_key *auth_key, struct hip_crypto_key *enc_key,
 		uint64_t lifetime, uint8_t esp_prot_transform, uint32_t hash_item_length,
-		unsigned char *esp_prot_anchor, int update)
+		uint16_t esp_num_anchors, unsigned char (*esp_prot_anchors)[MAX_HASH_LENGTH],
+		int update)
 {
 	int key_len = 0; 							/* for 3-DES */
 	unsigned char key1[8], key2[8], key3[8]; 	/* for 3-DES */
+	int enc_key_changed = 0;
 	int err = 0;
 
 	// XX TODO handle update case, introducing backup of spi and keying material
@@ -503,58 +515,81 @@ int hip_sa_entry_set(hip_sa_entry_t *entry, int direction, uint32_t spi,
 
 	entry->ealg = ealg;
 
-	// copy raw keys
-	memcpy(entry->auth_key, auth_key, hip_auth_key_length_esp(ealg));
-	if (hip_enc_key_length(ealg) > 0)
-		memcpy(entry->enc_key, enc_key, hip_enc_key_length(ealg));
+	// copy raw keys, if they changed
+	if (memcmp(entry->auth_key, auth_key, hip_auth_key_length_esp(ealg)))
+		memcpy(entry->auth_key, auth_key, hip_auth_key_length_esp(ealg));
 
-	// set up keys for the transform in use
-	switch (ealg)
+	if (hip_enc_key_length(ealg) > 0 && memcmp(entry->enc_key, enc_key, hip_enc_key_length(ealg)))
 	{
-		case HIP_ESP_3DES_SHA1:
-		case HIP_ESP_3DES_MD5:
-			key_len = hip_enc_key_length(ealg)/3;
+		memcpy(entry->enc_key, enc_key, hip_enc_key_length(ealg));
+		enc_key_changed = 1;
+	}
 
-			memset(key1, 0, key_len);
-			memset(key2, 0, key_len);
-			memset(key3, 0, key_len);
+	// set up encrpytion keys, if raw keys changed
+	if (enc_key_changed)
+	{
+		// set up keys for the transform in use
+		switch (ealg)
+		{
+			case HIP_ESP_3DES_SHA1:
+			case HIP_ESP_3DES_MD5:
+				key_len = hip_enc_key_length(ealg)/3;
 
-			memcpy(key1, &enc_key[0], key_len);
-			memcpy(key2, &enc_key[8], key_len);
-			memcpy(key3, &enc_key[16], key_len);
+				memset(key1, 0, key_len);
+				memset(key2, 0, key_len);
+				memset(key3, 0, key_len);
 
-			des_set_odd_parity((des_cblock*)key1);
-			des_set_odd_parity((des_cblock*)key2);
-			des_set_odd_parity((des_cblock*)key3);
+				memcpy(key1, &enc_key[0], key_len);
+				memcpy(key2, &enc_key[8], key_len);
+				memcpy(key3, &enc_key[16], key_len);
 
-			err = des_set_key_checked((des_cblock*)key1, entry->ks[0]);
-			err += des_set_key_checked((des_cblock*)key2, entry->ks[1]);
-			err += des_set_key_checked((des_cblock*)key3, entry->ks[2]);
+				des_set_odd_parity((des_cblock*)key1);
+				des_set_odd_parity((des_cblock*)key2);
+				des_set_odd_parity((des_cblock*)key3);
 
-			HIP_IFEL(err, -1, "3DES key problem\n");
+				err = des_set_key_checked((des_cblock*)key1, entry->ks[0]);
+				err += des_set_key_checked((des_cblock*)key2, entry->ks[1]);
+				err += des_set_key_checked((des_cblock*)key3, entry->ks[2]);
 
-			break;
-		case HIP_ESP_AES_SHA1:
-			/* AES key differs for encryption/decryption, so we set
-			 * it upon first use in the SA */
-			entry->aes_key = NULL;
+				HIP_IFEL(err, -1, "3DES key problem\n");
 
-			break;
-		case HIP_ESP_BLOWFISH_SHA1:
-			entry->bf_key = (BF_KEY *) malloc(sizeof(BF_KEY));
-			BF_set_key(entry->bf_key, hip_enc_key_length(ealg), enc_key->key);
+				break;
+			case HIP_ESP_AES_SHA1:
+				HIP_IFEL(!entry->enc_key, -1, "enc_key required!\n");
 
-			break;
-		case HIP_ESP_NULL_SHA1:
-			// same encryption chiper as next transform
-		case HIP_ESP_NULL_MD5:
-			// nothing needs to be set up
-			break;
-		default:
-			HIP_ERROR("Unsupported encryption transform: %i.\n", ealg);
+				/* AES key differs for encryption/decryption, so we need
+				 * to distinguish the directions here */
+				if (direction == HIP_SPI_DIRECTION_OUT)
+				{
+					// needs length of key in bits
+					HIP_IFEL(AES_set_encrypt_key(entry->enc_key->key,
+							8 * hip_enc_key_length(entry->ealg),
+							&entry->aes_key), -1, "AES key problem!\n");
+				} else
+				{
+					HIP_IFEL(AES_set_decrypt_key(entry->enc_key->key,
+							8 * hip_enc_key_length(entry->ealg),
+							&entry->aes_key), -1, "AES key problem!\n");
+				}
 
-			err = -1;
-			goto out_err;
+				break;
+#ifndef ANDROID_CHANGES
+			case HIP_ESP_BLOWFISH_SHA1:
+				BF_set_key(&entry->bf_key, hip_enc_key_length(ealg), enc_key->key);
+
+				break;
+#endif
+			case HIP_ESP_NULL_SHA1:
+				// same encryption chiper as next transform
+			case HIP_ESP_NULL_MD5:
+				// nothing needs to be set up
+				break;
+			default:
+				HIP_ERROR("Unsupported encryption transform: %i.\n", ealg);
+
+				err = -1;
+				goto out_err;
+		}
 	}
 
 	// only set the seq no in case there is NO update
@@ -563,7 +598,7 @@ int hip_sa_entry_set(hip_sa_entry_t *entry, int direction, uint32_t spi,
 	entry->lifetime = lifetime;
 
 	HIP_IFEL(esp_prot_sa_entry_set(entry, esp_prot_transform, hash_item_length,
-			esp_prot_anchor, update), -1, "failed to set esp protection members\n");
+			esp_num_anchors, esp_prot_anchors, update), -1, "failed to set esp protection members\n");
 
   out_err:
   	return err;
@@ -735,10 +770,6 @@ void hip_sa_entry_free(hip_sa_entry_t * entry)
 			free(entry->auth_key);
 		if (entry->enc_key)
 			free(entry->enc_key);
-		if (entry->aes_key)
-			free(entry->aes_key);
-		if (entry->bf_key)
-			free(entry->bf_key);
 
 		// also free all hchain related members
 		esp_prot_sa_entry_free(entry);

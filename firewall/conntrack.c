@@ -768,6 +768,7 @@ int handle_r1(struct hip_common * common, struct tuple * tuple,
 		tuple->hip_tuple->data->src_pub_key = hip_key_rr_to_dsa(host_id, 0);
 
 	// store function pointer for verification
+	// FIXME function signature of verify differs from hip_rsa_verify and hip_dsa_verify
 	tuple->hip_tuple->data->verify = hip_get_host_id_algo(
 			tuple->hip_tuple->data->src_hi) == HIP_HI_RSA ?
 			hip_rsa_verify : hip_dsa_verify;
@@ -838,6 +839,7 @@ int handle_i2(const struct in6_addr * ip6_src, const struct in6_addr * ip6_dst,
 			tuple->hip_tuple->data->src_pub_key = hip_key_rr_to_dsa(host_id, 0);
 
 		// store function pointer for verification
+		// FIXME function signature of verify differs from hip_rsa_verify and hip_dsa_verify
 		tuple->hip_tuple->data->verify = hip_get_host_id_algo(
 				tuple->hip_tuple->data->src_hi) == HIP_HI_RSA ?
 				hip_rsa_verify : hip_dsa_verify;
@@ -1827,7 +1829,7 @@ int filter_esp_state(hip_fw_context_t * ctx, struct rule * rule, int use_escrow)
 }
 
 //check the verdict in rule, so connections can only be created when necessary
-int filter_state(struct in6_addr * ip6_src, struct in6_addr * ip6_dst,
+int filter_state(const struct in6_addr * ip6_src, const struct in6_addr * ip6_dst,
 		 struct hip_common * buf, const struct state_option * option, int accept)
 {
 	struct hip_data * data = NULL;
@@ -1916,8 +1918,8 @@ int filter_state(struct in6_addr * ip6_src, struct in6_addr * ip6_dst,
  * filtered through any state rules
  * needs to be registered by connection tracking
  */
-void conntrack(struct in6_addr * ip6_src,
-        struct in6_addr * ip6_dst,
+void conntrack(const struct in6_addr * ip6_src,
+        const struct in6_addr * ip6_dst,
 	       struct hip_common * buf)
 {
 	struct hip_data * data;

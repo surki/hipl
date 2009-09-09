@@ -24,7 +24,7 @@
 
 #include "user_ipsec_esp.h"
 #include "esp_prot_api.h"
-#include "utils.h"
+#include "libhipcore/utils.h"
 
 /* for some reason the ICV for ESP authentication is truncated to 12 bytes */
 #define ICV_LENGTH 12
@@ -210,6 +210,11 @@ int hip_beet_mode_output(hip_fw_context_t *ctx, hip_sa_entry_t *entry,
 							*esp_packet_len, IPPROTO_ESP);
 	}
 
+	// this is a hook for caching packet hashes for the cumulative authentication
+	// of the token-based packet-level authentication scheme
+	HIP_IFEL(esp_prot_cache_packet_hash((unsigned char *)out_esp_hdr, *esp_packet_len - next_hdr_offset, entry), -1,
+			"failed to cache hash of packet for cumulative authentication extension\n");
+
   out_err:
     // needed in case something breaks during encryption -> unlock for next packet
   	pthread_mutex_unlock(&entry->rw_lock);
@@ -310,15 +315,17 @@ int hip_payload_encrypt(unsigned char *in, uint8_t in_type, uint16_t in_len,
 				goto out_err;
 			}
 			break;
+#ifndef ANDROID_CHANGES
 		case HIP_ESP_BLOWFISH_SHA1:
 			iv_len = 8;
-			if (!entry->bf_key) {
+			if (!entry->enc_key) {
 				HIP_ERROR("BLOWFISH key missing.\n");
 
 				err = -1;
 				goto out_err;
 			}
 			break;
+#endif
 		case HIP_ESP_NULL_SHA1:
 			// same encryption chiper as next transform
 		case HIP_ESP_NULL_MD5:
@@ -327,18 +334,7 @@ int hip_payload_encrypt(unsigned char *in, uint8_t in_type, uint16_t in_len,
 		case HIP_ESP_AES_SHA1:
 			// initalisation vector has the same size as the aes block size
 			iv_len = AES_BLOCK_SIZE;
-			if (!entry->aes_key && entry->enc_key) {
-				entry->aes_key = malloc(sizeof(AES_KEY));
-				// needs length of key in bits
-				if (AES_set_encrypt_key(entry->enc_key->key,
-						8 * hip_enc_key_length(entry->ealg),
-						entry->aes_key)) {
-					HIP_ERROR("AES key problem!\n");
-
-					err = -1;
-					goto out_err;
-				}
-			} else if (!entry->aes_key) {
+			if (!entry->enc_key) {
 				HIP_ERROR("AES key missing.\n");
 
 				err = -1;
@@ -396,11 +392,13 @@ int hip_payload_encrypt(unsigned char *in, uint8_t in_type, uint16_t in_len,
 					     (des_cblock *) cbc_iv, DES_ENCRYPT);
 
 			break;
+#ifndef ANDROID_CHANGES
 		case HIP_ESP_BLOWFISH_SHA1:
 			BF_cbc_encrypt(in, &out[esp_data_offset + iv_len], elen,
-					entry->bf_key, cbc_iv, BF_ENCRYPT);
+					&entry->bf_key, cbc_iv, BF_ENCRYPT);
 
 			break;
+#endif
 		case HIP_ESP_NULL_SHA1:
 		case HIP_ESP_NULL_MD5:
 			// NOTE: in this case there is no IV
@@ -409,7 +407,7 @@ int hip_payload_encrypt(unsigned char *in, uint8_t in_type, uint16_t in_len,
 			break;
 		case HIP_ESP_AES_SHA1:
 			AES_cbc_encrypt(in, &out[esp_data_offset + iv_len], elen,
-					entry->aes_key, cbc_iv, AES_ENCRYPT);
+					&entry->aes_key, cbc_iv, AES_ENCRYPT);
 
 			break;
 		default:
@@ -604,35 +602,24 @@ int hip_payload_decrypt(unsigned char *in, uint16_t in_len, unsigned char *out,
 				goto out_err;
 			}
 			break;
+#ifndef ANDROID_CHANGES
 		case HIP_ESP_BLOWFISH_SHA1:
 			iv_len = 8;
-			if (!entry->bf_key) {
+			if (!entry->enc_key) {
 				HIP_ERROR("BLOWFISH key missing.\n");
 
 				err = -1;
 				goto out_err;
 			}
 			break;
+#endif
 		case HIP_ESP_NULL_SHA1:
 		case HIP_ESP_NULL_MD5:
 			iv_len = 0;
 			break;
 		case HIP_ESP_AES_SHA1:
 			iv_len = 16;
-			if (!entry->aes_key && entry->enc_key) {
-				entry->aes_key = malloc(sizeof(AES_KEY));
-
-				if (AES_set_decrypt_key(entry->enc_key->key,
-						8 * hip_enc_key_length(entry->ealg),
-						entry->aes_key))
-				{
-					HIP_ERROR("AES key problem!\n");
-
-					err = -1;
-					goto out_err;
-				}
-
-			} else if (!entry->aes_key) {
+			if (!entry->enc_key) {
 				HIP_ERROR("AES key missing.\n");
 
 				err = -1;
@@ -661,7 +648,7 @@ int hip_payload_decrypt(unsigned char *in, uint16_t in_len, unsigned char *out,
 			break;
 		case HIP_ESP_BLOWFISH_SHA1:
 			BF_cbc_encrypt(&in[esp_data_offset + iv_len], out, elen,
-					entry->bf_key, cbc_iv, BF_DECRYPT);
+					&entry->bf_key, cbc_iv, BF_DECRYPT);
 			break;
 		case HIP_ESP_NULL_SHA1:
 		case HIP_ESP_NULL_MD5:
@@ -669,7 +656,7 @@ int hip_payload_decrypt(unsigned char *in, uint16_t in_len, unsigned char *out,
 			break;
 		case HIP_ESP_AES_SHA1:
 			AES_cbc_encrypt(&in[esp_data_offset + iv_len], out, elen,
-					entry->aes_key, cbc_iv, AES_DECRYPT);
+					&entry->aes_key, cbc_iv, AES_DECRYPT);
 			break;
 		default:
 			HIP_ERROR("Unsupported decryption algorithm: %i\n", entry->ealg);

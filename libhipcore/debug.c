@@ -44,7 +44,7 @@
  *       append a newline (as in fprinf(3)).
  */
 #include "debug.h"
-#include "util.h"
+#include "libinet6/util.h"
 #include "hipconf.h"
 
 /* must be in the same order as enum debug_level (straight mapping) */

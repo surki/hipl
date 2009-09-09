@@ -24,6 +24,9 @@
 #include "libhipopendht.h"
 #include "libhipopendhtxml.h"
 
+#include "libhipopendht.h"
+#include "libhipopendhtxml.h"
+
 
 /**
  *  For interrupting the connect in gethosts_hit 

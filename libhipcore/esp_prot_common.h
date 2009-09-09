@@ -22,9 +22,9 @@
 /* 0 is special purpose transform representing no hash case */
 #define ESP_PROT_TFM_UNUSED			0
 /* hash chains have transforms > 0 and <= 128 */
-#define ESP_PROT_TFM_SHA1_20		1
+//#define ESP_PROT_TFM_SHA1_20		1
 /* hash trees have transforms > 128 and <= 255 */
-//#define ESP_PROT_TFM_SHA1_20_TREE	1 + ESP_PROT_TFM_HTREE_OFFSET
+#define ESP_PROT_TFM_SHA1_20_TREE	1 + ESP_PROT_TFM_HTREE_OFFSET
 /* for transforms array, ESP_PROT_TFM_UNUSED is not counted here */
 #define NUM_TRANSFORMS				1
 /* for first dimension of hash_lengths[][] */
@@ -33,6 +33,25 @@
 #define NUM_HASH_LENGTHS			1
 
 #define MAX_HTREE_DEPTH				20
+
+// switch to use cumulative authentication TPA
+#define CUMULATIVE_AUTH				0
+#define PARALLEL_CHAINS				0
+
+/* the number of parallel hash chain to be used
+ * when parallel hash chain authentication is active
+ */
+#define NUM_PARALLEL_CHAINS			6
+
+/* size of the buffer for cumulative authentication
+ *
+ * NOTE: should not be set higher than IPsec replay window
+ * 		 -> packet would be dropped anyway then
+ */
+#define RINGBUF_SIZE				64
+#define NUM_LINEAR_ELEMENTS			1
+#define NUM_RANDOM_ELEMENTS			0
+
 
 // changed for measurements
 #if 0

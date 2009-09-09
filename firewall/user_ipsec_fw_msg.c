@@ -71,6 +71,8 @@ int handle_sa_add_request(struct hip_common * msg)
 	unsigned char *esp_prot_anchor = NULL;
 	uint32_t e_keylen = 0, a_keylen = 0, e_type = 0, a_type = 0;
 	uint32_t hash_item_length = 0;
+	uint16_t esp_num_anchors;
+	unsigned char esp_prot_anchors[NUM_PARALLEL_CHAINS][MAX_HASH_LENGTH];
 
 	// get all attributes from the message
 
@@ -107,8 +109,9 @@ int handle_sa_add_request(struct hip_common * msg)
 	HIP_DEBUG("the peer_port value is %u \n", peer_port);
 
 	// parse the esp protection extension parameters
-	esp_prot_anchor = esp_prot_handle_sa_add_request(msg, &esp_prot_transform,
-			&hash_item_length);
+	HIP_IFEL(esp_prot_handle_sa_add_request(msg, &esp_prot_transform,
+			&esp_num_anchors, esp_prot_anchors, &hash_item_length), -1,
+			"failed to retrieve esp prot anchor\n");
 
 	param = (struct hip_tlv_common *) hip_get_param(msg, HIP_PARAM_KEYS);
 	enc_key = (struct hip_crypto_key *) hip_get_param_contents_direct(param);
@@ -137,7 +140,7 @@ int handle_sa_add_request(struct hip_common * msg)
 	HIP_IFEL(hip_sadb_add(direction, spi, BEET_MODE, src_addr, dst_addr,
 			src_hit, dst_hit, encap_mode, local_port, peer_port, ealg,
 			auth_key, enc_key, DEFAULT_LIFETIME, esp_prot_transform,
-			hash_item_length, esp_prot_anchor, retransmission, update), -1,
+			hash_item_length, esp_num_anchors, esp_prot_anchors, retransmission, update), -1,
 			"failed to add user_space IPsec security association\n");
 
   out_err:

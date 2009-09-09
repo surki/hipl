@@ -2533,6 +2533,8 @@ int hip_build_param_diffie_hellman_contents(struct hip_common *msg,
 	uint8_t *value = NULL, *value_tmp = NULL;
 	hip_tlv_len_t pubkey_len = pubkey_len1 + sizeof(uint8_t) +
 	                           sizeof(uint16_t) + pubkey_len2;
+	uint16_t tmp_pubkey_len2 = 0;
+
 
 	HIP_ASSERT(pubkey_len >= sizeof(struct hip_tlv_common));
 
@@ -2564,8 +2566,9 @@ int hip_build_param_diffie_hellman_contents(struct hip_common *msg,
 	     memcpy(value_tmp, pubkey1, pubkey_len1);
 	     value_tmp += pubkey_len1;
 	     *value_tmp++ = group_id2;
-	     *(uint16_t *)value_tmp = htons(pubkey_len2);
-	     value_tmp += 2;
+	     tmp_pubkey_len2 = htons(pubkey_len2);
+	     memcpy(&value_tmp, &tmp_pubkey_len2, sizeof(uint16_t));
+	     value_tmp += sizeof(uint16_t);
 	     memcpy(value_tmp, pubkey2, pubkey_len2);
 	}else
 	     memcpy(value_tmp, pubkey1, pubkey_len1);

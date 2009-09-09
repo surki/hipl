@@ -450,8 +450,8 @@ struct hip_host_id {
  */
 struct hip_lhi
 {
-	uint16_t           anonymous; /**< Is this an anonymous HI */
 	struct in6_addr    hit;
+	uint16_t           anonymous; /**< Is this an anonymous HI */
 	uint16_t           algo; /**< HIP_HI_RSA or HIP_HI_DSA */
 } __attribute__ ((packed));
 
@@ -998,12 +998,12 @@ struct hip_nat_pacing {
 
 /** draft-ietf-hip-nat-traversal-02 */
 struct hip_reg_from {
+	uint8_t address[16]; /**< IPv6 address */
 	hip_tlv_type_t type; /**< Type code for the parameter. */
 	hip_tlv_len_t  length; /**< Length of the parameter contents in bytes. */
 	in_port_t port; /**< Port number. */
 	uint8_t protocol; /**< Protocol */
 	uint8_t reserved; /**< Reserved */
-	uint8_t address[16]; /**< IPv6 address */
 } __attribute__ ((packed));
 
 

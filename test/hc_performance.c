@@ -53,7 +53,7 @@ void print_timeres(){
 			gettimeofday(&tv2, NULL);
 		} while (tv1.tv_usec == tv2.tv_usec);
 
-		printf("Resolution: %d us\n", tv2.tv_usec - tv1.tv_usec +
+		printf("Resolution: %li us\n", tv2.tv_usec - tv1.tv_usec +
 			1000000 * (tv2.tv_sec - tv1.tv_sec));
 	}
 
@@ -187,7 +187,7 @@ int main(int argc, char ** argv)
 			}
 
 			gettimeofday(&start_time, NULL);
-			if(hchain_verify(hchain->source_element->hash, hchain->anchor_element->hash,
+			if(hchain_verify(hchain_get_seed(hchain), hchain_get_anchor(hchain),
 					hash_function, hash_length, verify_length, NULL, 0))
 			{
 				gettimeofday(&stop_time, NULL);
@@ -249,7 +249,7 @@ int main(int argc, char ** argv)
 			htree_calc_nodes(htree, htree_leaf_generator, htree_node_generator, NULL);
 
 			root = htree_get_root(htree, &root_length);
-			htree_get_branch(htree, i, branch_nodes, &branch_length);
+			branch_nodes = htree_get_branch(htree, i, NULL, &branch_length);
 			data = htree_get_data(htree, i, &data_length);
 			secret = htree_get_secret(htree, i, &secret_length);
 
@@ -292,7 +292,7 @@ int main(int argc, char ** argv)
 		{
 			hchains[i] = hchain_create(hash_function, hash_length, hchain_length, 0,
 								NULL);
-			htree_add_data(htree, hchains[i]->anchor_element->hash, hash_length);
+			htree_add_data(htree, hchain_get_anchor(hchains[i]), hash_length);
 		}
 
 		htree_calc_nodes(htree, htree_leaf_generator, htree_node_generator, NULL);
@@ -306,7 +306,7 @@ int main(int argc, char ** argv)
 		root = htree_get_root(htree, &root_length);
 
 		// simulate level 1 hchain verification
-		if(!hchain_verify(hchain->source_element->hash, hchain->anchor_element->hash,
+		if(!hchain_verify(hchain_get_seed(hchain), hchain_get_anchor(hchain),
 				hash_function, hash_length, verify_length, root, root_length))
 		{
 			printf("hchain level 1 verfied\n");
@@ -318,7 +318,7 @@ int main(int argc, char ** argv)
 		}
 
 		// simulate update
-		htree_get_branch(htree, 0, branch_nodes, &branch_length);
+		branch_nodes = htree_get_branch(htree, 0, NULL, &branch_length);
 		secret = htree_get_secret(htree, 0, &secret_length);
 		data = htree_get_data(htree, 0, &data_length);
 
@@ -336,7 +336,7 @@ int main(int argc, char ** argv)
 			exit(1);
 		}
 
-		if (!memcmp(data, hchains[0]->anchor_element->hash, hash_length))
+		if (!memcmp(data, hchain_get_anchor(hchains[0]), hash_length))
 		{
 			printf("yes, this is the anchor we verified!\n");
 		} else
@@ -347,7 +347,7 @@ int main(int argc, char ** argv)
 		hchain_free(hchain);
 
 		// simulate level 0 hchain verification
-		if(!hchain_verify(hchains[0]->source_element->hash, data,
+		if(!hchain_verify(hchain_get_seed(hchains[0]), data,
 				hash_function, hash_length, verify_length, NULL, 0))
 		{
 			printf("hchain level 0 verfied\n");

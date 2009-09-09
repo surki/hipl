@@ -130,6 +130,15 @@ int anchor_db_update(struct hip_common *msg)
 	return err;
 }
 
+int anchor_db_get_num_anchors(uint8_t transform)
+{
+	HIP_ASSERT(transform > 0);
+
+	HIP_DEBUG("anchor_db.num_anchors[%u]: %i\n", transform, anchor_db.num_anchors[transform]);
+
+	return anchor_db.num_anchors[transform];
+}
+
 int anchor_db_has_more_anchors(uint8_t transform)
 {
 	HIP_ASSERT(transform > 0);
@@ -151,7 +160,7 @@ unsigned char * anchor_db_get_anchor(uint8_t transform)
 	HIP_ASSERT(transform > 0);
 
 	// get index of last unused anchor for this transform
-	HIP_IFEL((anchor_offset = anchor_db.num_anchors[transform] - 1) <= 0, -1,
+	HIP_IFEL((anchor_offset = anchor_db.num_anchors[transform] - 1) < 0, -1,
 			"anchor_db is empty for this transform\n");
 
 	// ensure correct boundaries

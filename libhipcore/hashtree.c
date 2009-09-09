@@ -18,21 +18,38 @@ hash_tree_t* htree_init(int num_data_blocks, int max_data_length, int node_lengt
     hash_tree_t *tree = NULL;
     int i;
     int err = 0;
+    double log = 0.0;
 
-    // check here that it's a power of 2
-    HIP_ASSERT(num_data_blocks > 0 &&
-    		floor(log_x(2, num_data_blocks)) == ceil(log_x(2, num_data_blocks)));
+    HIP_ASSERT(num_data_blocks > 0);
     HIP_ASSERT(max_data_length > 0);
     HIP_ASSERT(node_length > 0);
+
 
     // allocate the memory for the tree
     HIP_IFEL(!(tree = (hash_tree_t *) malloc(sizeof(hash_tree_t))), -1, "failed to allocate memory\n");
     bzero(tree, sizeof(hash_tree_t));
 
-    HIP_IFEL(!(tree->data = (unsigned char *) malloc(num_data_blocks * max_data_length)), -1,
+    // check here whether leaf_set_size is a power of 2 and compute correct value if it is not
+    log = log_x(2, num_data_blocks);
+    if (num_data_blocks == 1)
+	{
+		tree->leaf_set_size = 2;
+
+	} else if (floor(log) != ceil(log))
+    {
+    	tree->leaf_set_size = pow(2, ceil(log));
+
+    } else
+    {
+    	tree->leaf_set_size = num_data_blocks;
+    }
+    HIP_DEBUG("num_data_blocks: %i\n", num_data_blocks);
+    HIP_DEBUG("tree->leaf_set_size: %i\n", tree->leaf_set_size);
+
+    HIP_IFEL(!(tree->data = (unsigned char *) malloc(max_data_length * tree->leaf_set_size)), -1,
     		"failed to allocate memory\n");
     // a binary tree with n leafs has got 2n-1 total nodes
-    HIP_IFEL(!(tree->nodes = (unsigned char *) malloc(node_length * num_data_blocks * 2)), -1,
+    HIP_IFEL(!(tree->nodes = (unsigned char *) malloc(node_length * tree->leaf_set_size * 2)), -1,
     		"failed to allocate memory\n");
 
     // if link_tree is set, overwrite secret_length
@@ -44,8 +61,8 @@ hash_tree_t* htree_init(int num_data_blocks, int max_data_length, int node_lengt
 	}
 
     // init array elements to 0
-    bzero(tree->data, num_data_blocks * max_data_length);
-    bzero(tree->nodes, node_length * num_data_blocks * 2);
+    bzero(tree->data, max_data_length * tree->leaf_set_size);
+    bzero(tree->nodes, node_length * tree->leaf_set_size * 2);
 
     tree->is_open = 1;
     tree->data_position = 0;
@@ -53,7 +70,7 @@ hash_tree_t* htree_init(int num_data_blocks, int max_data_length, int node_lengt
     tree->max_data_length = max_data_length;
     tree->node_length = node_length;
     tree->secret_length = secret_length;
-    tree->depth = ceil(log_x(2, num_data_blocks));
+    tree->depth = ceil(log_x(2, tree->leaf_set_size));
     // set the link tree
 	tree->link_tree = link_tree;
 	tree->hierarchy_level = hierarchy_level;
@@ -65,7 +82,7 @@ hash_tree_t* htree_init(int num_data_blocks, int max_data_length, int node_lengt
     // now we can init the secret array
     if (secret_length > 0)
 	{
-		HIP_IFEL(!(tree->secrets = (unsigned char *) malloc(secret_length * num_data_blocks)), -1,
+		HIP_IFEL(!(tree->secrets = (unsigned char *) malloc(secret_length * tree->leaf_set_size)), -1,
 				"failed to allocate memory\n");
 
 		if (link_tree)
@@ -77,9 +94,11 @@ hash_tree_t* htree_init(int num_data_blocks, int max_data_length, int node_lengt
 						"failed to add linking root as secrets\n");
 			}
 
+			bzero(&tree->secrets[num_data_blocks * secret_length], secret_length * (tree->leaf_set_size - num_data_blocks));
+
 		} else
 		{
-			bzero(tree->secrets, secret_length * num_data_blocks);
+			bzero(tree->secrets, secret_length * tree->leaf_set_size);
 		}
 	}
 
@@ -96,6 +115,8 @@ void htree_free(hash_tree_t *tree)
 {
 	if (tree)
 	{
+		htree_free(tree->link_tree);
+
 		if (tree->nodes)
 			free(tree->nodes);
 		if (tree->data)
@@ -111,11 +132,13 @@ void htree_free(hash_tree_t *tree)
 
 int htree_add_data(hash_tree_t *tree, char *data, int data_length)
 {
+	int err = 0;
+
 	HIP_ASSERT(tree != NULL);
 	HIP_ASSERT(data != NULL);
 	HIP_ASSERT(data_length > 0 && data_length <= tree->max_data_length);
     HIP_ASSERT(tree->is_open > 0);
-    HIP_ASSERT(tree->data_position < tree->num_data_blocks);
+    HIP_ASSERT(tree->data_position >= 0 && tree->data_position < tree->num_data_blocks);
 
     /* add the leaf the leaf-array
      *
@@ -129,12 +152,21 @@ int htree_add_data(hash_tree_t *tree, char *data, int data_length)
     // close the tree, if it is full
     if(tree->data_position == tree->num_data_blocks)
     {
-        HIP_DEBUG("tree is full! closing...\n");
+    	HIP_DEBUG("tree is full! closing...\n");
+
+    	// fill up unused leaf nodes
+    	if (tree->num_data_blocks < tree->leaf_set_size)
+    	{
+    		HIP_IFEL(htree_add_random_data(tree, tree->leaf_set_size - tree->num_data_blocks), 1,
+    				"failed to fill unused leaf nodes\n");
+    	}
+
         tree->is_open = 0;
         tree->data_position = 0;
     }
 
-    return 0;
+  out_err:
+    return err;
 }
 
 int htree_add_random_data(hash_tree_t *tree, int num_random_blocks)
@@ -142,19 +174,29 @@ int htree_add_random_data(hash_tree_t *tree, int num_random_blocks)
 	HIP_ASSERT(tree != NULL);
 	HIP_ASSERT(num_random_blocks > 0);
     HIP_ASSERT(tree->is_open > 0);
-    HIP_ASSERT(tree->data_position + num_random_blocks <= tree->num_data_blocks);
+    HIP_ASSERT(tree->data_position + num_random_blocks <= tree->leaf_set_size);
 
     // add num_random_blocks random data to the data-array
     RAND_bytes(&tree->data[tree->data_position * tree->max_data_length],
     		num_random_blocks * tree->max_data_length);
     // move to next free position
     tree->data_position += num_random_blocks;
-    HIP_DEBUG("added random data block\n");
+    HIP_DEBUG("added %i random data block(s)\n", num_random_blocks);
 
     // close the tree, if it is full
-    if(tree->data_position == tree->num_data_blocks)
+    if(tree->data_position >= tree->num_data_blocks)
     {
         HIP_DEBUG("tree is full! closing...\n");
+
+    	// fill up unused leaf nodes
+    	if (tree->num_data_blocks < tree->leaf_set_size)
+    	{
+    		RAND_bytes(&tree->data[tree->data_position * tree->max_data_length],
+    				(tree->leaf_set_size - tree->data_position) * tree->max_data_length);
+
+    		HIP_DEBUG("added %i leaf slots as padding\n", tree->leaf_set_size - tree->data_position);
+    	}
+
         tree->is_open = 0;
         tree->data_position = 0;
     }
@@ -167,6 +209,7 @@ int htree_add_secret(hash_tree_t *tree, char *secret, int secret_length, int sec
 	HIP_ASSERT(tree != NULL);
 	HIP_ASSERT(secret != NULL);
 	HIP_ASSERT(secret_length == tree->secret_length);
+	HIP_ASSERT(secret_index >= 0 && secret_index < tree->num_data_blocks);
     HIP_ASSERT(tree->is_open > 0);
 
     memcpy(&tree->secrets[secret_index * secret_length], secret, secret_length);
@@ -203,14 +246,13 @@ int htree_calc_nodes(hash_tree_t *tree, htree_leaf_gen_t leaf_gen,
     unsigned char *secret = NULL;
 
 	HIP_ASSERT(tree != NULL);
-	// tree has to be full
 	HIP_ASSERT(tree->is_open == 0);
 	HIP_ASSERT(tree->data_position == 0);
 
     /* traverse all data blocks and create the leafs */
-    HIP_DEBUG("computing leaf nodes: %i\n", tree->num_data_blocks);
+    HIP_DEBUG("computing leaf nodes: %i\n", tree->leaf_set_size);
 
-    for(i = 0; i < tree->num_data_blocks; i++)
+    for(i = 0; i < tree->leaf_set_size; i++)
     {
     	_HIP_DEBUG("calling leaf generator function...\n");
 
@@ -229,7 +271,7 @@ int htree_calc_nodes(hash_tree_t *tree, htree_leaf_gen_t leaf_gen,
     HIP_DEBUG("computing intermediate nodes and root...\n");
 
     // the leaf level has got full width
-    level_width = tree->num_data_blocks;
+    level_width = tree->leaf_set_size;
 
     // based on the current level, we are calculating the nodes for the next level
     while(level_width > 1)
@@ -258,7 +300,7 @@ int htree_calc_nodes(hash_tree_t *tree, htree_leaf_gen_t leaf_gen,
         }
 
         // next level has got half the elements
-        level_width = level_width >> 1;
+        level_width = level_width / 2;
 
         /* use target index of this level as new source field */
         source_index = target_index;
@@ -278,26 +320,32 @@ int htree_get_next_data_offset(hash_tree_t *tree)
 	return tree->data_position++;
 }
 
-int htree_get_branch(hash_tree_t *tree, int data_index, unsigned char *branch_nodes,
+unsigned char * htree_get_branch(hash_tree_t *tree, int data_index, unsigned char * nodes,
 		int *branch_length)
 {
 	int tree_level = 0;
 	int level_width = 0;
 	int source_index = 0;
     int sibling_offset = 0;
+    unsigned char * branch_nodes = NULL;
     int err = 0;
 
     HIP_ASSERT(tree != NULL);
-    HIP_ASSERT(branch_nodes != NULL);
-    HIP_ASSERT(data_index >= 0);
+    HIP_ASSERT(data_index >= 0 && data_index < tree->num_data_blocks);
 
     // branch includes all elements excluding the root
     *branch_length = tree->depth * tree->node_length;
 
     HIP_DEBUG("tree->depth: %i\n", tree->depth);
 
+    // use provided buffer, if available; else alloc
+    if (!nodes)
+    	branch_nodes = (unsigned char *) malloc(*branch_length);
+    else
+    	branch_nodes = nodes;
+
     // traverse bottom up
-    level_width = tree->num_data_blocks;
+    level_width = tree->leaf_set_size;
 
     // don't include root
     while (level_width > 1)
@@ -323,7 +371,13 @@ int htree_get_branch(hash_tree_t *tree, int data_index, unsigned char *branch_no
     _HIP_HEXDUMP("verification branch: ", branch_nodes, tree->depth * tree->node_length);
 
   out_err:
-    return err;
+    if (err)
+    {
+    	free(branch_nodes);
+    	branch_nodes = NULL;
+    }
+
+    return branch_nodes;
 }
 
 unsigned char* htree_get_data(hash_tree_t *tree, int data_index,
@@ -338,17 +392,17 @@ unsigned char* htree_get_data(hash_tree_t *tree, int data_index,
 	return &tree->data[data_index * tree->max_data_length];
 }
 
-unsigned char* htree_get_secret(hash_tree_t *tree, int data_index,
+unsigned char* htree_get_secret(hash_tree_t *tree, int secret_index,
 		int *secret_length)
 {
 	HIP_ASSERT(tree != NULL);
-	HIP_ASSERT(data_index >= 0 && data_index < tree->num_data_blocks);
+	HIP_ASSERT(secret_index >= 0 && secret_index < tree->num_data_blocks);
 	HIP_ASSERT(secret_length != NULL);
 
 	*secret_length = tree->secret_length;
 
 	if (tree->secret_length > 0)
-		return &tree->secrets[data_index * tree->secret_length];
+		return &tree->secrets[secret_index * tree->secret_length];
 	else
 		return NULL;
 }
@@ -429,7 +483,7 @@ int htree_verify_branch(unsigned char *root, int root_length,
 					root_length);
 
 			// proceed to next level
-			data_index = data_index >> 1;
+			data_index = data_index / 2;
         }
 
         HIP_HEXDUMP("buffer slot 1: ", &buffer[0], root_length);
@@ -544,7 +598,7 @@ void htree_print_nodes(hash_tree_t *tree)
 
     HIP_ASSERT(tree != NULL);
 
-    level_width = tree->num_data_blocks;
+    level_width = tree->leaf_set_size;
 
     HIP_DEBUG("printing hash tree nodes...\n");
 
@@ -561,7 +615,7 @@ void htree_print_nodes(hash_tree_t *tree)
         }
 
         source_index = target_index;
-        level_width = level_width >> 1;
+        level_width = level_width / 2;
     }
 }
 
@@ -569,233 +623,3 @@ double log_x(int base, double value)
 {
 	return log(value) / log(base);
 }
-
-#if 0
-/*!
- * \brief Create empty acknowledgement MT tree.
- *
- *  Create empty MT tree. This is the first step when Acknowledging packets.
- *
- * \author  Tobias Heer
- *
- * \param treeSize Size of the tree (number of leaf elements)
- * \param secretSize Size of each secret (part of the leaf node)
- * \param nodeSize Size of the MT nodes (size of hash function).
- *
- *
- * \return A pointer to the tree.
- *
- * \note The memory must be freed elsewhere.
- */
-hash_tree_t* ht_createAckTree(size_t treeSize, size_t secretSize, size_t nodeSize){
-    hash_tree_t* tree;
-
-    tree =  malloc(sizeof(hash_tree_t));
-
-    tree->leaf = (char*) malloc(secretSize*treeSize);
-    RAND_bytes(tree->leaf, secretSize*treeSize);
-
-    tree->node = (char*) malloc(nodeSize*treeSize);
-    // TODO: This can be removed after testing
-    bzero(tree->node, nodeSize*treeSize);
-
-
-
-    tree->isOpen    = FALSE;
-    tree->pos       = 0;
-    tree->size      = treeSize;
-    tree->depth = ceil(log2(treeSize));
-    tree->leafSize  = secretSize;
-    tree->nodeSize  = nodeSize;
-
-
-    return tree;
-}
-#endif
-
-#if 0
-ht_hash* ht_generateSecrets(size_t numSecrets, size_t nodeSize){
-
-	hash* stash = malloc(numSecrets * nodeSize);
-
-	//check if memory was allocated
-	if(stash == NULL)
-		return 0;
-
-	// fill stash with secrets
-	get_random_bytes(stash, numSecrets * nodeSize);
-	return stash;
-}
-#endif
-
-#if 0
-/*!
- * \brief Generate a node from a ack leaf.
- *
- *  Generate a node from a signature leaf. Used in ack trees.
- *
- * \author  Tobias Heer
- *
- * \param leaf  			Pointer to the leaf
- * \param index 			Leaf number
- * \param destinationBuffer Pointer to the node buffer location
- * \param leafSize 			Size of the Leaf
- * \param args				Variable argument field for using function pointers
- * \return Error code (see code for details).
- */
-ht_err ht_ackLeafGenerator(unsigned char* leaf,
-						uint16_t index,
-						unsigned char* destinationBuffer,
-						size_t leafSize,
-						void* generatorArgs){
-
-	assert(leaf != NULL);
-	assert(generatorArgs != NULL);
-	char* tempBuffer = (char *) generatorArgs;
-	assert(destinationBuffer != NULL);
-	HIP_DEBUG("Setting bit 1,2\n");
-	uint16_t netIndex = htonl(index);
-	// copy index to buffer
-	HIP_DEBUG("Setting bit 1,2\n");
-	memcpy(tempBuffer, &netIndex, sizeof(netIndex));
-	HIP_DEBUG("Copy Buffer\n");
-	// copy hash value to buffer
-	memcpy(tempBuffer+2, leaf, leafSize);
-
-    HIP_DEBUG("Temp Buffer %d: ", index);
-    hexdump(tempBuffer, leafSize+2);
-    HIP_DEBUG("\n");
-
-	if(SHA1(tempBuffer, leafSize, destinationBuffer))
-		return ht_STht_SUCCESS;
-	return ht_STht_ERR_UNSPECIFIED;
-}
-#endif
-
-#if 0
-/*!
- * \brief Generate a node from a signature leaf.
- *
- *  Generate a node from a signature leaf. Used in signature trees.
- *
- * \author  Tobias Heer
- *
- * \param leaf  			Pointer to the leaf
- * \param index 			Leaf number
- * \param destinationBuffer Pointer to the node buffer location
- * \param leafSize 			Size of the Leaf
- * \param args				Variable argument field for using function pointers
- * \return Error code.
- */
-ht_err ht_sigLeafGenerator(unsigned char* leaf,
-						uint16_t index,
-						unsigned char* destinationBuffer,
-						size_t leafSize,
-						void* args){
-
-	if(SHA1(leaf, leafSize, destinationBuffer))
-		return ht_STht_SUCCESS;
-	return ht_STht_ERR_UNSPECIFIED;
-
-}
-#endif
-
-#if 0
-/*!
- * \brief Generate a node from a ack node.
- *
- *  Generate a node from a signature node. Used in signature trees.
- *
- * \author  Tobias Heer
- *
- * \param leftNode 			Pointer to the left node
- * \param rightNode 		Pointer to the right node
- * \param index 			Left node number
- * \param destinationBuffer Pointer to the node buffer location
- * \param nodeSize 			Size of the node
- * \param args				Variable argument field for using function pointers
- * \return Error code (see code for details).
- */
-ht_err ht_sigNodeGenerator(unsigned char* leftNode,
-						unsigned char* rightNode,
-						uint16_t index,
-						unsigned char* destinationBuffer,
-						size_t nodeSize,
-						void* args){
-	/** @NOTE: We assume that the left and the right node
-	 *  are contained in a sequential byte buffer that starts
-	 *  with leftNode. Hence, we ignore rightNode completely
-	 */
-	if(SHA1(leftNode, nodeSize*2, destinationBuffer))
-		return ht_STht_SUCCESS;
-	return ht_STht_ERR_UNSPECIFIED;
-}
-#endif
-
-#if 0
-/*!
- * \brief Create a root element for the tree and the corresponding tree.
- *
- * Create a root element for the tree. This is the first step when VERIFYING data.
- *
- * \author  Tobias Heer
- *
- * \param buffer Root data of the tree.
- * \param nodeSize Size of the MT nodes (size of hash function).
- * \param treeSize Size of the tree (number of leaf elements)
- *
- * \return A pointer to the root.
- *
- * \note The memory must be freed elsewhere.
- */
-ht_root_t* ht_createRoot(char* buffer, size_t nodeSize, size_t treeSize)
-{
-    ht_root_t *root = NULL;
-
-    if(treeSize == 0){
-        HIP_DEBUG("Root can not belong to 0 tree");
-        exit(1);
-    }
-
-    root =  malloc(sizeof(hash_tree_t));
-    bzero(root, sizeof(hash_tree_t));
-
-
-    root->node = (char*) malloc(nodeSize);
-    bzero(root->node, nodeSize);
-
-    memcpy(root->node, (const void*) buffer, nodeSize);
-
-    root->treeSize  = treeSize;
-    root->treeDepth = ceil(log2(treeSize));
-    root->nodeSize  = nodeSize;
-
-    return root;
-}
-#endif
-
-#if 0
-/*!
- * \brief Get the root element from a computed tree.
- *
- *  Get the root element from a computed tree.
- *
- * \author  Tobias Heer
- *
- * \param tree 		Pointer to the MT
- * \param buffer	Destination buffer
- * \param len		Destination buffer length
- * \return 0
- */
-int ht_getRoot(hash_tree_t* tree, char* buffer, int len)
-{
-    if(len != tree->nodeSize){
-        HIP_DEBUG("getRoot: insufficient buffer space (%d != %d)",
-               len,
-               tree->nodeSize);
-        exit(1);
-    }
-    memcpy(buffer, tree->node + 2 * (tree->size-1) * tree->nodeSize, tree->nodeSize);
-    return 0;
-}
-#endif
