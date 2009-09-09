@@ -805,8 +805,8 @@ int hip_create_i2(struct hip_context *ctx, uint64_t solved_puzzle,
 	   to the side effect of ICE turning the locators on (bug id 810) */
 	HIP_DEBUG("Building LOCATOR parameter 	1\n");
         if (hip_locator_status == SO_HIP_SET_LOCATOR_ON &&
-	    !(nat_suite == HIP_NAT_MODE_PLAIN_UDP &&
-	      hip_get_nat_mode(entry) == HIP_NAT_MODE_ICE_UDP)) {
+	    (hip_get_nat_mode(entry) == HIP_NAT_MODE_NONE ||
+	     hip_get_nat_mode(entry) == HIP_NAT_MODE_ICE_UDP)) {
             HIP_DEBUG("Building LOCATOR parameter 2\n");
             if ((err = hip_build_locators(i2, spi_in, hip_get_nat_mode(entry))) < 0)
                 HIP_DEBUG("LOCATOR parameter building failed\n");
@@ -1151,7 +1151,7 @@ int hip_handle_r1(hip_common_t *r1, in6_addr_t *r1_saddr, in6_addr_t *r1_daddr,
 	   behind NAT. We set NAT mode "on" and set the send funtion to
 	   "hip_send_udp". The client UDP port is not stored until the handling
 	   of R2 packet. Don't know if the entry is already locked... */
-	if(r1_info->dst_port == hip_get_peer_nat_udp_port()) {
+	if(r1_info->dst_port != 0) {
 		HIP_LOCK_HA(entry);
 		if(entry->nat_mode == HIP_NAT_MODE_NONE)
 			entry->nat_mode = HIP_NAT_MODE_PLAIN_UDP;
@@ -1427,7 +1427,9 @@ int hip_create_r2(struct hip_context *ctx, in6_addr_t *i2_saddr,
 
     /********* LOCATOR PARAMETER ************/
 	/** Type 193 **/
-	if (hip_locator_status == SO_HIP_SET_LOCATOR_ON) {
+	if (hip_locator_status == SO_HIP_SET_LOCATOR_ON &&
+	    (hip_get_nat_mode(entry) == HIP_NAT_MODE_NONE ||
+	     hip_get_nat_mode(entry) == HIP_NAT_MODE_ICE_UDP)) {
 		HIP_DEBUG("Building nat LOCATOR parameter\n");
 		if ((err = hip_build_locators(r2, spi_in, hip_get_nat_mode(entry))) < 0)
 			HIP_DEBUG("nat LOCATOR parameter building failed\n");
@@ -2002,9 +2004,10 @@ int hip_handle_i2(hip_common_t *i2, in6_addr_t *i2_saddr, in6_addr_t *i2_daddr,
 	   stored as the peer UDP port and send function is set to
 	   "hip_send_udp()". Note that we must store the port not until
 	   here, since the source port can be different for I1 and I2. */
-	if(i2_info->dst_port == hip_get_local_nat_udp_port())
+	if(i2_info->dst_port != 0)
 	{
-		if (entry->nat_mode == 0) entry->nat_mode = HIP_NAT_MODE_PLAIN_UDP;
+		if (entry->nat_mode == 0)
+			entry->nat_mode = HIP_NAT_MODE_PLAIN_UDP;
 		entry->local_udp_port = i2_info->dst_port;
 		entry->peer_udp_port = i2_info->src_port;
 		HIP_DEBUG("entry->hadb_xmit_func: %p.\n", entry->hadb_xmit_func);
@@ -2012,8 +2015,10 @@ int hip_handle_i2(hip_common_t *i2, in6_addr_t *i2_saddr, in6_addr_t *i2_daddr,
 			  entry);
 		hip_hadb_set_xmit_function_set(entry, &nat_xmit_func_set);
 	}
-	HIP_DEBUG("check nat mode for ice:1: %d,%d, %d\n",hip_get_nat_mode(entry),
-		     			hip_get_nat_mode(NULL),HIP_NAT_MODE_ICE_UDP);
+	HIP_DEBUG("check nat mode for ice:1: %d,%d, %d\n",
+		  hip_get_nat_mode(entry),
+		  hip_get_nat_mode(NULL),HIP_NAT_MODE_ICE_UDP);
+
 	entry->hip_transform = hip_tfm;
 
 #ifdef CONFIG_HIP_BLIND
@@ -2165,13 +2170,24 @@ int hip_handle_i2(hip_common_t *i2, in6_addr_t *i2_saddr, in6_addr_t *i2_daddr,
 	HIP_IFEL(hip_hadb_add_addr_to_spi(entry, spi_out, i2_saddr, 1, 0, 1),
 		 -1,  "Failed to add an address to SPI list\n");
 #else
-	HIP_IFEL(hip_hadb_add_udp_addr_to_spi(entry,
+	if(hip_nat_get_control(entry) != HIP_NAT_MODE_ICE_UDP){
+		HIP_IFEL(hip_hadb_add_udp_addr_to_spi(entry,
 					      spi_out,
 					      i2_saddr,
 					      1, 0, 1,
 					      i2_info->src_port, 
 					      ice_calc_priority(HIP_LOCATOR_LOCATOR_TYPE_ESP_SPI_PRIORITY,ICE_CAND_PRE_HOST,1) - i2_info->src_port, 0),
 		 -1,  "Failed to add an address to SPI list\n");
+	}
+	else{
+		HIP_IFEL(hip_hadb_add_udp_addr_to_spi(entry,
+					      spi_out,
+					      i2_saddr,
+					      1, 0, 0,
+					      i2_info->src_port, 
+					      ice_calc_priority(HIP_LOCATOR_LOCATOR_TYPE_ESP_SPI_PRIORITY,ICE_CAND_PRE_HOST,1) - i2_info->src_port, 0),
+		 -1,  "Failed to add an address to SPI list\n");
+	}
 #endif
 
 	memset(&spi_in_data, 0, sizeof(struct hip_spi_in_item));
@@ -2593,15 +2609,28 @@ int hip_handle_r2(hip_common_t *r2, in6_addr_t *r2_saddr, in6_addr_t *r2_daddr,
 	// when ice implemenation is included
 	// if ice mode is on, we do not add the current address into peer list (can be added also, but set the is_prefered off)
 	err = 0;
-	if(hip_nat_get_control(entry) != HIP_NAT_MODE_ICE_UDP)
+	if(hip_nat_get_control(entry) != HIP_NAT_MODE_ICE_UDP){
 		HIP_IFEL(hip_hadb_add_udp_addr_to_spi(entry,
 						      spi_recvd,
 						      r2_saddr,
 						      1, 0, 1,
 						      r2_info->src_port,
-						      HIP_LOCATOR_LOCATOR_TYPE_ESP_SPI_PRIORITY,
+						      ice_calc_priority(HIP_LOCATOR_LOCATOR_TYPE_ESP_SPI_PRIORITY,ICE_CAND_PRE_HOST,1) - r2_info->src_port,
 						      0),
 			 -1,  "Failed to add an address to SPI list\n");
+	}
+		else{ // if ice is on, we still add the addr and set prefer off.
+	
+		HIP_IFEL(hip_hadb_add_udp_addr_to_spi(entry,
+						      spi_recvd,
+						      r2_saddr,
+						      1, 0, 0,
+						      r2_info->src_port,
+						      ice_calc_priority(HIP_LOCATOR_LOCATOR_TYPE_ESP_SPI_PRIORITY,ICE_CAND_PRE_HOST,1) - r2_info->src_port,
+						      0),
+			 -1,  "Failed to add an address to SPI list\n");
+			
+	}
 #endif
 
 	if (err) {

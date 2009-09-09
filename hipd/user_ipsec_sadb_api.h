@@ -15,7 +15,7 @@
 
 #include "misc.h"
 /* used for mapping HIPL ESP ecnryption INDEX to SADB encryption INDEX */
-#include <linux/pfkeyv2.h>  /* ESP transform defines */
+//#include <linux/pfkeyv2.h>  /* ESP transform defines */
 
 /** generic send function used to send the below created messages
  *

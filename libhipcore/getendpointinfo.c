@@ -46,9 +46,7 @@
 #include "hadb.h"
 #include "user.h"
 
-#ifdef ANDROID_CHANGES
 #include "getendpointinfo.h"
-#endif
 
 //#include <ifaddrs.h>
 

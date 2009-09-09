@@ -16,8 +16,9 @@
 #include "builder.h"
 
 /** sends an HHL-based update message */
-int esp_prot_send_light_update(hip_ha_t *entry, int anchor_offset, unsigned char *secret,
-		int secret_length, unsigned char *branch_nodes, int branch_length);
+int esp_prot_send_light_update(hip_ha_t *entry, int anchor_offset[NUM_PARALLEL_CHAINS],
+		unsigned char *secret[NUM_PARALLEL_CHAINS], int secret_length[NUM_PARALLEL_CHAINS],
+		unsigned char *branch_nodes[NUM_PARALLEL_CHAINS], int branch_length[NUM_PARALLEL_CHAINS]);
 
 /** receives and processes an HHL-based update message */
 int esp_prot_receive_light_update(hip_common_t *msg, in6_addr_t *src_addr,

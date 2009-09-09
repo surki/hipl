@@ -63,14 +63,15 @@ struct esp_tuple
 	uint8_t esp_prot_tfm;
 	uint32_t hash_item_length;
 	uint32_t hash_tree_depth;
-	unsigned char *active_anchor;
+	uint8_t num_hchains;
+	unsigned char active_anchors[NUM_PARALLEL_CHAINS][MAX_HASH_LENGTH];
 	// need for verification of anchor updates
-	unsigned char *first_active_anchor;
-	unsigned char *next_anchor;
+	unsigned char first_active_anchors[NUM_PARALLEL_CHAINS][MAX_HASH_LENGTH];
+	unsigned char next_anchors[NUM_PARALLEL_CHAINS][MAX_HASH_LENGTH];
 	int active_root_length;
-	unsigned char *active_root;
-	int next_root_length;
-	unsigned char *next_root;
+	unsigned char *active_roots[NUM_PARALLEL_CHAINS];
+	int next_root_length[NUM_PARALLEL_CHAINS];
+	unsigned char *next_roots[NUM_PARALLEL_CHAINS];
 	/* list temporarily storing anchor elements until the consecutive update
 	 * msg reveals that all on-path devices know the new anchor */
 	hip_ll_t anchor_cache;

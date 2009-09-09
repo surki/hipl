@@ -38,13 +38,13 @@ extern int hip_proxy_status;
 
 void print_data(struct hip_data * data);
 int filter_esp_state(hip_fw_context_t * ctx, struct rule * rule, int use_escrow);
-int filter_state(struct in6_addr * ip6_src,
-		 struct in6_addr * ip6_dst,
+int filter_state(const struct in6_addr * ip6_src,
+		 const struct in6_addr * ip6_dst,
 		 struct hip_common * buf,
 		 const struct state_option * rule,
 		 int accept);
-void conntrack(struct in6_addr * ip6_src,
-	       struct in6_addr * ip6_dst,
+void conntrack(const struct in6_addr * ip6_src,
+        const struct in6_addr * ip6_dst,
 	       struct hip_common * buf);
 
 int add_esp_decryption_data(const struct in6_addr * hit_s,

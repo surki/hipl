@@ -2911,6 +2911,46 @@ VPN
     in iperf itself or a problem in IPsec performance.
   </para>
   </section>
+  <section id="nagios">
+  <title>Nagios Infrastructure monitoring tool</title>
+  <para>
+    <ulink url="http://www.nagios.org/">Nagios</ulink> is a web-based,
+    open source
+    Infrastructure monitoring service. Here is an example how to handle
+    the monitoring over HIP based on the instructions in <ulink
+    url="https://wiki.chpc.utah.edu/display/CHPC/Nagios+ping6+creation" />
+  </para>
+  <para>
+    Nagios supported "check_command check_http" over IPv6 and using HITs
+    without any changes. However, you will need the following tweaks
+    support HIT-based ICMPv6 (unless you are satisfied with LSIs):
+  </para>
+  <programlisting>
+    define command {
+        command_name check_ping6
+        command_line $USER1$/check_ping -6 -H $HOSTADDRESS$ -w 3000.0,80% -c 5000.0,100% -p 5
+    }
+
+    define command {
+        command_name check-ipv6-alive
+        command_line $USER1$/check_ping -6 -H $HOSTADDRESS$ -w 3000.0,80% -c 5000.0,100% -p 1
+    }
+
+    define service {
+        use                             local-service
+        host_name                       crossroads.infrahip.net
+        service_description             PING
+        check_command                   check_ping6 
+    }
+
+    define host {
+        use                     linux-server
+        host_name               crossroads.infrahip.net
+        alias                   crossroads
+        address                 2001:1b:a9be:c6a6:34e5:8361:c07f:a990
+    }
+  </programlisting>
+  </section>
   </chapter>
 
   <chapter id="ch_rvs_relay">

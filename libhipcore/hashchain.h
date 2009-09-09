@@ -31,12 +31,6 @@
 typedef unsigned char * (*hash_function_t)(const unsigned char *, size_t,
 		unsigned char *);
 
-typedef struct hash_chain_element
-{
-	unsigned char *hash; /* the current hash */
-	struct hash_chain_element *next; /* the next hash chain element */
-} hash_chain_element_t;
-
 typedef struct hash_chain
 {
 	/* pointer to the hash-function used to create and verify the hchain
@@ -47,10 +41,8 @@ typedef struct hash_chain
 	int hash_length;	/* length of the hashes, of which the hchain consist */
 	int hchain_length;	/* number of initial elements in the hash-chain */
 	int hchain_hierarchy; /* hierarchy this hchain belongs to */
-	int remaining;		/* remaining elements int the hash-chain */
-	hash_chain_element_t *current_element;
-	hash_chain_element_t *source_element;	/* seed - first element */
-	hash_chain_element_t *anchor_element;	/* anchor - last element */
+	int current_index; /* index to currently revealed element for hchain traversal*/
+	unsigned char * elements; /* array containing the elements of the hash chain*/
 	hash_tree_t *link_tree; /* pointer to a hash tree for linking hchains */
 } hash_chain_t;
 
@@ -87,6 +79,12 @@ int hchain_verify(const unsigned char * current_hash, const unsigned char * last
 hash_chain_t * hchain_create(hash_function_t hash_function, int hash_length,
 		int hchain_length, int hchain_hierarchy, hash_tree_t *link_tree);
 
+unsigned char * hchain_get_anchor(const hash_chain_t *hash_chain);
+unsigned char * hchain_get_seed(const hash_chain_t *hash_chain);
+
+unsigned char * hchain_element_by_index(const hash_chain_t *hash_chain, int index);
+int hchain_set_current_index(hash_chain_t *hash_chain, int index);
+
 /** removes and returns the next element from the hash chain
  *
  * @param	hash_chain the hash chain which has to be popped
@@ -103,6 +101,8 @@ unsigned char * hchain_pop(hash_chain_t * hash_chain);
  */
 unsigned char * hchain_next(const hash_chain_t *hash_chain);
 
+unsigned char * hchain_previous(hash_chain_t * hash_chain);
+
 /** returns the current element of the hash chain
  *
  * @param	hash_chain the hash chain
@@ -116,6 +116,9 @@ unsigned char * hchain_current(const hash_chain_t *hash_chain);
  * @return	0 in case of success
  */
 int hchain_free(hash_chain_t *hash_chain);
+
+unsigned char * hchain_push(hash_chain_t * hash_chain);
+int hchain_reset(hash_chain_t *hash_chain);
 
 /** accessor function which returns the number of remaining hash chain elements
  *

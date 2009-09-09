@@ -63,10 +63,9 @@ hip_common_t *create_bex_store_update_msg(hchain_store_t *hcstore, int use_hash_
  * @param	root_length length of the root element
  * @return	0 on success, -1 on error
  */
-int send_trigger_update_to_hipd(hip_sa_entry_t *entry, int soft_update,
-		int anchor_offset, unsigned char *secret, int secret_length,
-		unsigned char *branch_nodes, int branch_length, unsigned char * root,
-		int root_length);
+int send_trigger_update_to_hipd(hip_sa_entry_t *entry, unsigned char *anchors[NUM_PARALLEL_CHAINS],
+		int hash_item_length, int soft_update, int anchor_offset[NUM_PARALLEL_CHAINS],
+		hash_tree_t *link_trees[NUM_PARALLEL_CHAINS]);
 
 /** notifies the hipd about an anchor change in the hipfw
  *
@@ -79,10 +78,13 @@ int send_anchor_change_to_hipd(hip_sa_entry_t *entry);
  *
  * @param	msg	the HIP message
  * @param	esp_prot_transform the TPA transform (return value)
+ * @param	num_anchors number of anchor in the array
+ * @param	esp_prot_anchors array storing the anchors
  * @param	hash_item_length length of the employed hash structure at the peer (return value)
  * @return	the anchor element on success, NULL on error
  */
-unsigned char * esp_prot_handle_sa_add_request(struct hip_common *msg,
-		uint8_t *esp_prot_transform, uint32_t * hash_item_length);
+int esp_prot_handle_sa_add_request(struct hip_common *msg, uint8_t *esp_prot_transform,
+		uint16_t * num_anchors, unsigned char (*esp_prot_anchors)[MAX_HASH_LENGTH],
+		uint32_t * hash_item_length);
 
 #endif /* ESP_PROT_FW_MSG_H_ */

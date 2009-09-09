@@ -1,8 +1,8 @@
 #include "rule_management.h"
 
-struct DList * input_rules;
-struct DList * output_rules;
-struct DList * forward_rules;
+DList * input_rules;
+DList * output_rules;
+DList * forward_rules;
 
 struct _DList * get_rule_list(int hook)
 {
@@ -1036,87 +1036,95 @@ void read_rules_exit(int hook){
  */
 void read_file(char * file_name)
 {
-  struct DList * input = NULL;
-  struct DList * output = NULL;
-  struct DList * forward = NULL;
-  FILE *file = fopen(file_name, "r");
-  struct rule * rule = NULL;
-  char * line = NULL;
-  char * original_line = NULL;
-  size_t s = 0;
-  int state = 0;
-  HIP_DEBUG("read_file: file %s\n", file_name);
-  if(file != NULL)
-    {
-      while(getline(&line, &s, file ) > 0)	  
+	struct DList * input = NULL;
+	struct DList * output = NULL;
+	struct DList * forward = NULL;
+	FILE *file = fopen(file_name, "r");
+	struct rule * rule = NULL;
+	char * line = NULL;
+	char * original_line = NULL;
+	size_t s = 0;
+	int state = 0;
+
+	HIP_DEBUG("read_file: file %s\n", file_name);
+	if(file != NULL)
 	{
-	  char *comment;
-	  original_line = (char *) malloc(strlen(line) + sizeof(char) + 1);
-	  original_line = strcpy(original_line, line);
-	  _HIP_DEBUG("line read: %s", line);
-
-	  /* terminate the line to comment sign */
-	  comment = index(line, '#');
-	  if (comment)
-		  *comment = 0;
-	  
-	  if (strlen(line) == 0) {
-		  free(original_line);
-		  continue;
-	  }
-
-	  //remove trailing new line
-	  line = (char *) strtok(line, "\n");
-
-	  if (line)
-		  rule = parse_rule(line);
-	  if(rule)
-	    {
-	      if(rule->state)
-			state = 1;
-	      if(rule->hook == NF_IP6_LOCAL_IN)
+		while(getline(&line, &s, file ) > 0)
 		{
-		  input = (struct DList *)append_to_list((struct _DList *) input, 
+			char *comment;
+			original_line = (char *) malloc(strlen(line) + sizeof(char) + 1);
+			original_line = strcpy(original_line, line);
+			_HIP_DEBUG("line read: %s", line);
+
+			/* terminate the line to comment sign */
+			comment = index(line, '#');
+			if (comment)
+				*comment = 0;
+
+			if (strlen(line) == 0) {
+				free(original_line);
+				continue;
+			}
+
+			//remove trailing new line
+			line = (char *) strtok(line, "\n");
+
+			if (line)
+				rule = parse_rule(line);
+
+			if(rule)
+			{
+				if(rule->state)
+					state = 1;
+
+				if(rule->hook == NF_IP6_LOCAL_IN)
+				{
+					input = (struct DList *)append_to_list((struct _DList *) input,
 							(void *) rule);
-		  print_rule((struct rule *)((struct _DList *) input)->data);
+					print_rule((struct rule *)((struct _DList *) input)->data);
+				}
+				else if(rule->hook == NF_IP6_LOCAL_OUT)
+				{
+					output = (struct DList *)append_to_list((struct _DList *) output,
+							(void *) rule);
+					print_rule((struct rule *)((struct _DList *) output)->data);
+				}
+				else if(rule->hook == NF_IP6_FORWARD)
+				{
+					forward = (struct DList *)append_to_list((struct _DList *) forward,
+							(void *) rule);
+					print_rule((struct rule *)((struct _DList *) forward)->data);
+				}
+
+				// this leads to getline to malloc new memory and the current block is lost
+				//rule = NULL;
+			}
+			else if (line)
+			{
+				HIP_DEBUG("unable to parse rule: %s\n", original_line);
+			}
+			free(original_line);
+			original_line = NULL;
 		}
-	      else if(rule->hook == NF_IP6_LOCAL_OUT)
-		{
-		  output = (struct DList *)append_to_list((struct _DList *) output, 
-							 (void *) rule);
-		  print_rule((struct rule *)((struct _DList *) output)->data);
-		}
-	      else if(rule->hook == NF_IP6_FORWARD)
-		{
-		  forward = (struct DList *)append_to_list((struct _DList *) forward, 
-							  (void *) rule);
-		  print_rule((struct rule *)((struct _DList *) forward)->data);
-		}
-	      rule = NULL;
-	    }
-	  else if (line)
-	    HIP_DEBUG("unable to parse rule: %s\n", original_line);
-	  free(original_line);
-	  original_line = NULL;
-      }
-      free(line);
-      line = NULL;
-      fclose(file);
-    }
-  else
-    { 
-      HIP_DEBUG("Can't open file %s \n", file_name );
-    }
-//  write_enter(NF_IP6_LOCAL_IN);
-  input_rules = input;
-  set_stateful_filtering(state);
-//  write_exit(NF_IP6_LOCAL_IN);
-//  write_enter(NF_IP6_LOCAL_OUT);
-  output_rules = output;
-//  write_exit(NF_IP6_LOCAL_OUT);
-//  write_enter(NF_IP6_FORWARD);
-  forward_rules = forward;
-//  write_exit(NF_IP6_FORWARD);
+		free(line);
+		line = NULL;
+		fclose(file);
+	}
+	else
+	{
+		HIP_DEBUG("Can't open file %s \n", file_name );
+	}
+
+	//write_enter(NF_IP6_LOCAL_IN);
+	input_rules = input;
+	set_stateful_filtering(state);
+	//write_exit(NF_IP6_LOCAL_IN);
+	//write_enter(NF_IP6_LOCAL_OUT);
+	output_rules = output;
+	//write_exit(NF_IP6_LOCAL_OUT);
+	//write_enter(NF_IP6_FORWARD);
+	forward_rules = forward;
+	//write_exit(NF_IP6_FORWARD);
 }
 
 

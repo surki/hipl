@@ -18,16 +18,15 @@
 
 void hchain_print(const hash_chain_t * hash_chain)
 {
-	hash_chain_element_t *current_element = NULL;
 	int i;
 
-	if(hash_chain)
+	if (hash_chain)
 	{
 		HIP_DEBUG("Hash chain: %d\n", (int) hash_chain);
 
-		if(hash_chain->current_element)
+		if(hash_chain->current_index < hash_chain->hchain_length)
 		{
-			HIP_HEXDUMP("currrent element: ", hash_chain->current_element->hash,
+			HIP_HEXDUMP("currrent element: ", hchain_element_by_index(hash_chain, hash_chain->current_index),
 					hash_chain->hash_length);
 		} else
 		{
@@ -37,20 +36,21 @@ void hchain_print(const hash_chain_t * hash_chain)
 		HIP_DEBUG("Remaining elements: %d\n", hchain_get_num_remaining(hash_chain));
 		HIP_DEBUG(" - Contents:\n");
 
-		for(current_element = hash_chain->anchor_element, i=0;
-				current_element != NULL;
-				current_element = current_element->next, i++)
+		for (i = 0;	i < hash_chain->hchain_length; i++)
 		{
-			if(hash_chain->hchain_length - hash_chain->remaining < i+1)
+			if (i < hash_chain->current_index)
 			{
 				HIP_DEBUG("(+) element %i:\n", i + 1);
+
 			} else
 			{
 				HIP_DEBUG("(-) element %i:\n", i + 1);
 			}
 
-			HIP_HEXDUMP("\t", current_element->hash, hash_chain->hash_length);
+			HIP_HEXDUMP("\t", hchain_element_by_index(hash_chain, i),
+					hash_chain->hash_length);
 		}
+
 	} else
 	{
 		HIP_DEBUG("Given hash chain was NULL!\n");
@@ -115,13 +115,12 @@ int hchain_verify(const unsigned char * current_hash, const unsigned char * last
 hash_chain_t * hchain_create(hash_function_t hash_function, int hash_length,
 		int hchain_length, int hchain_hierarchy, hash_tree_t *link_tree)
 {
-	hash_chain_t *return_hchain = NULL;
-	hash_chain_element_t *last_element = NULL, *current_element = NULL;
+	hash_chain_t *hchain = NULL;
 	/* the hash function output might be longer than needed
 	 * allocate enough memory for the hash function output
 	 *
-	 * @note we also allow a concatenation with the link tree root here */
-	unsigned char hash_value[2 * MAX_HASH_LENGTH];
+	 * @note we also allow a concatenation with the link tree root and the jump chain element here */
+	unsigned char hash_value[3 * MAX_HASH_LENGTH];
 	int hash_data_length = 0;
 	int i, err = 0;
 
@@ -131,226 +130,232 @@ hash_chain_t * hchain_create(hash_function_t hash_function, int hash_length,
 	HIP_ASSERT(hchain_length > 0);
 	HIP_ASSERT(!(hchain_hierarchy == 0 && link_tree));
 
-	// allocate memory for a new hash chain and set members to 0/NULL
-	HIP_IFEL(!(return_hchain = (hash_chain_t *)malloc(sizeof(hash_chain_t))), -1,
+	// allocate memory for a new hash chain
+	HIP_IFEL(!(hchain = (hash_chain_t *) malloc(sizeof(hash_chain_t))), -1,
 			"failed to allocate memory\n");
-	memset(return_hchain, 0, sizeof(hash_chain_t));
+	memset(hchain, 0, sizeof(hash_chain_t));
+
+	// allocate memory for the hash chain elements
+	HIP_IFEL(!(hchain->elements = (unsigned char *) malloc(hash_length * hchain_length)), -1,
+				"failed to allocate memory\n");
+	memset(hchain->elements, 0, hash_length * hchain_length);
 
 	// set the link tree if we are using different hierarchies
 	if (link_tree)
 	{
-		return_hchain->link_tree = link_tree;
+		hchain->link_tree = link_tree;
 		hash_data_length = 2 * hash_length;
 
 	} else
 	{
-		return_hchain->link_tree = NULL;
+		hchain->link_tree = NULL;
 		hash_data_length = hash_length;
 	}
 
-	for(i = 0; i < hchain_length; i++)
+	for (i = 0; i < hchain_length; i++)
 	{
-		// reuse memory for hash-value buffer
-		//memset(hash_value, 0, MAX_HASH_LENGTH);
-
-		// allocate memory for a new element
-		HIP_IFEL(!(current_element = (hash_chain_element_t *)
-				malloc(sizeof(hash_chain_element_t))), -1, "failed to allocate memory\n");
-		HIP_IFEL(!(current_element->hash = (unsigned char *)malloc(hash_length)), -1,
-				"failed to allocate memory\n");
-
-		if (last_element != NULL)
+		if (i > 0)
 		{
 			// (input, input_length, output) -> output_length == 20
 			HIP_IFEL(!(hash_function(hash_value, hash_data_length, hash_value)), -1,
 					"failed to calculate hash\n");
-			// only consider DEFAULT_HASH_LENGTH highest bytes
-			memcpy(current_element->hash, hash_value, hash_length);
+			// only consider highest bytes of digest with length of actual element
+			memcpy(&hchain->elements[i * hash_length], hash_value, hash_length);
 		} else
 		{
-			// random bytes as seed
+			// random bytes as seed -> need a copy in hash_value for further computations
 			HIP_IFEL(RAND_bytes(hash_value, hash_length) <= 0, -1,
 					"failed to get random bytes for source element\n");
 
-			memcpy(current_element->hash, hash_value, hash_length);
-
-			return_hchain->source_element = current_element;
+			memcpy(&hchain->elements[i * hash_length], hash_value, hash_length);
 		}
 
-		/* overwrite parts of the calculated hash with the root in case hash is longer
-		 * than what we need */
+		/* concatenate used part of the calculated hash with the link tree root */
 		if (link_tree)
 		{
 			memcpy(&hash_value[hash_length], link_tree->root, link_tree->node_length);
 		}
 
-		_HIP_HEXDUMP("element created: ", current_element->hash, hash_length);
-
-		// list with backwards links
-		current_element->next = last_element;
-		last_element = current_element;
+		_HIP_HEXDUMP("element created: ", &hchain->elements[i], hash_length);
 	}
 
-	return_hchain->hash_function = hash_function;
-	return_hchain->hash_length = hash_length;
-	return_hchain->hchain_length = hchain_length;
-	return_hchain->remaining = hchain_length;
-	return_hchain->hchain_hierarchy = hchain_hierarchy;
-	// hash_chain->source_element set above
-	return_hchain->anchor_element  = current_element;
-	return_hchain->current_element = NULL;
+	hchain->hash_function = hash_function;
+	hchain->hash_length = hash_length;
+	hchain->hchain_length = hchain_length;
+	hchain->current_index = hchain_length;
+	hchain->hchain_hierarchy = hchain_hierarchy;
 
 	HIP_DEBUG("Hash-chain with %i elements of length %i created!\n", hchain_length,
 			hash_length);
-	//hchain_print(return_hchain, hash_length);
-	//HIP_IFEL(!(hchain_verify(return_hchain->source_element->hash, return_hchain->anchor_element->hash,
-	//		hash_function, hash_length, hchain_length)), -1, "failed to verify the hchain\n");
-	//HIP_DEBUG("hchain successfully verfied\n");
 
   out_err:
     if (err)
     {
-    	// try to free all that's there
-    	if (return_hchain->anchor_element)
-    	{
-    		// hchain was fully created
-    		hchain_free(return_hchain);
-    	} else
-    	{
-    		while (current_element)
-    		{
-    			last_element = current_element;
-    			current_element = current_element->next;
-    			free(last_element);
-    		}
-    		if (return_hchain->source_element)
-    			free(return_hchain->source_element);
-    	}
-
-    	if (return_hchain);
-    		free(return_hchain);
-    	return_hchain = NULL;
+		// hchain was fully created
+		hchain_free(hchain);
+    	hchain = NULL;
     }
 
-	return return_hchain;
+	return hchain;
+}
+
+unsigned char * hchain_get_anchor(const hash_chain_t *hash_chain)
+{
+	HIP_ASSERT(hash_chain);
+
+	return hchain_element_by_index(hash_chain, hash_chain->hchain_length - 1);
+}
+
+unsigned char * hchain_get_seed(const hash_chain_t *hash_chain)
+{
+	HIP_ASSERT(hash_chain);
+
+	return hchain_element_by_index(hash_chain, 0);
+}
+
+unsigned char * hchain_element_by_index(const hash_chain_t *hash_chain, int index)
+{
+	unsigned char *element = NULL;
+	int err = 0;
+
+	HIP_ASSERT(hash_chain);
+
+	if (index >= 0 && index < hash_chain->hchain_length)
+	{
+		element = &hash_chain->elements[index * hash_chain->hash_length];
+
+	} else
+	{
+		HIP_ERROR("Element from uninited hash chain or out-of-bound element requested!");
+
+		err = -1;
+		goto out_err;
+	}
+
+	HIP_HEXDUMP("Hash chain element: ", element, hash_chain->hash_length);
+
+  out_err:
+	if (err)
+		element = NULL;
+
+	return element;
+}
+
+int hchain_set_current_index(hash_chain_t *hash_chain, int index)
+{
+	int err = 0;
+
+	HIP_ASSERT(hash_chain);
+	HIP_ASSERT(index >= 0 && index <= hash_chain->hchain_length);
+
+	hash_chain->current_index = index;
+
+	return err;
+}
+
+unsigned char * hchain_next(const hash_chain_t *hash_chain)
+{
+	unsigned char *element = NULL;
+	int err = 0;
+
+	element = hchain_element_by_index(hash_chain, hash_chain->current_index - 1);
+
+  out_err:
+	if (err)
+		element = NULL;
+
+  	return element;
+}
+
+unsigned char * hchain_previous(hash_chain_t * hash_chain)
+{
+	unsigned char *element = NULL;
+	int err = 0;
+
+	element = hchain_element_by_index(hash_chain, hash_chain->current_index + 1);
+
+  out_err:
+	if (err)
+		element = NULL;
+
+  	return element;
+}
+
+unsigned char * hchain_current(const hash_chain_t *hash_chain)
+{
+	unsigned char *element = NULL;
+	int err = 0;
+
+	element = hchain_element_by_index(hash_chain, hash_chain->current_index);
+
+  out_err:
+	if (err)
+		element = NULL;
+
+	return element;
 }
 
 unsigned char * hchain_pop(hash_chain_t * hash_chain)
 {
 	int err = 0;
-	hash_chain_element_t *tmp_element = NULL;
-	unsigned char *popped_hash = NULL;
+	unsigned char *element = NULL;
 
-	HIP_ASSERT(hash_chain != NULL);
+	HIP_ASSERT(hash_chain);
 
 	HCHAIN_LOCK(&hash_chain);
-	if(hash_chain->current_element != NULL){
-		// hash chain already in use
-		if(hash_chain->current_element->next == NULL){
-			HIP_ERROR("hchain_next: Hash chain depleted!\n");
-			exit(1);
-		} else
-		{
-			tmp_element = hash_chain->current_element->next;
-		}
-	} else
-	{
-		// hash_chain unused yet
-		tmp_element = hash_chain->anchor_element;
-	}
-
-	popped_hash = tmp_element->hash;
-
-	HIP_HEXDUMP("Popping hash chain element: ", popped_hash, hash_chain->hash_length);
-
-	// hchain update
-	hash_chain->current_element = tmp_element;
-	hash_chain->remaining--;
+	element = hchain_next(hash_chain);
+	hash_chain->current_index--;
+	HCHAIN_UNLOCK(&hash_chain);
 
   out_err:
-  	HCHAIN_UNLOCK(&hash_chain);
-
   	if (err)
-  		popped_hash = NULL;
+  		element = NULL;
 
-	return popped_hash;
+	return element;
 }
 
-unsigned char * hchain_next(const hash_chain_t *hash_chain)
+unsigned char * hchain_push(hash_chain_t * hash_chain)
 {
-	unsigned char *next_hash = NULL;
 	int err = 0;
+	unsigned char *element = NULL;
 
-	HIP_ASSERT(hash_chain != NULL);
+	HIP_ASSERT(hash_chain);
 
-	if(hash_chain->current_element != NULL)
-	{
-		// hash chain already in use
-		if( hash_chain->current_element->next == NULL ){
-			// hash chain depleted. return NULL
-			HIP_ERROR("hchain_next: Hash chain depleted!\n");
-			exit(1);
-		} else
-		{
-			// hash chain in use: return next.
-			next_hash = hash_chain->current_element->next->hash;
-		}
-	} else
-	{
-		// hash_chain is unused. return the anchor element
-		next_hash = hash_chain->anchor_element->hash;
-	}
-
-	HIP_HEXDUMP("Next hash chain element: ", next_hash, hash_chain->hash_length);
+	HCHAIN_LOCK(&hash_chain);
+	element = hchain_previous(hash_chain);
+	hash_chain->current_index++;
+	HCHAIN_UNLOCK(&hash_chain);
 
   out_err:
-	if (err)
-		next_hash = NULL;
+  	if (err)
+  		element = NULL;
 
-  	return next_hash;
+	return element;
 }
 
-unsigned char * hchain_current(const hash_chain_t *hash_chain)
+int hchain_reset(hash_chain_t *hash_chain)
 {
-	unsigned char *current_hash = NULL;
 	int err = 0;
 
-	HIP_ASSERT(hash_chain != NULL);
-	HIP_ASSERT(hash_chain->current_element != NULL);
+	hash_chain->current_index = hash_chain->hchain_length;
 
-	current_hash = hash_chain->current_element->hash;
-
-	HIP_HEXDUMP("Current hash chain element: ", current_hash, hash_chain->hash_length);
-
-  out_err:
-	if (err)
-		current_hash = NULL;
-
-	return current_hash;
+	return err;
 }
-
 
 int hchain_free(hash_chain_t *hash_chain)
 {
-	hash_chain_element_t *current_element = NULL;
 	int err = 0;
 
-	if( hash_chain != NULL )
+	if(!hash_chain)
 	{
-		for (current_element = hash_chain->anchor_element;
-		    current_element != NULL;
-		    current_element = current_element->next)
-		{
-			free(current_element->hash);
-			free(current_element);
-		}
-
 		htree_free(hash_chain->link_tree);
+		hash_chain->link_tree = NULL;
 
+		free(hash_chain->elements);
 		free(hash_chain);
 	}
 
-	HIP_DEBUG("all hash-chain elements freed\n");
+	HIP_DEBUG("all hash-chain elements and dependencies freed\n");
 
   out_err:
 	return err;
@@ -358,7 +363,7 @@ int hchain_free(hash_chain_t *hash_chain)
 
 int hchain_get_num_remaining(const hash_chain_t * hash_chain)
 {
-	return hash_chain->remaining;
+	return hash_chain->current_index;
 }
 
 // previously used by lightweight hip, but not maintained

@@ -40,6 +40,7 @@ typedef int (*htree_node_gen_t) (unsigned char *left_node, unsigned char *right_
 typedef struct hash_tree
 {
 	// data variables
+	int leaf_set_size;	 /* maximum number of data blocks to be stored in the tree */
 	int num_data_blocks; /* number of data blocks to be verified with the tree */
 	int max_data_length; /* max length for a single leaf element */
 	unsigned char *data; /* array containing the data to be validated with the tree */
@@ -115,7 +116,8 @@ int htree_add_secret(hash_tree_t *tree, char *secret, int secret_length, int sec
  */
 int htree_add_random_secrets(hash_tree_t *tree);
 
-/** generates the nodes for a tree with completely filled leaf set
+/** generates the nodes for a tree with completely filled leaf set,
+ * otherwise it fills up the remaining data items with random data
  *
  * @param	tree pointer to the tree
  * @param	leaf_gen the leaf generator function pointer
@@ -144,11 +146,11 @@ int htree_get_next_data_offset(hash_tree_t *tree);
  *
  * @param	tree pointer to the hash tree
  * @param	data_index leaf position for which the verification branch is fetched
- * @param	branch_nodes destination buffer for the branch nodes
+ * @param	nodes buffer with sufficient space for branch nodes, if NULL buffer will be malloced here
  * @param	branch_length destination buffer length, returns used space
- * @return	always 0
+ * @return	buffer containing the branch nodes, NULL on error
  */
-int htree_get_branch(hash_tree_t *tree, int data_index, unsigned char *branch_nodes,
+unsigned char * htree_get_branch(hash_tree_t *tree, int data_index, unsigned char * nodes,
 		int *branch_length);
 
 /** gets the data item at the specified position
@@ -164,11 +166,11 @@ unsigned char* htree_get_data(hash_tree_t *tree, int data_index,
 /** gets the secret at the specified position
  *
  * @param	tree pointer to the hash tree
- * @param	data_index leaf position for which the secret is returned
+ * @param	secret_index leaf position for which the secret is returned
  * @param	secret_length length of the returned secret
  * @return	pointer to the secret, NULL in case of an error
  */
-unsigned char* htree_get_secret(hash_tree_t *tree, int data_index,
+unsigned char* htree_get_secret(hash_tree_t *tree, int secret_index,
 		int *secret_length);
 
 /** gets the root node of the hash tree

@@ -971,7 +971,7 @@ int hip_handle_user_msg(hip_common_t *msg, struct sockaddr_in6 *src)
 		/* Workaround for bug id 880 until bug id 589 is implemented.
 		   -miika  */
 		if (entry->state != HIP_STATE_NONE || HIP_STATE_UNASSOCIATED) {
-			hip_common_t *msg = malloc(HIP_MAX_PACKET);
+			hip_common_t *msg = calloc(HIP_MAX_PACKET, 1);
 			HIP_IFE((msg == 0), -1);
 			HIP_IFE(hip_build_user_hdr(msg, SO_HIP_RST, 0), -1);
 			HIP_IFE(hip_build_param_contents(msg,

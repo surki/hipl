@@ -676,6 +676,7 @@ int firewall_init_rules(){
 	}
 
 	// Initializing local database for mapping LSI-HIT in the firewall
+	// FIXME never uninited -> memory leak
 	firewall_init_hldb();
 
 	// Initializing local cache database
@@ -1083,10 +1084,9 @@ int hip_fw_init_context(hip_fw_context_t *ctx, char *buf, int ip_version)
 	}
 
 	/* Santtu: XX FIXME: needs to be inside the following if */
-	//else if (hip_is_stun_msg(udphdr) {
-	else if (hip_stun && ((stun_ret = pj_stun_msg_check(udphdr+1,ntohs(udphdr->len) -
+	else if (hip_stun && (stun_ret = pj_stun_msg_check((pj_uint8_t *)udphdr+1,ntohs(udphdr->len) -
 			sizeof(struct udphdr),PJ_STUN_IS_DATAGRAM))
-			      == PJ_SUCCESS)){
+			== PJ_SUCCESS){
 		HIP_DEBUG("Found a UDP STUN\n");
 		ctx->is_stun = 1;
 	    goto end_init;
@@ -2148,14 +2148,12 @@ int main(int argc, char **argv){
 	}
 
 	read_file(rule_file);
+	HIP_DEBUG("starting up with rule_file: %s\n", rule_file);
 	HIP_DEBUG("Firewall rule table: \n");
 	print_rule_tables();
 	//running test functions for rule handling
 	//  test_parse_copy();
 	//  test_rule_management();
-
-	HIP_DEBUG("starting up with rule_file: %s and connection timeout: %d\n",
-			rule_file, timeout);
 
 	firewall_increase_netlink_buffers();
 #if !defined(CONFIG_HIP_OPENWRT) && !defined(ANDROID_CHANGES)
@@ -2164,6 +2162,7 @@ int main(int argc, char **argv){
 
 	// create firewall queue handles for IPv4 traffic
 	// FIXME died handle will still be used below
+	// FIXME memleak - not free'd on exit
 	h4 = ipq_create_handle(0, PF_INET);
 
 	if (!h4)
@@ -2176,8 +2175,10 @@ int main(int argc, char **argv){
 	if (status < 0)
 		die(h4);
 	HIP_DEBUG("IPv4 handle mode COPY_PACKET set\n");
+
 	// create firewall queue handles for IPv6 traffic
 	// FIXME died handle will still be used below
+	// FIXME memleak - not free'd on exit
 	h6 = ipq_create_handle(0, PF_INET6);
 
 	_HIP_DEBUG("IPQ error: %s \n", ipq_errstr());
@@ -2197,6 +2198,7 @@ int main(int argc, char **argv){
 	//hip_get_local_hit_wrapper(&proxy_hit);
 
 	/* Allocate message. */
+	// FIXME memleak - not free'd on exit
 	msg = hip_msg_alloc();
 	if (!msg) {
 		err = -1;

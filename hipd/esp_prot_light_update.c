@@ -10,13 +10,15 @@
 #include "esp_prot_anchordb.h"
 #include "esp_prot_hipd_msg.h"
 
-int esp_prot_send_light_update(hip_ha_t *entry, int anchor_offset, unsigned char *secret,
-		int secret_length, unsigned char *branch_nodes, int branch_length)
+int esp_prot_send_light_update(hip_ha_t *entry, int anchor_offset[NUM_PARALLEL_CHAINS],
+		unsigned char *secret[NUM_PARALLEL_CHAINS], int secret_length[NUM_PARALLEL_CHAINS],
+		unsigned char *branch_nodes[NUM_PARALLEL_CHAINS], int branch_length[NUM_PARALLEL_CHAINS])
 {
 	hip_common_t *light_update = NULL;
 	int hash_length = 0;
 	uint16_t mask = 0;
-	int err = 0;
+	int num_anchors = 0;
+	int err = 0, i;
 
 	HIP_IFEL(!(light_update = hip_msg_alloc()), -ENOMEM,
 		 "failed to allocate memory\n");
@@ -36,37 +38,55 @@ int esp_prot_send_light_update(hip_ha_t *entry, int anchor_offset, unsigned char
 
 	 hash_length = anchor_db_get_anchor_length(entry->esp_prot_transform);
 
-	 HIP_IFEL(hip_build_param_esp_prot_anchor(light_update,
-			entry->esp_prot_transform, entry->esp_local_anchor,
-			entry->esp_local_update_anchor, hash_length, entry->hash_item_length), -1,
-			"building of ESP ANCHOR failed\n");
+	 // distinguish different number of conveyed anchors by authentication mode
+	if (PARALLEL_CHAINS)
+		num_anchors = NUM_PARALLEL_CHAINS;
+	else
+		num_anchors = 1;
 
-	 HIP_IFEL(hip_build_param_esp_prot_branch(light_update,
-			anchor_offset, branch_length, branch_nodes), -1,
-			"building of ESP BRANCH failed\n");
+	for (i = 0; i < num_anchors; i++)
+	{
+		HIP_IFEL(hip_build_param_esp_prot_anchor(light_update,
+				entry->esp_prot_transform, &entry->esp_local_anchors[i][0],
+				&entry->esp_local_update_anchors[i][0], hash_length, entry->hash_item_length),
+				-1, "building of ESP protection ANCHOR failed\n");
+	}
 
-	 HIP_IFEL(hip_build_param_esp_prot_secret(light_update, secret_length, secret), -1,
-			"building of ESP SECRET failed\n");
+	for (i = 0; i < num_anchors; i++)
+	{
+		HIP_IFEL(hip_build_param_esp_prot_branch(light_update,
+				anchor_offset[i], branch_length[i], branch_nodes[i]), -1,
+				"building of ESP BRANCH failed\n");
+	}
 
-	 // only send root if the update hchain has got a link_tree
-	 if (entry->esp_root_length > 0)
-	 {
-		 HIP_IFEL(hip_build_param_esp_prot_root(light_update, entry->esp_root_length,
-				 entry->esp_root), -1, "building of ESP ROOT failed\n");
-	 }
+	for (i = 0; i < num_anchors; i++)
+	{
+		 HIP_IFEL(hip_build_param_esp_prot_secret(light_update, secret_length[i], secret[i]),
+				 -1, "building of ESP SECRET failed\n");
+	}
 
-	 /******************** add HMAC **********************/
-	 HIP_IFEL(hip_build_param_hmac_contents(light_update, &entry->hip_hmac_out), -1,
-			 "building of HMAC failed\n");
+	for (i = 0; i < num_anchors; i++)
+	{
+		// only send root if the update hchain has got a link_tree
+		if (entry->esp_root_length > 0)
+		{
+			HIP_IFEL(hip_build_param_esp_prot_root(light_update, entry->esp_root_length,
+					entry->esp_root[i]), -1, "building of ESP ROOT failed\n");
+		}
+	}
 
-	 /* send the packet with retransmission enabled */
-	 entry->light_update_retrans = 1;
+	/******************** add HMAC **********************/
+	HIP_IFEL(hip_build_param_hmac_contents(light_update, &entry->hip_hmac_out), -1,
+			"building of HMAC failed\n");
 
-	 HIP_IFEL(entry->hadb_xmit_func->
-			 hip_send_pkt(&entry->our_addr, &entry->peer_addr,
-			 (entry->nat_mode ? hip_get_local_nat_udp_port() : 0),
-			 entry->peer_udp_port, light_update, entry, entry->light_update_retrans),
-			 -1, "failed to send light anchor update\n");
+	/* send the packet with retransmission enabled */
+	entry->light_update_retrans = 1;
+
+	HIP_IFEL(entry->hadb_xmit_func->
+			hip_send_pkt(&entry->our_addr, &entry->peer_addr,
+			(entry->nat_mode ? hip_get_local_nat_udp_port() : 0),
+			entry->peer_udp_port, light_update, entry, entry->light_update_retrans),
+			-1, "failed to send light anchor update\n");
 
   out_err:
 	if (err)

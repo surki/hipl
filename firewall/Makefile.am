@@ -5,7 +5,8 @@ AUTOMAKE_OPTIONS = foreign
 # Note: .. is included because libinet6/debug.h is included; otherwise this
 # won't build because there is also the linux/net/ipv6/hip/debug.h include.
 
-CFLAGS = -g $(hipl_common_cflags) -I/usr/include/libipq/  -L$(HIPL_LIBINET6_LIB) -L$(HIPL_LIBHIPTOOL_LIB) -L$(HIPL_LIBHIPCORE_LIB)
+CFLAGS = -g $(hipl_common_cflags) -I/usr/include/libipq/ -L$(HIPL_LIBINET6_LIB) -L$(HIPL_LIBHIPTOOL_LIB) -L$(HIPL_LIBHIPCORE_LIB)
+# -L$(HIPL_LIBINET6_LIB) -L$(HIPL_LIBHIPTOOL_LIB)
 #CFLAGS += `pkg-config --cflags --libs glib-2.0` 
 #CFLAGS += `pkg-config --cflags --libs gthread-2.0`
 CFLAGS += `pkg-config --cflags`
@@ -31,6 +32,7 @@ hipfw_SOURCES += esp_prot_api.c esp_prot_fw_msg.c esp_prot_conntrack.c
 hipfw_SOURCES += proxy.c opptcp.c firewalldb.c lsi.c fw_stun.c
 hipfw_SOURCES += sava_api.c cache.c cache_port.c
 
+hipfw_LDFLAGS =
 hipfw_LDADD = -lipq
 
 if HIP_FORCE_SHLIB
@@ -44,7 +46,6 @@ hipfw_LDADD += -lpthread
 if HIP_UUIDLIB
     hipfw_LDADD += -luuid
 endif
-
 hipfw_LDADD += ../pjproject/pjnath/lib/libpjnath-hipl.a
 hipfw_LDADD += ../pjproject/pjlib/lib/libpj-hipl.a
 hipfw_LDADD += ../pjproject/pjlib-util/lib/libpjlib-util-hipl.a

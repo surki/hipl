@@ -45,16 +45,15 @@
 #include "esp_prot_conntrack.h"
 // include of "user_ipsec.h" at the bottom due to dependency
 
+#ifdef ANDROID_CHANGES
+#define HIP_FW_DEFAULT_RULE_FILE "/data/hip/firewall_conf"
 #ifndef s6_addr
 #  define s6_addr                 in6_u.u6_addr8
 #  define s6_addr16               in6_u.u6_addr16
 #  define s6_addr32               in6_u.u6_addr32
 #endif /* s6_addr */
-
-#ifndef ANDROID_CHANGES
-#define HIP_FW_DEFAULT_RULE_FILE "/etc/hip/firewall_conf"
 #else
-#define HIP_FW_DEFAULT_RULE_FILE "/data/hip/firewall_conf"
+#define HIP_FW_DEFAULT_RULE_FILE "/etc/hip/firewall_conf"
 #endif
 
 #define HIP_FW_FILTER_TRAFFIC_BY_DEFAULT 1
