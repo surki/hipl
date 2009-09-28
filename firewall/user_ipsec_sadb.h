@@ -72,15 +72,15 @@ typedef struct hip_sa_entry
 	/* hash chain parameters for this SA used in secure ESP extension */
 	/* for outbound SA */
 	// can be a hchain or a htree
-	void * active_hash_items[NUM_PARALLEL_CHAINS];
-	void * next_hash_items[NUM_PARALLEL_CHAINS];
+	void * active_hash_items[MAX_NUM_PARALLEL_HCHAINS];
+	void * next_hash_items[MAX_NUM_PARALLEL_HCHAINS];
 	int last_used_chain;
 	// packet hash buffer for the cumulative packet authentication
 	esp_cumulative_item_t hash_buffer[RINGBUF_SIZE];
 	uint32_t next_free;
 	int active_item_length;
 	int update_item_length;
-	uint8_t update_item_acked[NUM_PARALLEL_CHAINS];
+	uint8_t update_item_acked[MAX_NUM_PARALLEL_HCHAINS];
 	/* for both */
 	uint8_t esp_prot_transform;
 } hip_sa_entry_t;

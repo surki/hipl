@@ -1913,6 +1913,28 @@ $ tools/adb shell # Log into device shell
       <listitem><programlisting>ps axu|grep dns</programlisting></listitem>
     </itemizedlist>
 
+    <para>
+    If you can repeat the bug, you can also send the HIPL community
+    a trace of the core dump file. Core dumps are not usually enabled by
+    default, so you have the enabled them in /etc/init.d/hipd,
+    /etc/init.d/hipfw and /etc/init.d/hipdnsproxy as follows:
+    </para>
+
+    <programlisting>
+    ulimit -c unlimited
+    echo /tmp/%e.core >/proc/sys/kernel/core_pattern
+    </programlisting>
+
+    <para>
+    To see e.g. where HIP daemon has back fired, use gdb to analyse th
+    core file as follows:
+    </para>
+
+    <programlisting>
+    gdb /usr/sbin/hipd /tmp/hipd
+    backtrace
+    </programlisting>
+
   </chapter>
   <chapter id="ch_test_servers">
     <title>HIPL Internet Test Servers</title>
@@ -2518,9 +2540,8 @@ $ tools/adb shell # Log into device shell
       </para>
       <para>
 	6. Overload your /etc/hosts files by adding HITs or LSIs to the
-	file and use the hostname in your application. You need to make sure
-	that hipd finds the corresponding IP address as instructed in the
-	previous point.
+	file and use the hostname in your application. The file should contain also
+        the IP addresses with the same hostname as HITs and LSIs.
       </para>
       <para>
 	7. Use the opportunistic mode as described in
@@ -4939,6 +4960,45 @@ update add 5.7.d.1.c.c.8.d.0.6.3.b.a.4.6.2.5.0.5.2.e.4.7.5.e.1.0.0.1.0.0.2.hit-t
 	<para>
   	3. nc &lt;responder-ip&gt; 1111
 	</para>
+  </section>
+
+  <section id="ch_datapacket_mode">
+    <title>Data packet mode (experimental)</title>
+
+    <para>
+    HIPL supports the extensions defined in
+    <ulink url="http://tools.ietf.org/html/draft-nikander-hip-hiccups" />. Support for the extensions
+    is very experimental and may not interoperate with other extensions in HIPL. The data packet mode does not
+    support sequence numbers, UDP encapsulation nor switching to ESP yet. Next, we'll give an example how to try out the extension:
+    </para>
+
+    <para>
+    Start HIP software as follows both at the client and server host:
+    </para>
+ 
+<programlisting>
+# hipd -k
+# hipfw -Aid
+# hipconf datapacket on
+</programlisting>
+
+    <para>
+    Notice that the last command can be also configured to /etc/hip/hipd_config
+    </para>
+
+    <para>
+    Then execute at the client:
+    </para>
+
+<programlisting>
+ping6 &gt;HIT_OF_THE_SERVER&lt;
+</programlisting>
+
+  <para>
+  Please do not take &gt;HIT_OF_THE_SERVER&lt; literally. You should replace it with the
+  actual HIT of the server.
+  </para>
+ 
   </section>
 
   </chapter>

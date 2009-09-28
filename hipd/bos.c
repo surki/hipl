@@ -130,7 +130,7 @@ int hip_send_bos(const struct hip_common *msg)
 		HIP_HEXDUMP("BOS src address:", hip_cast_sa_addr(&n->addr), hip_sa_addr_len(&n->addr));
 		/* Packet is send on raw HIP no matter what is the global NAT
 		   status, because NAT travelsal is not supported for IPv6. */
-		err = hip_send_raw(hip_cast_sa_addr(&n->addr), &daddr, 0 ,0, bos, NULL, 0);
+		err = hip_send_pkt(hip_cast_sa_addr(&n->addr), &daddr, 0 ,0, bos, NULL, 0);
 		if (err)
 		        HIP_ERROR("sending of BOS failed, err=%d\n", err);
 	}
@@ -153,11 +153,11 @@ int hip_send_bos(const struct hip_common *msg)
 		HIP_HEXDUMP("BOS src address:", hip_cast_sa_addr(&n->addr), hip_sa_addr_len(&n->addr));
 		/* If global NAT status is "on", the packet is send on UDP. */
 		if(hip_nat_status) {
-			err = hip_send_udp(hip_cast_sa_addr(&n->addr), &daddr,
+			err = hip_send_pkt(hip_cast_sa_addr(&n->addr), &daddr,
 					   hip_get_local_nat_udp_port(), hip_get_peer_nat_udp_port(),
 					   bos, NULL, 0);
 		}
-		else err = hip_send_raw(hip_cast_sa_addr(&n->addr), &daddr,0,0, bos, NULL, 0);
+		else err = hip_send_pkt(hip_cast_sa_addr(&n->addr), &daddr,0,0, bos, NULL, 0);
 		if (err) HIP_ERROR("sending of BOS failed, err=%d\n", err);
 	}
 	err = 0;
@@ -173,42 +173,6 @@ out_err:
 }
 
 
-/** hip_verify_packet_signature - verify the signature in the bos packet
- * @param bos the bos packet
- * @param peer_host_id peer host id
- *
- * Depending on the algorithm it checks whether the signature is correct
- *
- * @return zero on success, or negative error value on failure
- */
-int hip_verify_packet_signature(struct hip_common *bos, 
-				struct hip_host_id *peer_host_id)
-{
-	int err = 0;
-	struct hip_host_id *peer_pub = NULL;
-	int len = hip_get_param_total_len(peer_host_id);
-	char *key = NULL;
-
-	HIP_IFEL(!(peer_pub = HIP_MALLOC(len, GFP_KERNEL)),
-		 -ENOMEM, "Out of memory\n");
-
-	memcpy(peer_pub, peer_host_id, len);
-
-	if (peer_host_id->rdata.algorithm == HIP_HI_DSA){
-	        key = (char *) hip_key_rr_to_rsa(peer_pub, 0);
-		err = hip_dsa_verify((DSA *) key, bos);
-	} else if(peer_host_id->rdata.algorithm == HIP_HI_RSA){
-		key = (char *) hip_key_rr_to_rsa(peer_pub, 0);
-		err = hip_rsa_verify((RSA *) key, bos);
-	} else {
-		HIP_ERROR("Unknown algorithm\n");
-		err = -1;
-	}
-
- out_err:
-
-	return err;
-}
 
 /**
  * hip_handle_bos - handle incoming BOS packet

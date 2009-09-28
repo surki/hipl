@@ -89,13 +89,15 @@ int resolve_dht_gateway_info(char *gateway_name,
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = af;
     hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_NODHT;
+    /* For some reason this does not work anymore -samu */
+    //hints.ai_flags = AI_NODHT;
     error = 0;
     
     sprintf(opendht_serving_gateway_port_str, "%d", gateway_port);
     error = getaddrinfo(gateway_name, opendht_serving_gateway_port_str, &hints, gateway);
     if (error != 0) {
         HIP_DEBUG("OpenDHT gateway resolving failed %s\n", gateway_name);
+	HIP_DEBUG("%s\n",gai_strerror(error));
     } else {
 	if (af == AF_INET) {
 	    sa_v4 = (struct sockaddr_in *) (*gateway)->ai_addr;
@@ -140,13 +142,13 @@ int connect_dht_gateway(int sockfd,
 
     // blocking connect
     if(sigaction(SIGALRM, &act, &oact) < 0){
-            _HIP_DEBUG("Signal error before OpenDHT connect, "
+            HIP_DEBUG("Signal error before OpenDHT connect, "
                       "connecting without alarm\n");
             error = connect(sockfd, gateway->ai_addr, gateway->ai_addrlen);
     }else {
-            _HIP_DEBUG("Connecting to OpenDHT with alarm\n");
-            //if (alarm(4) != 0)
-            //    HIP_DEBUG("Alarm was already set, connecting without\n");
+            HIP_DEBUG("Connecting to OpenDHT with alarm\n");
+            if (alarm(DHT_CONNECT_TIMEOUT) != 0)
+                HIP_DEBUG("Alarm was already set, connecting without\n");
             error = connect(sockfd, gateway->ai_addr, gateway->ai_addrlen);
             alarm(0);
             if (sigaction(SIGALRM, &oact, &act) <0 ) 
@@ -224,7 +226,7 @@ int opendht_put_rm(int sockfd,
                    int opendht_ttl)
 {
     int key_len = 0;
-    char put_packet[2048];
+    char put_packet[HIP_MAX_PACKET];
     char tmp_key[21];
     
     key_len = opendht_handle_key(key, tmp_key);
@@ -339,7 +341,7 @@ int opendht_rm(int sockfd,
                    int opendht_ttl)
 {
     int key_len = 0;
-    char put_packet[2048];
+    char put_packet[HIP_MAX_PACKET];
     char tmp_key[21];
     
     key_len = opendht_handle_key(key, tmp_key);
@@ -381,7 +383,7 @@ int opendht_get(int sockfd,
                 int port)
 {
     int key_len = 0;
-    char get_packet[2048];
+    char get_packet[HIP_MAX_PACKET];
     char tmp_key[21];
 
     key_len = opendht_handle_key(key, tmp_key);
@@ -553,7 +555,6 @@ int opendht_read_response(int sockfd, char * answer)
     ret = 0;
     ret = read_packet_content(read_buffer, answer);
 
-
     /* If answer was IPv4 address mapped to IPv6 revert to IPv4 format*/
     pton_ret = inet_pton(AF_INET6, answer, &ipv6);
 
@@ -635,7 +636,8 @@ int hip_opendht_get_key(int (*value_handler)(unsigned char * packet,
 			opaque_answer = NULL ;
 			HIP_DEBUG("HDRR verification failed \n");
 			err = -1 ;
-		}
+		} else HIP_DEBUG("HDRR verification was successful\n");
+					
 	}
 
 out_err:
@@ -651,18 +653,18 @@ out_err:
  * @param *hdrr opaque pointer passed to point to the hdrr result
  * @return status of the operation 0 on success, -1 on failure
  */
-int handle_hdrr_value (unsigned char *packet, void *hdrr)
-{
-	// What to check in response -- why locator ? -- should be nothing
+int 
+handle_hdrr_value (unsigned char *packet, void *hdrr)
+{       
 	struct hip_locator *locator;
+	
 	locator = hip_get_param((struct hip_common *)packet, HIP_PARAM_LOCATOR);
 	if (locator)
 	{ 
-    	memcpy(hdrr, packet, HIP_MAX_PACKET);
-    	return 0 ;
+		memcpy(hdrr, packet, HIP_MAX_PACKET);
+		return 0 ;
 	}
-	else
-       	return -1 ;		
+	else		return -1 ;		
 }
 
 /**

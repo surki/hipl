@@ -8,13 +8,15 @@ SList * alloc_slist (void) {
 }
 
 void free_slist (SList * list) {
-	if (!list) {
-		return;
+	SList * tmp_list = NULL;
+
+	while (list)
+	{
+		tmp_list = list;
+		free (list->data);
+		list = list->next;
+		free(tmp_list);
 	}
-	free (list->data);
-	list->next = NULL;
-	list->data = NULL;
-	free (list);
 }
 
 SList * append_to_slist (SList * list,

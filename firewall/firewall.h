@@ -43,6 +43,7 @@
 #include "pjnath.h"
 #include "esp_prot_api.h"
 #include "esp_prot_conntrack.h"
+#include "datapkt.h"
 // include of "user_ipsec.h" at the bottom due to dependency
 
 #ifdef ANDROID_CHANGES

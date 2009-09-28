@@ -70,16 +70,16 @@ start_hipfw() {
 
 case "$1" in
   start)
-        log_daemon_msg "Starting hipfw"
+        log_daemon_msg "Starting hipfw" "hipfw"
 	start_hipfw
 	;;
   stop)
-        log_daemon_msg "Stopping hipfw"
+        log_daemon_msg "Stopping hipfw" "hipfw"
 	stop_hipfw
 	flush_iptables
 	;;
   restart)
-        log_daemon_msg "Restarting hipfw"
+        log_daemon_msg "Restarting hipfw" "hipfw"
 	stop_hipfw
 	flush_iptables
 	sleep 3
@@ -91,7 +91,7 @@ case "$1" in
 	;;
 
   *)
-	log_daemon_msg "Usage: /etc/init.d/hipfw {start|stop}"
+	log_action_msg "Usage: /etc/init.d/hipfw {start|stop}"
 	exit 1
 esac
 

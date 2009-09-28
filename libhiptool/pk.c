@@ -136,12 +136,12 @@ static int verify(void *peer_pub, struct hip_common *msg, int rsa)
 	return err;
 }
 
-int hip_rsa_verify(RSA *peer_pub, struct hip_common *msg)
+int hip_rsa_verify(void *peer_pub, struct hip_common *msg)
 {
-	return verify(peer_pub, msg, 1);
+	return verify((RSA *)peer_pub, msg, 1);
 }
 
-int hip_dsa_verify(DSA *peer_pub, struct hip_common *msg)
+int hip_dsa_verify(void *peer_pub, struct hip_common *msg)
 {
-	return verify(peer_pub, msg, 0);
+	return verify((DSA *)peer_pub, msg, 0);
 }

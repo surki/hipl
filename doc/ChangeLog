@@ -2,6 +2,450 @@
 # arch-tag: automatic-ChangeLog--hipl-dev@freelists.org--hipl/hipl--main--2.6
 #
 
+2009-09-24 14:35:07 GMT	Miika Komu <miika@iki.fi>	patch-526
+
+    Summary:
+      Synchronized to hipl--userspace--2.6--patch-2546
+    Revision:
+      hipl--main--2.6--patch-526
+
+    Patches applied:
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2539
+       Updated manual on core files.
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2540
+       Minor change
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2541
+       Updated packaging scripts
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2542
+       Removed couple of unnecessary lines from dnsproxy
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2543
+       Updated ubuntu init.d scripts
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2544
+       Bug 910
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2545
+       Updated manual
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2546
+       Increased release version number
+    
+
+
+2009-09-19 12:52:39 GMT	Miika Komu <miika@iki.fi>	patch-525
+
+    Summary:
+      Synchronized to hipl--userspace--2.6--patch-2538
+    Revision:
+      hipl--main--2.6--patch-525
+
+    Patches applied:
+    
+     * hipl-dev@freelists.org--hipl/hipl--esp--2.6--patch-670
+       first step of restructuring esp config
+    
+     * hipl-dev@freelists.org--hipl/hipl--esp--2.6--patch-671
+       Synchronized to hipl--userspace--2.6--patch-2523
+    
+     * hipl-dev@freelists.org--hipl/hipl--esp--2.6--patch-673
+       Cherry picked hipl--userspace--2.6--patch-2527
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--base-0
+       tag of hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2163
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-1
+       Test commit
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-2
+       Synchronized to hipl--userspace--2.6--patch-2168
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-3
+       Synchronized to hipl--userspace--2.6--patch-2184
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-4
+       Synchronized to hipl--userspace--2.6--patch-2188
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-5
+       Synchronized to hipl--userspace--2.6--patch-2279
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-6
+       Applied patch from Prabhu Patil
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-7
+       Synchronized to hipl--userspace--2.6--patch-2280
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-8
+       Synchronized to hipl--userspace--2.6--patch-2285
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-9
+       Synchronized to hipl--userspace--2.6--patch-2290
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-10
+       Synchronized to hipl--userspace--2.6--patch-2292
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-11
+       Synchronized to hipl--userspace--2.6--patch-2306
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-12
+       Synchronized to hipl--userspace--2.6--patch-2329
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-13
+       Synchronized to hipl--userspace--2.6--patch-2350
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-14
+       Synchronized to hipl--userspace--2.6--patch-2395
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-15
+       Synchronized to hipl--userspace--2.6--patch-2399
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-16
+       Synchronized to hipl--userspace--2.6--patch-2421
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-17
+       Synchronized to hipl--userspace--2.6--patch-2443
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-18
+       Synchronized to hipl--userspace--2.6--patch-2450
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-19
+       Synchronized to hipl--userspace--2.6--patch-2487
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-20
+       Compiles again
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-21
+       Synchronized to hipl--userspace--2.6--patch-2488
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-22
+       Synchronized to hipl--userspace--2.6--patch-2505
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-23
+       Fixed some indentation problems
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-24
+       Reviewing hipfw code.
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-25
+       Reviewed hipd code.
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-26
+       Forgot a closing #
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-27
+       Unified two different functions that did same things (built host id and signature)
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-28
+       Synchronized to hipl--userspace--2.6--patch-2522
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-29
+       Synchronized to hipl--userspace--2.6--patch-2524
+    
+     * hipl-dev@freelists.org--hipl/hipl--pla--2.6--patch-30
+       Reorganized hiccups code and solved a number of memory leaks. Untested.
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2523
+       Removed two printf statements from the firewall
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2524
+       Synchronized to hipl--esp--2.6--patch-671
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2525
+       Synchronized to hipl--pla--2.6--patch-30
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2526
+       Fixed my mistake in userspace ipsec code
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2527
+       Minor change to userspace ipsec code
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2528
+       Cherry picked hipl--esp--2.6--patch-673
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2529
+       Added datapacket mode to the default hipd_config
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2530
+       Added datapacket mode to the howto
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2531
+       Compilation fix.
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2532
+       Minor changes
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2533
+       Removed old udp function
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2534
+       Moved one function a bit
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2535
+       Code compiles again. I still need to include the hash chain changes to the update code manually.
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2536
+       Uninstall target for pjproject
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2537
+       Bug id 909
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2538
+       Increased release version number
+    
+
+
+2009-09-16 12:42:15 GMT	Miika Komu <miika@iki.fi>	patch-524
+
+    Summary:
+      Synchronized to hipl--userspace--2.6--patch-2522
+    Revision:
+      hipl--main--2.6--patch-524
+
+    Patches applied:
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2521
+       hipconf gives up after a timeout (Fedora fix)
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2522
+       Increased release version number
+    
+
+
+2009-09-16 10:42:03 GMT	Miika Komu <miika@iki.fi>	patch-523
+
+    Summary:
+      Synchronized to hipl--userspace--2.6--patch-2520
+    Revision:
+      hipl--main--2.6--patch-523
+
+    Patches applied:
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2519
+       Potential bug fix for 884
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2520
+       Increased release version number
+    
+
+
+2009-09-16 10:09:30 GMT	Miika Komu <miika@iki.fi>	patch-522
+
+    Summary:
+      Synchronized to hipl--userspace--2.6--patch-2518
+    Revision:
+      hipl--main--2.6--patch-522
+
+    Patches applied:
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2517
+       debbuild - Revision 150: /trunk
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2518
+       Increased release version number
+    
+
+
+2009-09-15 19:53:38 GMT	Miika Komu <miika@iki.fi>	patch-521
+
+    Summary:
+      Synchronized to hipl--userspace--2.6--patch-2516
+    Revision:
+      hipl--main--2.6--patch-521
+
+    Patches applied:
+    
+     * hipl-dev@freelists.org--hipl/hipl--esp--2.6--patch-662
+       fixed further invalid read/write and memory leaks
+    
+     * hipl-dev@freelists.org--hipl/hipl--esp--2.6--patch-663
+       fixed futher memory leaks, some of which were per update
+    
+     * hipl-dev@freelists.org--hipl/hipl--esp--2.6--patch-664
+       fixed wrong free
+    
+     * hipl-dev@freelists.org--hipl/hipl--esp--2.6--patch-665
+       made hipd communication async
+    
+     * hipl-dev@freelists.org--hipl/hipl--esp--2.6--patch-666
+       fixed hchain-related bugs
+    
+     * hipl-dev@freelists.org--hipl/hipl--esp--2.6--patch-667
+       fixed another hchain-related free bug
+    
+     * hipl-dev@freelists.org--hipl/hipl--esp--2.6--patch-668
+       added TODOs for initial packet buffering
+    
+     * hipl-dev@freelists.org--hipl/hipl--esp--2.6--patch-669
+       Synchronized to hipl--userspace--2.6--patch-2511
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2510
+       Indented verify_hdrr. Fixed some memory leaks
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2511
+       Indented verify_hdrr. Fixed some memory leaks
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2512
+       Synchronized to hipl--esp--2.6--patch-669
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2513
+       Minor bug fix for bex multihoming
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2514
+       Minor bug fix for udp port handling at the servers
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2515
+       A bug fix to the UDP code at at multihoming server (hipl.infrahip.net).
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2516
+       Increased release version number
+    
+
+
+2009-09-15 12:00:52 GMT	Miika Komu <miika@iki.fi>	patch-520
+
+    Summary:
+      Synchronized to hipl--userspace--2.6--patch-2509
+    Revision:
+      hipl--main--2.6--patch-520
+
+    Patches applied:
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2508
+       A bug fix to DHT code from Samu. A bug fix to keepalives from me.
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2509
+       Increased release version number
+    
+
+
+2009-09-14 16:19:56 GMT	Miika Komu <miika@iki.fi>	patch-519
+
+    Summary:
+      Synchronized to hipl--userspace--2.6--patch-2507
+    Revision:
+      hipl--main--2.6--patch-519
+
+    Patches applied:
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2506
+       Changed init.d script file perms for binary packages
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2507
+       Increased release version number
+    
+
+
+2009-09-14 09:54:58 GMT	Miika Komu <miika@iki.fi>	patch-518
+
+    Summary:
+      Synchronized to hipl--userspace--2.6--patch-2505
+    Revision:
+      hipl--main--2.6--patch-518
+
+    Patches applied:
+    
+     * hipl-dev@freelists.org--hipl/hipl--dnsproxy--2.6--patch-63
+       Synchronized to hipl--userspace--2.6--patch-2457
+    
+     * hipl-dev@freelists.org--hipl/hipl--dnsproxy--2.6--patch-64
+       HIT in AAAA support
+    
+     * hipl-dev@freelists.org--hipl/hipl--dnsproxy--2.6--patch-65
+       disable dnsmasq cache when running dnsproxy
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2501
+       A patch to the GUI from Samu Varjonen
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2502
+       disable dnsmasq cache when running dnsproxy
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2503
+       Synchronized to hipl--dnsproxy--2.6--patch-64
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2504
+       Synchronized to hipl--dnsproxy--2.6--patch-65
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2505
+       Increased release version number
+    
+
+
+2009-09-10 13:26:49 GMT	Miika Komu <miika@iki.fi>	patch-517
+
+    Summary:
+      Synchronized to hipl--userspace--2.6--patch-2500
+    Revision:
+      hipl--main--2.6--patch-517
+
+    Patches applied:
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2495
+       Save commit dht get feature broken :)
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2496
+       minor dnsproxy fix
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2497
+       dht get works again and does not block hipd. hipdnsproxy is another thing that cannot be unblocked with cahnges to this. I instead put a alarm that should break the hanging connect in 2 secs. To be tested
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2498
+       introduced DHT_CONNECT_TIMEOUT
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2499
+       Bug fix for id 897
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2500
+       Increased release version number
+    
+
+
+2009-09-10 07:35:55 GMT	Miika Komu <miika@iki.fi>	patch-516
+
+    Summary:
+      Synchronized to hipl--userspace--2.6--patch-2494
+    Revision:
+      hipl--main--2.6--patch-516
+
+    Patches applied:
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2493
+       Bug fix to 901
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2494
+       Increased release version number
+    
+
+
+2009-09-09 14:52:27 GMT	Miika Komu <miika@iki.fi>	patch-515
+
+    Summary:
+      Synchronized to hipl--userspace--2.6--patch-2492
+    Revision:
+      hipl--main--2.6--patch-515
+
+    Patches applied:
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2488
+       Moved verify signature from bos to libhipcore
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2489
+       Bug id 900
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2490
+       Bug id 765
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2491
+       Refactoring send_udp/raw interface. Enabled shotgun by default.
+    
+     * hipl-dev@freelists.org--hipl/hipl--userspace--2.6--patch-2492
+       Increased release version number
+    
+
+
 2009-09-08 14:46:14 GMT	Miika Komu <miika@iki.fi>	patch-514
 
     Summary:

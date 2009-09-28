@@ -275,6 +275,8 @@ int hip_beet_mode_input(hip_fw_context_t *ctx, hip_sa_entry_t *entry,
   	return err;
 }
 
+
+
 int hip_payload_encrypt(unsigned char *in, uint8_t in_type, uint16_t in_len,
 			unsigned char *out, uint16_t *out_len,
 			hip_sa_entry_t *entry)

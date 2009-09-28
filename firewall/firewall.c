@@ -18,6 +18,7 @@ int accept_hip_esp_traffic_by_default =
   HIP_FW_ACCEPT_HIP_ESP_TRAFFIC_BY_DEFAULT;
 int system_based_opp_mode = 0;
 int log_level = LOGDEBUG_NONE;
+int hip_datapacket_mode = 0;   // Prabhu data packet mode
 
 int counter = 0;
 int hip_proxy_status = 0;
@@ -1262,7 +1263,7 @@ int filter_hip(const struct in6_addr * ip6_src,
 
   	//if dynamically changing rules possible
 
-  	if (!list) {
+	if (!list) {
   		HIP_DEBUG("The list of rules is empty!!!???\n");
   	}
 
@@ -1287,6 +1288,9 @@ int filter_hip(const struct in6_addr * ip6_src,
 			HIP_DEBUG("packet type: NOTIFY\n");
 		else if (buf->type_hdr == HIP_LUPDATE)
 			HIP_DEBUG("packet type: LIGHT UPDATE\n");
+                //Added by Prabhu to support DATA Packets
+               else if (buf->type_hdr == HIP_DATA )
+                        HIP_DEBUG("packet type: HIP_DATA");
 		else
 			HIP_DEBUG("packet type: UNKNOWN\n");
 
@@ -1472,7 +1476,8 @@ int hip_fw_handle_other_output(hip_fw_context_t *ctx){
 
 		verdict = hip_sava_handle_output(ctx);
 
-	} else if (ctx->ip_version == 6 && hip_userspace_ipsec) {
+	} else if (ctx->ip_version == 6 && (hip_userspace_ipsec || hip_datapacket_mode) )//Prabhu check for datapacket mode too
+          {
 		hip_hit_t *def_hit = hip_fw_get_default_hit();
 		HIP_DEBUG_HIT("destination hit: ", &ctx->dst);
 		// XX TODO: hip_fw_get_default_hit() returns an unfreed value
@@ -1673,10 +1678,17 @@ int hip_fw_handle_other_input(hip_fw_context_t *ctx){
 
 int hip_fw_handle_hip_input(hip_fw_context_t *ctx){
 
-	HIP_DEBUG("hip_fw_handle_hip_input()\n");
 
-	// for now input and output are handled symmetrically
-	return hip_fw_handle_hip_output(ctx);
+        int verdict = accept_hip_esp_traffic_by_default;
+
+	HIP_DEBUG("hip_fw_handle_hip_input()\n");
+	//Prabhu handle incoming datapackets
+	
+	verdict = hip_fw_handle_hip_output(ctx);
+        if(hip_datapacket_mode && verdict)
+              verdict = hip_fw_userspace_datapacket_input(ctx); 
+
+        return verdict;
 }
 
 

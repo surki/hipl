@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 ### BEGIN INIT INFO
-# Provides:		hipd
+# Provides:		hipdnsproxy
 # Required-Start:	$remote_fs $syslog
 # Required-Stop:	$remote_fs $syslog
 # Default-Start:	2 3 4 5
@@ -26,7 +26,7 @@ if test -f /etc/default/hipdnsproxy; then
 fi
 
 start_dnsproxy() {
-        log_daemon_msg "Starting hip dnsproxy"
+        log_daemon_msg "Starting hip dnsproxy" "hipdnsproxy"
 	if start-stop-daemon --start --quiet --exec $EXEC -- $DNSPROXY_OPTS; then
 	    log_end_msg 0
 	else
@@ -35,7 +35,7 @@ start_dnsproxy() {
 }
 
 stop_dnsproxy() {
-    log_daemon_msg "Stopping hip dnsproxy"
+    log_daemon_msg "Stopping hip dnsproxy" "hipdnsproxy"
     if test -r $PID_FILE && ps `head -1 $PID_FILE` >/dev/null # see bug id 812
     then
 	if start-stop-daemon --stop --pidfile $PID_FILE --quiet -- $DNSPROXY_OPTS; then
@@ -67,7 +67,7 @@ case "$1" in
 	;;
 
   *)
-	echo "Usage: /etc/init.d/dnsproxy {start|stop|reload|force-reload|restart}"
+	locg_action_msg "Usage: /etc/init.d/dnsproxy {start|stop|reload|force-reload|restart}"
 	exit 1
 esac
 

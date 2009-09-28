@@ -294,8 +294,8 @@ int read_packet_content(char * in_buffer, char * out_value)
     int ret = 0, i = 0, ii = 0;
     int evpret = 0;
     char * place = NULL;
-    char tmp_tmp_buffer[2048];
-    char tmp_buffer[2048]; 
+    char tmp_tmp_buffer[HIP_MAX_PACKET];
+    char tmp_buffer[HIP_MAX_PACKET]; 
     xmlDocPtr xml_doc = NULL;
     xmlNodePtr xml_node;
     xmlNodePtr xml_node_value;

@@ -71,8 +71,8 @@ struct hip_esp
 
 struct hip_esp_tail
 {
-	 uint8_t esp_padlen;
-     uint8_t esp_next;
-};
+	uint8_t esp_padlen;
+	uint8_t esp_next;
+} __attribute__ ((packed));
 
 #endif /* COMMON_DEFINES_H_ */

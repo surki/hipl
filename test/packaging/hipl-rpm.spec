@@ -130,9 +130,9 @@ install -d %{buildroot}%{prefix}/lib
 install -d %{buildroot}/etc/rc.d/init.d
 install -d %{buildroot}/doc
 make DESTDIR=%{buildroot} install
-install -m 700 test/packaging/rh-init.d-hipfw %{buildroot}/etc/rc.d/init.d/hipfw
-install -m 700 test/packaging/rh-init.d-hipd %{buildroot}/etc/rc.d/init.d/hipd
-install -m 700 test/packaging/rh-init.d-dnsproxy %{buildroot}/etc/rc.d/init.d/hipdnsproxy
+install -m 755 test/packaging/rh-init.d-hipfw %{buildroot}/etc/rc.d/init.d/hipfw
+install -m 755 test/packaging/rh-init.d-hipd %{buildroot}/etc/rc.d/init.d/hipd
+install -m 755 test/packaging/rh-init.d-dnsproxy %{buildroot}/etc/rc.d/init.d/hipdnsproxy
 install -m 644 doc/HOWTO.txt %{buildroot}/doc
 install -d %{buildroot}%{python_sitelib}/DNS
 install -t %{buildroot}%{python_sitelib}/DNS tools/DNS/*py*
@@ -145,8 +145,8 @@ install -d %{buildroot}%{python_sitelib}/hipdnskeyparse
 install -t %{buildroot}%{python_sitelib}/hipdnskeyparse tools/parse-key-3.py*
 install -t %{buildroot}%{python_sitelib}/hipdnskeyparse tools/myasn.py*
 # required in CentOS release 5.2
-install -m 700 tools/hipdnskeyparse %{buildroot}%{prefix}/sbin/hipdnskeyparse
-install -m 700 tools/hipdnsproxy %{buildroot}%{prefix}/sbin/hipdnsproxy
+install -m 755 tools/hipdnskeyparse %{buildroot}%{prefix}/sbin/hipdnskeyparse
+install -m 755 tools/hipdnsproxy %{buildroot}%{prefix}/sbin/hipdnsproxy
 
 %post lib
 /sbin/ldconfig 
