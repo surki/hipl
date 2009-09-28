@@ -357,14 +357,18 @@ int hipd_init(int flush_ipsec, int killold)
 	}
 #endif
 
-	HIP_IFEL(hip_init_raw_sock_v6(&hip_raw_sock_output_v6), -1, "raw sock output v6\n");
-	HIP_IFEL(hip_init_raw_sock_v4(&hip_raw_sock_output_v4), -1, "raw sock output v4\n");
+	HIP_IFEL(hip_init_raw_sock_v6(&hip_raw_sock_output_v6, IPPROTO_HIP), -1, "raw sock output v6\n");
+	HIP_IFEL(hip_init_raw_sock_v4(&hip_raw_sock_output_v4, IPPROTO_HIP), -1, "raw sock output v4\n");
 	// Notice that hip_nat_sock_input should be initialized after hip_nat_sock_output
 	// because for the sockets bound to the same address/port, only the last socket seems
 	// to receive the packets. 
+#if 0
 	HIP_IFEL(hip_create_nat_sock_udp(&hip_nat_sock_output_udp, 0), -1, "raw sock output udp\n");
-	HIP_IFEL(hip_init_raw_sock_v6(&hip_raw_sock_input_v6), -1, "raw sock input v6\n");
-	HIP_IFEL(hip_init_raw_sock_v4(&hip_raw_sock_input_v4), -1, "raw sock input v4\n");
+#else
+	HIP_IFEL(hip_init_raw_sock_v4(&hip_nat_sock_output_udp, IPPROTO_UDP), -1, "raw sock output udp\n");
+#endif
+	HIP_IFEL(hip_init_raw_sock_v6(&hip_raw_sock_input_v6, IPPROTO_HIP), -1, "raw sock input v6\n");
+	HIP_IFEL(hip_init_raw_sock_v4(&hip_raw_sock_input_v4, IPPROTO_HIP), -1, "raw sock input v4\n");
 	HIP_IFEL(hip_create_nat_sock_udp(&hip_nat_sock_input_udp, 0), -1, "raw sock input udp\n");
 	HIP_IFEL(hip_init_icmp_v6(&hip_icmp_sock), -1, "icmpv6 sock\n");
 
@@ -691,11 +695,11 @@ int hip_init_host_ids()
 /**
  * Init raw ipv6 socket.
  */
-int hip_init_raw_sock_v6(int *hip_raw_sock_v6)
+int hip_init_raw_sock_v6(int *hip_raw_sock_v6, int proto)
 {
 	int on = 1, off = 0, err = 0;
 
-	*hip_raw_sock_v6 = socket(AF_INET6, SOCK_RAW, IPPROTO_HIP);
+	*hip_raw_sock_v6 = socket(AF_INET6, SOCK_RAW, proto);
 	set_cloexec_flag(*hip_raw_sock_v6, 1);
 	HIP_IFEL(*hip_raw_sock_v6 <= 0, 1, "Raw socket creation failed. Not root?\n");
 
@@ -714,12 +718,12 @@ int hip_init_raw_sock_v6(int *hip_raw_sock_v6)
 /**
  * Init raw ipv4 socket.
  */
-int hip_init_raw_sock_v4(int *hip_raw_sock_v4)
+int hip_init_raw_sock_v4(int *hip_raw_sock_v4, int proto)
 {
 	int on = 1, err = 0;
 	int off = 0;
 
-	*hip_raw_sock_v4 = socket(AF_INET, SOCK_RAW, IPPROTO_HIP);
+	*hip_raw_sock_v4 = socket(AF_INET, SOCK_RAW, proto);
 	set_cloexec_flag(*hip_raw_sock_v4, 1);
 	HIP_IFEL(*hip_raw_sock_v4 <= 0, 1, "Raw socket v4 creation failed. Not root?\n");
 

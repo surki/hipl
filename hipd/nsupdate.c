@@ -55,7 +55,9 @@ static void sig_chld (int signo)
 	pid_t child_pid;
 	int child_status; // child exit code
 	child_pid = waitpid (0, &child_status, WNOHANG);
-	HIP_DEBUG("child pid: %d, status: %d\n", child_pid, child_status);
+	/* Commented the following line to see if it helps with bug id 884
+	   -miika */
+	_HIP_DEBUG("child pid: %d, status: %d\n", child_pid, child_status);
 }
 
 #if 0 /* See bug id 805  */

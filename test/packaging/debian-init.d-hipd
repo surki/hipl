@@ -32,7 +32,7 @@ stop_hipd() {
 
 case "$1" in
   start)
-        log_daemon_msg "Starting hipd"
+        log_daemon_msg "Starting hipd" "hipd"
 	if start-stop-daemon --start --quiet --exec /usr/sbin/hipd -- $HIPD_OPTS; then
 	    log_end_msg 0
 	else
@@ -40,13 +40,13 @@ case "$1" in
 	fi
 	;;
   stop)
-        log_daemon_msg "Stopping hipd"
+        log_daemon_msg "Stopping hipd" "hipd"
 	stop_hipd
 	log_end_msg 0
 	;;
 
   reload|force-reload)
-        log_daemon_msg "Reloading hipd"
+        log_daemon_msg "Reloading hipd" "hipd"
 	if start-stop-daemon --stop --signal 1 --quiet --oknodo --exec /usr/sbin/hipd -name hipd; then
 	    log_end_msg 0
 	else
@@ -55,7 +55,7 @@ case "$1" in
 	;;
 
   restart)
-        log_daemon_msg "Restarting hipd"
+        log_daemon_msg "Restarting hipd" "hipd"
         # Daemon waits N seconds for closing of connections - just kill it
 	stop_hipd -KILL
 	if start-stop-daemon --start --quiet --exec /usr/sbin/hipd -- $HIPD_OPTS; then

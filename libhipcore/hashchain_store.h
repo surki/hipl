@@ -33,7 +33,7 @@
  *
  * @note we are using a list here, so we might also use some other
  *       mechanism to stop the hcstore_refill() */
-#define MAX_HCHAINS_PER_ITEM	6
+#define MAX_HCHAINS_PER_ITEM	4
 
 /* determines when to refill a store
  *

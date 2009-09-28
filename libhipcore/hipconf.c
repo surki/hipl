@@ -87,9 +87,10 @@ const char *hipconf_usage =
 "nsupdate on|off\n"
 "hit-to-ip on|off\n"
 "hit-to-ip-zone <hit-to-ip.zone.>\n"
-"hit-to-ip hit|lsi\n"
 "buddies on|off\n"
+"datapacket on|off\n"
 "shotgun on|off\n"
+"id-to-addr hit|lsi\n"                                                                                              
 ;
 
 /**
@@ -144,8 +145,10 @@ int (*action_handler[])(hip_common_t *, int action,const char *opt[], int optc, 
 	hip_conf_handle_get_peer_lsi,	/* 35: TYPE_MAP_GET_PEER_LSI */
 	hip_conf_handle_nat_port,       /* 36: TYPE_NAT_LOCAL_PORT */
 	hip_conf_handle_nat_port,       /* 37: TYPE_PEER_LOCAL_PORT */
-        hip_conf_handle_shotgun_toggle, /* 38: TYPE_SHOTGUN */
-	hip_conf_handle_lsi_to_hit,	/* 39: TYPE_LSI_TO_HIT */
+        hip_conf_handle_datapacket,     /* 38:TYPE_DATAPACKET*/
+        hip_conf_handle_shotgun_toggle, /* 39: TYPE_SHOTGUN */
+	hip_conf_handle_map_id_to_addr,  /* 40: TYPE_ID_TO_ADDR */
+        hip_conf_handle_lsi_to_hit,      /* 41: TYPE_LSI_TO_HIT */
 	NULL /* TYPE_MAX, the end. */
 };
 
@@ -244,6 +247,10 @@ int hip_conf_get_action(char *argv[])
 			ret = ACTION_NAT;
 		}
 	}
+/*Added by Prabhu to support datapacket mode */
+
+        else if (!strcmp("datapacket",argv[1]))
+                 ret = ACTION_DATAPACKET;
 	
 	return ret;
 }
@@ -263,7 +270,8 @@ int hip_conf_check_action_argc(int action) {
 	switch (action) {
 	case ACTION_NEW: case ACTION_NAT: case ACTION_DEC: case ACTION_RST:
 	case ACTION_BOS: case ACTION_LOCATOR: case ACTION_OPENDHT: case ACTION_HEARTBEAT:
-	case ACTION_HIT_TO_LSI: case ACTION_LSI_TO_HIT:
+	case ACTION_HIT_TO_LSI: case ACTION_DATAPACKET: case ACTION_MAP_ID_TO_ADDR:
+	case ACTION_LSI_TO_HIT:
 		count = 1;
 		break;
 	case ACTION_DEBUG: case ACTION_RESTART: case ACTION_REINIT:
@@ -331,6 +339,7 @@ int hip_conf_get_type(char *text,char *argv[]) {
 			ret = TYPE_NAT;
 		}
 	}
+
         else if (strcmp("locator", argv[1])==0)
                 ret = TYPE_LOCATOR;
 	/* Tao Wan added tcptimeout on 08.Jan.2008 */
@@ -390,12 +399,14 @@ int hip_conf_get_type(char *text,char *argv[]) {
 		ret = TYPE_HIT_TO_IP_SET;
 	else if (strcmp("hit-to-ip", argv[1])==0)
 		ret = TYPE_HIT_TO_IP;
+        else if(strcmp("datapacket", argv[1]) == 0)
+		ret = TYPE_DATAPACKET;
 	else if (strcmp("shotgun", argv[1])==0)
 		ret = TYPE_SHOTGUN;
 	else if (strcmp("lsi-to-hit", argv[1])==0)
 		ret = TYPE_LSI_TO_HIT;
         else
-	  HIP_DEBUG("ERROR: NO MATCHES FOUND \n");
+		HIP_DEBUG("ERROR: NO MATCHES FOUND \n");
 
 	return ret;
 }
@@ -446,6 +457,7 @@ int hip_conf_get_type_arg(int action)
 	case ACTION_NSUPDATE:
 	case ACTION_HIT_TO_IP:
 	case ACTION_HIT_TO_IP_SET:
+        case ACTION_DATAPACKET:
         case ACTION_SHOTGUN:
 		type_arg = 2;
 		break;
@@ -457,7 +469,7 @@ int hip_conf_get_type_arg(int action)
 	default:
 		break;
 	}
-
+        HIP_DEBUG("TYPE ARG =  %d ", type_arg);
 	return type_arg;
 }
 
@@ -1354,6 +1366,32 @@ out_err:
 
 }
 
+//Added by Prabhu to support Hip Data Packet mode.
+/**
+ * Handles the hipconf commands where type is @c datapacket. This mode swithces the Hip Firewall to work in data packet mode , meaning it can communicate without establishing BEX with peer node.
+ *
+ */
+ 
+int hip_conf_handle_datapacket(hip_common_t *msg, int action, const char *opt[],int optc, int send_only) {
+    int err = 0, status = 0;
+
+    if (!strcmp("on", opt[0])) {
+	    status = SO_HIP_SET_DATAPACKET_MODE_ON;
+    } else if (!strcmp("off", opt[0])) {
+	    status = SO_HIP_SET_DATAPACKET_MODE_OFF;
+    } else {
+	    HIP_IFEL(1, -1, "bad args\n");
+    }
+
+    HIP_IFEL(hip_build_user_hdr(msg, status, 0), -1, 
+	     "Failed to build user message header.: %s\n", strerror(err));
+
+out_err:
+
+    return 0;
+
+}
+
 /**
  * Handles the hipconf commands where the type is @c locator. You can turn 
  * locator sending in BEX on or query the set of local locators with this 
@@ -1751,6 +1789,8 @@ out_err:
 }
 
 
+#if 0
+/* */
 /**
  * Function that gets data from DHT - hipconf dht get <HIT> - returns IP mappings
  *
@@ -1844,7 +1884,8 @@ out_err:
     memset(msg, 0, HIP_MAX_PACKET);
     return(err);
 }
-#if 0 /* Original from Pardeep from OpenDHT branch */
+#endif /* 0 */
+
 /**
  * Function that gets data from DHT
  *
@@ -1852,16 +1893,19 @@ out_err:
  */
 int hip_conf_handle_get(hip_common_t *msg, int action, const char *opt[], int optc, int send_only)
 {
-        int err = 0;
+        int err = 0, is_hit = 0, socket = 0;
+	hip_hit_t hit = {0};
         char dht_response[HIP_MAX_PACKET];
         struct addrinfo * serving_gateway;
         struct hip_opendht_gw_info *gw_info;
+	struct hip_host_id *hid;
         struct in_addr tmp_v4;
-        char tmp_ip_str[21];
+	struct in6_addr reply6;
+        char tmp_ip_str[INET_ADDRSTRLEN];
         int tmp_ttl, tmp_port;
-        int *pret;
-		
-		/* ASK THIS INFO FROM DAEMON */
+        int *pret;        
+
+	/* ASK THIS INFO FROM DAEMON */
         HIP_INFO("Asking serving gateway info from daemon...\n");
         HIP_IFEL(hip_build_user_hdr(msg, SO_HIP_DHT_SERVING_GW,0),-1,
                  "Building daemon header failed\n");
@@ -1883,16 +1927,60 @@ int hip_conf_handle_get(hip_common_t *msg, int action, const char *opt[], int op
         HIP_INFO("Got address %s, port %d, TTL %d from daemon\n",
                   tmp_ip_str, tmp_port, tmp_ttl);
 
-        HIP_IFEL(resolve_dht_gateway_info(tmp_ip_str, &serving_gateway,tmp_port),0,
+	is_hit = inet_pton(AF_INET6, opt[0], &hit);
+	
+        /* If this is 1 then it is hit (actually any ipv6 would do), if 0 then hostname */ 
+	if (is_hit < 0 && errno == EAFNOSUPPORT)
+	{
+		HIP_PERROR("inet_pton: not a valid address family\n");
+		err = -EAFNOSUPPORT;
+		goto out_err;
+	} 
+	
+	HIP_DEBUG("Resolve the gateway address\n");
+        HIP_IFEL(resolve_dht_gateway_info(tmp_ip_str, &serving_gateway, tmp_port, AF_INET),0,
                  "Resolve error!\n");
-        HIP_IFEL(hip_opendht_get_key(&handle_hdrr_value,serving_gateway, opt[0], dht_response,0), 0,
-                 "Get error!\n");
-        HIP_INFO("Value received from the DHT.\n");
+
+	HIP_DEBUG("Initialize socket\n");
+	socket = init_dht_gateway_socket_gw(socket, serving_gateway);
+
+	_HIP_DEBUG("Connect the DHT socket\n");
+	err = connect_dht_gateway(socket, serving_gateway, 1);
+
+	HIP_DEBUG("Send get msg\n");       	
+	HIP_IFEL(err = opendht_get(socket, (unsigned char *)opt[0],
+				   (unsigned char *)tmp_ip_str, tmp_port), 0,
+		 "DHT get error\n");
+
+	HIP_DEBUG("Read response\n");
+	HIP_IFE((err = opendht_read_response(socket, dht_response)), -1);
+
+	_HIP_DEBUG("is_hit %d err %d\n", is_hit, err);
+     
+	if (is_hit == 1 && err >= 0) 
+	{
+		_HIP_DUMP_MSG(dht_response);
+		_HIP_DEBUG("Returned locators above\n");
+		/* hip_print_locator_addresses((struct hip_common *)dht_response); */
+		/* Verify signature */
+		HIP_IFEL(!(hid = hip_get_param((struct hip_common *)dht_response, 
+					       HIP_PARAM_HOST_ID)), -ENOENT,
+			 "No HOST_ID found in DHT response\n");
+
+	        HIP_IFEL((err = hip_verify_packet_signature((struct hip_common *)dht_response,
+							    hid)), -1, 
+			 "Failed to verify the signature in HDRR\n");
+		HIP_DEBUG("HDRR signature successfully verified\n");
+	} 
+	else if (is_hit == 0 && err >= 0)
+	{
+		memcpy(&((&reply6)->s6_addr), dht_response, sizeof(reply6.s6_addr));	
+		HIP_DEBUG_HIT("Returned HIT", &reply6);
+	}
+	hip_msg_init(msg);
  out_err:
         return(err);
 }
-#endif /* 0 */
-
 
 /**
  * Function that is used to set DHT on or off
@@ -2217,6 +2305,9 @@ int hip_do_hipconf(int argc, char *argv[], int send_only)
 
 	/* Get a numeric value representing the action. */
 	action = hip_conf_get_action(argv);
+//Prabhu        
+HIP_DEBUG(" Action = %d", action );
+
 	HIP_IFEL((action == -1), -1,
 		 "Invalid action argument '%s'\n", argv[1]);
 
@@ -2225,12 +2316,14 @@ int hip_do_hipconf(int argc, char *argv[], int send_only)
 	HIP_IFEL((argc < hip_conf_check_action_argc(action) + 2), -1,
 		 "Not enough arguments given for the action '%s'\n",
 		 argv[1]);
+HIP_DEBUG("Number of arguments : %d  Supplied %d ", hip_conf_check_action_argc(action), argc);
 
 	/* Is this redundant? What does it do? -Lauri 19.03.2008 19:46. */
 	HIP_IFEL(((type_arg = hip_conf_get_type_arg(action)) < 0), -1,
 		 "Could not parse type\n");
 
-	type = hip_conf_get_type(argv[type_arg],argv);
+	_HIP_DEBUG("ARGV[TYPE_ARG] = %s ", argv[type_arg]);
+        type = hip_conf_get_type(argv[type_arg],argv);
 	HIP_IFEL((type <= 0 || type > TYPE_MAX), -1,
 		 "Invalid type argument '%s' %d\n", argv[type_arg], type);
 

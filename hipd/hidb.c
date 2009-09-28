@@ -949,6 +949,52 @@ void *hip_get_private_key(hip_db_struct_t *db, struct in6_addr *hit, int algo) {
 	return key;
 }
 
+int hip_build_host_id_and_signature(struct hip_common *msg,  hip_hit_t *hit) {
+	struct hip_host_id *hi_public = NULL;
+	int err = 0;
+	int alg = -1;
+	void *private_key;
+
+	HIP_IFEL((hit == NULL), -1, "Null HIT\n");
+
+	/*
+	 * Below is the code for getting host id and appending it to the message (after removing private
+	 * key from it hi_public
+	 * Where as hi_private is used to create signature on message
+	 * Both of these are appended to the message sequally
+	 */
+
+    	if (err = hip_get_host_id_and_priv_key(HIP_DB_LOCAL_HID, hit,
+					       HIP_ANY_ALGO, &hi_public, &private_key)) {
+    		HIP_ERROR("Unable to locate HI from HID with HIT as key");
+    		goto out_err;
+    	}
+
+    	HIP_IFE(hip_build_param(msg, hi_public), -1);
+    	_HIP_DUMP_MSG(msg);
+
+    	alg = hip_get_host_id_algo(hi_public);
+	switch (alg) {
+	case HIP_HI_RSA:
+		err = hip_rsa_sign(private_key, msg);
+		break;
+	case HIP_HI_DSA:
+		err = hip_dsa_sign(private_key, msg);
+		break;
+	default:
+		HIP_ERROR("Unsupported HI algorithm (%d)\n", alg);
+		break;
+	}
+
+	_HIP_DUMP_MSG(msg);
+
+out_err:
+	if (hi_public)
+		free (hi_public);
+
+	return err;
+}
+
 #undef HIP_READ_LOCK_DB
 #undef HIP_WRITE_LOCK_DB
 #undef HIP_READ_UNLOCK_DB

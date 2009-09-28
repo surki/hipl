@@ -19,6 +19,15 @@
 #include "user_ipsec_fw_msg.h"
 #include "esp_prot_api.h"
 
+/* this is the maximum buffer-size needed for an userspace ipsec esp packet
+ * including the initialization vector for ESP and the hash value of the
+ * ESP protection extension */
+#define MAX_ESP_PADDING 255
+#define ESP_PACKET_SIZE (HIP_MAX_PACKET + sizeof(struct udphdr) \
+		+ sizeof(struct hip_esp) + AES_BLOCK_SIZE + MAX_ESP_PADDING \
+		+ sizeof(struct hip_esp_tail) + EVP_MAX_MD_SIZE) + MAX_HASH_LENGTH
+
+
 /** initializes the sadb, packet buffers and the sockets and notifies
  * the hipd about the activation of userspace ipsec
  *
@@ -46,5 +55,6 @@ int hip_firewall_userspace_ipsec_input(hip_fw_context_t *ctx);
  * @return	0, if correct, else != 0
  */
 int hip_firewall_userspace_ipsec_output(hip_fw_context_t *ctx);
-
+int  hip_fw_userspace_hip_datapacket_input(hip_fw_context_t *ctx);
+int  hip_fw_userspace_hip_datapacket_output(hip_fw_context_t *ctx);
 #endif /* USER_IPSEC_API_H_ */

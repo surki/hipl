@@ -346,12 +346,14 @@ int hchain_free(hash_chain_t *hash_chain)
 {
 	int err = 0;
 
-	if(!hash_chain)
+	if(hash_chain)
 	{
 		htree_free(hash_chain->link_tree);
 		hash_chain->link_tree = NULL;
 
-		free(hash_chain->elements);
+		if (hash_chain->elements)
+			free(hash_chain->elements);
+
 		free(hash_chain);
 	}
 

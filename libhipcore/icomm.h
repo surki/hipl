@@ -216,16 +216,21 @@
 #define SO_HIP_HIT_TO_IP_ON                     182
 #define SO_HIP_HIT_TO_IP_SET                    183
 #define SO_HIP_SET_NAT_PORT			184
-#define SO_HIP_SHOTGUN_ON                       185
-#define SO_HIP_SHOTGUN_OFF                      186
-#define SO_HIP_SIGN_BUDDY_X509V3                187
-#define SO_HIP_SIGN_BUDDY_SPKI                  188
-#define SO_HIP_VERIFY_BUDDY_X509V3              189
-#define SO_HIP_VERIFY_BUDDY_SPKI                190
+#define SO_HIP_SET_DATAPACKET_MODE_ON           185
+#define SO_HIP_SET_DATAPACKET_MODE_OFF          186    
+#define SO_HIP_BUILD_HOST_ID_SIGNATURE_DATAPACKET   187
+#define SO_HIP_SHOTGUN_ON                       188
+#define SO_HIP_SHOTGUN_OFF                      189
+#define SO_HIP_SIGN_BUDDY_X509V3                190
+#define SO_HIP_SIGN_BUDDY_SPKI                  191
+#define SO_HIP_VERIFY_BUDDY_X509V3              192
+#define SO_HIP_VERIFY_BUDDY_SPKI                193
 
 
 /** @} */
 /* inclusive */
+
+
 #define HIP_SO_ROOT_MAX 			255
 
 #define SO_HIP_SET_NAT_ON                     SO_HIP_SET_NAT_PLAIN_UDP

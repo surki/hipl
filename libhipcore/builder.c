@@ -1653,7 +1653,7 @@ int hip_build_user_hdr(struct hip_common *msg, hip_hdr_type_t base_type,
  *
  * This function does not write the header length into the message. It should
  * be written by the build_param_functions. The checksum field is not written
- * either because it is done in hip_send_raw() and hip_send_udp().
+ * either because it is done in hip_send_pkt().
  *
  * @param msg          the message where the HIP network should be written
  * @param type_hdr     the type of the HIP header as specified in the drafts
@@ -2567,7 +2567,7 @@ int hip_build_param_diffie_hellman_contents(struct hip_common *msg,
 	     value_tmp += pubkey_len1;
 	     *value_tmp++ = group_id2;
 	     tmp_pubkey_len2 = htons(pubkey_len2);
-	     memcpy(&value_tmp, &tmp_pubkey_len2, sizeof(uint16_t));
+	     memcpy(value_tmp, &tmp_pubkey_len2, sizeof(uint16_t));
 	     value_tmp += sizeof(uint16_t);
 	     memcpy(value_tmp, pubkey2, pubkey_len2);
 	}else
@@ -4287,4 +4287,3 @@ int hip_build_param_nat_port(hip_common_t *msg, const in_port_t port, hip_tlv_ty
 
 	return err;
 }
-

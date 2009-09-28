@@ -2418,10 +2418,10 @@ void hip_init_hadb(void)
      }
      else
 #endif
-	  default_xmit_func_set.hip_send_pkt = hip_send_raw;
+	  default_xmit_func_set.hip_send_pkt = hip_send_pkt;
      
 
-     nat_xmit_func_set.hip_send_pkt = hip_send_udp;
+     nat_xmit_func_set.hip_send_pkt = hip_send_pkt;
 
      /* filter function sets */
      /* Compiler warning: assignment from incompatible pointer type.

@@ -349,13 +349,13 @@ struct hip_hadb_state
 	/** ESP extension protection transform */
 	uint8_t						 esp_prot_transform;
 	/** ESP extension protection local_anchor */
-	unsigned char				 esp_local_anchors[NUM_PARALLEL_CHAINS][MAX_HASH_LENGTH];
+	unsigned char				 esp_local_anchors[MAX_NUM_PARALLEL_HCHAINS][MAX_HASH_LENGTH];
 	/** another local anchor used for UPDATE messages */
-	unsigned char				 esp_local_update_anchors[NUM_PARALLEL_CHAINS][MAX_HASH_LENGTH];
+	unsigned char				 esp_local_update_anchors[MAX_NUM_PARALLEL_HCHAINS][MAX_HASH_LENGTH];
 	/** ESP extension protection peer_anchor */
-	unsigned char				 esp_peer_anchors[NUM_PARALLEL_CHAINS][MAX_HASH_LENGTH];
+	unsigned char				 esp_peer_anchors[MAX_NUM_PARALLEL_HCHAINS][MAX_HASH_LENGTH];
 	/** another peer anchor used for UPDATE messages */
-	unsigned char				 esp_peer_update_anchors[NUM_PARALLEL_CHAINS][MAX_HASH_LENGTH];
+	unsigned char				 esp_peer_update_anchors[MAX_NUM_PARALLEL_HCHAINS][MAX_HASH_LENGTH];
 	/** needed for offset calculation when using htrees */
 	uint32_t					 esp_local_active_length;
 	uint32_t					 esp_local_update_length;
@@ -363,7 +363,7 @@ struct hip_hadb_state
 	uint32_t					 esp_peer_update_length;
 	/** root needed in case of hierarchical hchain linking */
 	uint8_t						 esp_root_length;
-	unsigned char				 esp_root[NUM_PARALLEL_CHAINS][MAX_HASH_LENGTH];
+	unsigned char				 esp_root[MAX_NUM_PARALLEL_HCHAINS][MAX_HASH_LENGTH];
 	int							 hash_item_length;
 	/** parameters needed for soft-updates of hchains */
 	/** Stored outgoing UPDATE ID counter. */

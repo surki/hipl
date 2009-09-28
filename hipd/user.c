@@ -14,6 +14,7 @@
  */
 #include "user.h"
 
+extern int hip_use_userspace_data_packet_mode;
 
 int hip_sendto_user(const struct hip_common *msg, const struct sockaddr *dst){
 	HIP_DEBUG("Sending msg type %d\n", hip_get_msg_type(msg));
@@ -379,6 +380,42 @@ int hip_handle_user_msg(hip_common_t *msg, struct sockaddr_in6 *src)
 	break;
         case SO_HIP_DHT_SERVING_GW:
         {
+                struct in_addr ip_gw;
+		struct in6_addr ip_gw_mapped;
+		int rett = 0, errr = 0;
+		struct sockaddr_in *sa;
+		if (opendht_serving_gateway == NULL) {
+			opendht_serving_gateway = malloc(sizeof(struct addrinfo));
+			memset(opendht_serving_gateway, 0, sizeof(struct addrinfo));
+		}
+		if (opendht_serving_gateway->ai_addr == NULL) {
+			opendht_serving_gateway->ai_addr = malloc(sizeof(struct sockaddr_in));
+			memset(opendht_serving_gateway->ai_addr, 0, sizeof(struct sockaddr_in));
+		}
+		sa = (struct sockaddr_in*)opendht_serving_gateway->ai_addr;
+		rett = inet_pton(AF_INET, inet_ntoa(sa->sin_addr), &ip_gw);
+		IPV4_TO_IPV6_MAP(&ip_gw, &ip_gw_mapped);
+		if (hip_opendht_inuse == SO_HIP_DHT_ON) {
+			errr = hip_build_param_opendht_gw_info(msg, &ip_gw_mapped, 
+							       opendht_serving_gateway_ttl,
+							       opendht_serving_gateway_port);
+		} else { /* not in use mark port and ttl to 0 so 'client' knows */
+			errr = hip_build_param_opendht_gw_info(msg, &ip_gw_mapped, 0,0);
+		}
+		
+		if (errr)
+		{
+			HIP_ERROR("Build param hit failed: %s\n", strerror(errr));
+			goto out_err;
+		}
+		errr = hip_build_user_hdr(msg, SO_HIP_DHT_SERVING_GW, 0);
+		if (errr)
+		{
+			HIP_ERROR("Build hdr failed: %s\n", strerror(errr));
+		}
+		HIP_DEBUG("Building gw_info complete\n");
+		
+		/* NOT the way to do this 
 		int err_value = 0;
 		if(hip_opendht_inuse != SO_HIP_DHT_ON){
 			err_value = 5;
@@ -392,6 +429,7 @@ int hip_handle_user_msg(hip_common_t *msg, struct sockaddr_in6 *src)
 		}else{
 			err = hip_get_dht_mapping_for_HIT_msg(msg);
 		}
+		*/
 	}
         break;
         case SO_HIP_DHT_SET:
@@ -1125,7 +1163,81 @@ int hip_handle_user_msg(hip_common_t *msg, struct sockaddr_in6 *src)
 		sock_addr.sin6_addr = in6addr_loopback;
 		HIP_DEBUG("GET HIP PROXY LOCAL ADDRESS\n");
 		hip_get_local_addr(msg);
+		break;
 	}
+
+       case SO_HIP_SET_DATAPACKET_MODE_ON:  //Prabhu Enable DataPacket Mode
+       {
+		struct sockaddr_in6 sock_addr;
+                HIP_DEBUG("SO_HIP_SET_DATAPACKET_MODE_ON\n");
+		HIP_DUMP_MSG(msg);
+
+                hip_use_userspace_data_packet_mode = 1;
+
+		bzero(&sock_addr, sizeof(sock_addr));
+		sock_addr.sin6_family = AF_INET6;
+		sock_addr.sin6_port = htons(HIP_FIREWALL_PORT);
+		sock_addr.sin6_addr = in6addr_loopback;
+
+                n = hip_sendto_user(msg, &sock_addr);
+		if (n <= 0) {
+			HIP_ERROR("hipconf datapacket  failed \n");
+		} else {
+			HIP_DEBUG("hipconf datapacket ok (sent %d bytes)\n", n);
+			break;
+		}
+                send_response = 1;
+                break;
+       }
+
+       case SO_HIP_SET_DATAPACKET_MODE_OFF:  //Prabhu Enable DataPacket Mode
+       {
+		struct sockaddr_in6 sock_addr_1;
+                HIP_DEBUG("SO_HIP_SET_DATAPACKET_MODE_OFF\n");
+		HIP_DUMP_MSG(msg);
+
+                hip_use_userspace_data_packet_mode = 0;
+                
+		//firewall socket address
+		bzero(&sock_addr_1, sizeof(sock_addr_1));
+		sock_addr_1.sin6_family = AF_INET6;
+		sock_addr_1.sin6_port = htons(HIP_FIREWALL_PORT);
+		sock_addr_1.sin6_addr = in6addr_loopback;
+
+                n = hip_sendto_user(msg, &sock_addr_1);
+		if (n <= 0) 
+			HIP_ERROR("hipconf datapacket  failed \n");
+		 else 
+			HIP_DEBUG("hipconf datapacket ok (sent %d bytes)\n", n);
+                send_response = 1;
+                break;
+       }
+
+       case SO_HIP_BUILD_HOST_ID_SIGNATURE_DATAPACKET:
+       {
+	       int original_type;
+	       hip_hit_t data_hit; 
+
+	       HIP_IFEL(hip_get_any_localhost_hit(&data_hit, HIP_HI_DEFAULT_ALGO, 0), -1,
+			"No HIT found\n");
+
+	       HIP_DEBUG("SO_HIP_BUILD_HOST_ID_SIGNATURE_DATAPACKET");
+
+	       original_type = msg->type_hdr;
+
+	       // We are about the sign the packet .. So change the MSG type to HIP_DATA and then reset it to original
+	       msg->type_hdr = HIP_DATA;
+	       
+	       err = hip_build_host_id_and_signature(msg, &data_hit);
+	       
+	       msg->type_hdr = original_type; 
+
+               send_response = 1;
+               goto out_err;
+       }
+               break;
+ 
+ 
 	case SO_HIP_TRIGGER_BEX:
 		HIP_DEBUG("SO_HIP_TRIGGER_BEX\n");
 		hip_firewall_status = 1;

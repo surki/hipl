@@ -1,9 +1,10 @@
- #ifndef _HIP_NLINK_H
+#ifndef _HIP_NLINK_H
 #define _HIP_NLINK_H
 
 #include <stdio.h>
 #include <stdint.h>
 #include <net/if.h>
+#include <netinet/in.h>
 
 #include "builder.h"
 #include "debug.h"
@@ -57,21 +58,6 @@ struct pseudo6_hdr{
    bandwith-consuming apps (see bug id 451) */
 #define HIP_DEFAULT_MTU 1280
 
-struct hip_work_order_hdr {
-	int type;
-	int subtype;
-	struct in6_addr id1, id2, id3; /* can be a HIT or IP address */
-	int arg1, arg2, arg3;
-};
-
-struct hip_work_order {
-	struct hip_work_order_hdr hdr;
-	struct hip_common *msg; /* NOTE: reference only with &hwo->msg ! */
-	uint32_t seq;
-	hip_list_t queue;
-	void (*destructor)(struct hip_work_order *hwo);
-};
-
 struct netdev_address {
   //hip_list_t next;
 	struct sockaddr_storage addr;
@@ -110,12 +96,18 @@ struct rtnl_handle
         __u32                   dump;
 };
 
-
-int lsi_total;
+/* Workaround: in6_pktinfo does not compile on Fedora and Ubuntu anymore.
+   This works also with CentOS */
+struct inet6_pktinfo {
+	struct in6_addr ipi6_addr;
+	unsigned int ipi6_ifindex;
+};
 
 typedef int (*hip_filter_t)(const struct nlmsghdr *n, int len, void *arg);
 typedef int (*rtnl_filter_t)(const struct sockaddr_nl *,
 			     const struct nlmsghdr *n, void **);
+
+//int lsi_total;
 
 int get_ctl_fd(void);
 int do_chflags(const char *dev, __u32 flags, __u32 mask);
@@ -130,9 +122,5 @@ int hip_netlink_receive_workorder(const struct nlmsghdr *n, int len, void *arg);
 int netlink_talk(struct rtnl_handle *nl, struct nlmsghdr *n, pid_t peer,
 			unsigned groups, struct nlmsghdr *answer,
 		 hip_filter_t junk, void *arg);
-int hip_netlink_talk(struct rtnl_handle *nl, struct hip_work_order *req, struct hip_work_order *resp);
-int hip_netlink_send(struct hip_work_order *hwo);
-void hip_netlink_close(struct rtnl_handle *rth);
-//int hip_get_default_hit(struct rtnl_handle *hip_nl_route, struct in6_addr *hit);
 
 #endif /* _HIP_NLINK_H */

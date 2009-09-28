@@ -16,12 +16,17 @@ int esp_prot_set_preferred_transforms(struct hip_common *msg)
 	struct hip_tlv_common *param = NULL;
 	extern int esp_prot_num_transforms;
 	extern uint8_t esp_prot_transforms[NUM_TRANSFORMS];
+	extern int esp_prot_num_parallel_hchains;
 	int err = 0, i;
 
 	// process message and store the preferred transforms
 	param = (struct hip_tlv_common *)hip_get_param(msg, HIP_PARAM_INT);
 	esp_prot_num_transforms = *((int *)hip_get_param_contents_direct(param));
 	HIP_DEBUG("esp protection num_transforms: %i\n", esp_prot_num_transforms);
+
+	param = (struct hip_tlv_common *)hip_get_next_param(msg, param);
+	esp_prot_num_parallel_hchains = *((int *)hip_get_param_contents_direct(param));
+	HIP_DEBUG("esp_prot_num_parallel_hchains: %i\n", esp_prot_num_parallel_hchains);
 
 	for (i = 0; i < NUM_TRANSFORMS; i++)
 	{
@@ -60,14 +65,14 @@ int esp_prot_handle_trigger_update_msg(struct hip_common *msg)
 	int hash_length = 0;
 	unsigned char *esp_prot_anchor = NULL;
 	int soft_update = 0;
-	int anchor_offset[NUM_PARALLEL_CHAINS];
+	int anchor_offset[MAX_NUM_PARALLEL_HCHAINS];
 	int anchor_length = 0;
-	int secret_length[NUM_PARALLEL_CHAINS];
-	int branch_length[NUM_PARALLEL_CHAINS];
+	int secret_length[MAX_NUM_PARALLEL_HCHAINS];
+	int branch_length[MAX_NUM_PARALLEL_HCHAINS];
 	int root_length = 0;
-	unsigned char *secret[NUM_PARALLEL_CHAINS];
-	unsigned char *branch_nodes[NUM_PARALLEL_CHAINS];
-	unsigned char *root[NUM_PARALLEL_CHAINS];
+	unsigned char *secret[MAX_NUM_PARALLEL_HCHAINS];
+	unsigned char *branch_nodes[MAX_NUM_PARALLEL_HCHAINS];
+	unsigned char *root[MAX_NUM_PARALLEL_HCHAINS];
 	hip_ha_t *entry = NULL;
 	int hash_item_length = 0;
 	unsigned char cmp_val[MAX_HASH_LENGTH];
@@ -290,8 +295,8 @@ int esp_prot_sa_add(hip_ha_t *entry, struct hip_common *msg, int direction,
 	unsigned char (* hchain_anchors)[MAX_HASH_LENGTH] = NULL;
 	int hash_length = 0;
 	uint32_t hash_item_length = 0;
-	uint16_t num_anchors = 0, i;
-	int err = 0;
+	extern int esp_prot_num_parallel_hchains;
+	int err = 0, i;
 
 	HIP_DEBUG("direction: %i\n", direction);
 
@@ -304,12 +309,6 @@ int esp_prot_sa_add(hip_ha_t *entry, struct hip_common *msg, int direction,
 	// but we only transmit the anchor to the firewall, if the esp extension is used
 	if (entry->esp_prot_transform > ESP_PROT_TFM_UNUSED)
 	{
-		// distinguish different number of conveyed anchors by authentication mode
-		if (PARALLEL_CHAINS)
-			num_anchors = NUM_PARALLEL_CHAINS;
-		else
-			num_anchors = 1;
-
 		hash_length = anchor_db_get_anchor_length(entry->esp_prot_transform);
 
 		// choose the anchor depending on the direction and update or add
@@ -353,11 +352,11 @@ int esp_prot_sa_add(hip_ha_t *entry, struct hip_common *msg, int direction,
 				"build param contents failed\n");
 
 		// add parameters to hipfw message
-		HIP_IFEL(hip_build_param_contents(msg, (void *)&num_anchors,
+		HIP_IFEL(hip_build_param_contents(msg, (void *)&esp_prot_num_parallel_hchains,
 				HIP_PARAM_UINT, sizeof(uint16_t)), -1,
 				"build param contents failed\n");
 
-		for (i = 0; i < num_anchors; i++)
+		for (i = 0; i < esp_prot_num_parallel_hchains; i++)
 		{
 			HIP_HEXDUMP("esp protection anchor is ", &hchain_anchors[i][0], hash_length);
 
@@ -461,9 +460,9 @@ int esp_prot_i2_add_anchor(hip_common_t *i2, hip_ha_t *entry, struct hip_context
 {
 	struct hip_param *param = NULL;
 	unsigned char *anchor = NULL;
-	int num_anchors = 0;
 	int hash_length = 0;
 	int hash_item_length = 0;
+	extern int esp_prot_num_parallel_hchains;
 	int err = 0, i;
 
 	/* only add, if extension in use and we agreed on a transform
@@ -471,20 +470,14 @@ int esp_prot_i2_add_anchor(hip_common_t *i2, hip_ha_t *entry, struct hip_context
 	 * @note the transform was selected in handle R1 */
 	if (entry->esp_prot_transform > ESP_PROT_TFM_UNUSED)
 	{
-		// distinguish different number of conveyed anchors by authentication mode
-		if (PARALLEL_CHAINS)
-			num_anchors = NUM_PARALLEL_CHAINS;
-		else
-			num_anchors = 1;
-
 		// check for sufficient elements
-		if (anchor_db_get_num_anchors(entry->esp_prot_transform) >= num_anchors)
+		if (anchor_db_get_num_anchors(entry->esp_prot_transform) >= esp_prot_num_parallel_hchains)
 		{
 			hash_length = anchor_db_get_anchor_length(entry->esp_prot_transform);
 			HIP_DEBUG("hash_length: %i\n", hash_length);
 			hash_item_length = anchor_db_get_hash_item_length(entry->esp_prot_transform);
 
-			for (i = 0; i < num_anchors; i++)
+			for (i = 0; i < esp_prot_num_parallel_hchains; i++)
 			{
 				// add all anchors now
 				HIP_IFEL(!(anchor = anchor_db_get_anchor(entry->esp_prot_transform)), -1,
@@ -544,10 +537,10 @@ int esp_prot_i2_handle_anchor(hip_ha_t *entry, struct hip_context *ctx)
 {
 	extern int esp_prot_num_transforms;
 	extern uint8_t esp_prot_transforms[NUM_TRANSFORMS];
+	extern int esp_prot_num_parallel_hchains;
 	struct hip_tlv_common *param = NULL;
 	struct esp_prot_anchor *prot_anchor = NULL;
 	int hash_length = 0;
-	int num_anchors = 0;
 	int err = 0, i;
 
 	/* only supported in user-mode ipsec and optional there */
@@ -558,12 +551,6 @@ int esp_prot_i2_handle_anchor(hip_ha_t *entry, struct hip_context *ctx)
 		if (param = hip_get_param(ctx->input, HIP_PARAM_ESP_PROT_ANCHOR))
 		{
 			prot_anchor = (struct esp_prot_anchor *) param;
-
-			// distinguish different number of conveyed anchors by authentication mode
-			if (PARALLEL_CHAINS)
-				num_anchors = NUM_PARALLEL_CHAINS;
-			else
-				num_anchors = 1;
 
 			// check if the anchor has a supported transform
 			if (esp_prot_check_transform(esp_prot_num_transforms, esp_prot_transforms,
@@ -587,7 +574,7 @@ int esp_prot_i2_handle_anchor(hip_ha_t *entry, struct hip_context *ctx)
 						entry->esp_peer_active_length);
 
 				// store all contained anchors
-				for (i = 0; i < num_anchors; i++)
+				for (i = 0; i < esp_prot_num_parallel_hchains; i++)
 				{
 					if (!prot_anchor || prot_anchor->transform != entry->esp_prot_transform)
 					{
@@ -634,28 +621,22 @@ int esp_prot_i2_handle_anchor(hip_ha_t *entry, struct hip_context *ctx)
 
 int esp_prot_r2_add_anchor(hip_common_t *r2, hip_ha_t *entry)
 {
+	extern int esp_prot_num_parallel_hchains;
 	unsigned char *anchor = NULL;
 	int hash_length = 0;
 	int hash_item_length = 0;
-	int num_anchors = 0;
 	int err = 0, i;
 
 	// only add, if extension in use, we agreed on a transform and no error until now
 	if (entry->esp_prot_transform > ESP_PROT_TFM_UNUSED)
 	{
-		// distinguish different amount of conveyed anchors by authentication mode
-		if (PARALLEL_CHAINS)
-			num_anchors = NUM_PARALLEL_CHAINS;
-		else
-			num_anchors = 1;
-
 		// check for sufficient elements
-		if (anchor_db_get_num_anchors(entry->esp_prot_transform) >= num_anchors)
+		if (anchor_db_get_num_anchors(entry->esp_prot_transform) >= esp_prot_num_parallel_hchains)
 		{
 			hash_length = anchor_db_get_anchor_length(entry->esp_prot_transform);
 			HIP_DEBUG("hash_length: %i\n", hash_length);
 
-			for (i = 0; i < num_anchors; i++)
+			for (i = 0; i < esp_prot_num_parallel_hchains; i++)
 			{
 				// add all anchors now
 				HIP_IFEL(!(anchor = anchor_db_get_anchor(entry->esp_prot_transform)), -1,
@@ -703,11 +684,11 @@ int esp_prot_r2_add_anchor(hip_common_t *r2, hip_ha_t *entry)
 
 int esp_prot_r2_handle_anchor(hip_ha_t *entry, struct hip_context *ctx)
 {
+	extern int esp_prot_num_parallel_hchains;
 	struct hip_tlv_common *param = NULL;
 	struct esp_prot_anchor *prot_anchor = NULL;
 	unsigned char *anchor = NULL;
 	int hash_length = 0;
-	int num_anchors = 0;
 	int err = 0, i;
 
 	// only process anchor, if we agreed on using it before
@@ -715,12 +696,6 @@ int esp_prot_r2_handle_anchor(hip_ha_t *entry, struct hip_context *ctx)
 	{
 		if (param = hip_get_param(ctx->input, HIP_PARAM_ESP_PROT_ANCHOR))
 		{
-			// distinguish different number of conveyed anchors by authentication mode
-			if (PARALLEL_CHAINS)
-				num_anchors = NUM_PARALLEL_CHAINS;
-			else
-				num_anchors = 1;
-
 			prot_anchor = (struct esp_prot_anchor *) param;
 
 			// check if the anchor has got the negotiated transform
@@ -734,7 +709,7 @@ int esp_prot_r2_handle_anchor(hip_ha_t *entry, struct hip_context *ctx)
 						entry->esp_peer_active_length);
 
 				// store all contained anchors
-				for (i = 0; i < num_anchors; i++)
+				for (i = 0; i < esp_prot_num_parallel_hchains; i++)
 				{
 					if (prot_anchor->transform != entry->esp_prot_transform || !prot_anchor)
 					{
@@ -846,6 +821,7 @@ int esp_prot_handle_update(hip_common_t *recv_update, hip_ha_t *entry,
 
 int esp_prot_update_add_anchor(hip_common_t *update, hip_ha_t *entry)
 {
+	extern int esp_prot_num_parallel_hchains;
 	struct hip_seq * seq = NULL;
 	int hash_length = 0;
 	int err = 0, i;
@@ -866,12 +842,6 @@ int esp_prot_update_add_anchor(hip_common_t *update, hip_ha_t *entry)
 			// we need to know the hash_length for this transform
 			hash_length = anchor_db_get_anchor_length(entry->esp_prot_transform);
 
-			// distinguish different number of conveyed anchors by authentication mode
-			if (PARALLEL_CHAINS)
-				num_anchors = NUM_PARALLEL_CHAINS;
-			else
-				num_anchors = 1;
-
 			/* @note update-anchor will be set, if there was a anchor UPDATE before
 			 *       or if this is an anchor UPDATE; otherwise update-anchor will
 			 *       be NULL
@@ -879,7 +849,7 @@ int esp_prot_update_add_anchor(hip_common_t *update, hip_ha_t *entry)
 			 * XX TODO we need to choose the correct SA with the anchor we want to
 			 *         update, when supporting multihoming and when this is a
 			 *         pure anchor-update */
-			for (i = 0; i < num_anchors; i++)
+			for (i = 0; i < esp_prot_num_parallel_hchains; i++)
 			{
 				HIP_IFEL(hip_build_param_esp_prot_anchor(update,
 						entry->esp_prot_transform, &entry->esp_local_anchors[i][0],
@@ -890,10 +860,10 @@ int esp_prot_update_add_anchor(hip_common_t *update, hip_ha_t *entry)
 			// only add the root if it is specified
 			if (entry->esp_root_length > 0)
 			{
-				for (i = 0; i < num_anchors; i++)
+				for (i = 0; i < esp_prot_num_parallel_hchains; i++)
 				{
 					HIP_IFEL(hip_build_param_esp_prot_root(update,
-							entry->esp_root_length, &entry->esp_root[i]), -1,
+							entry->esp_root_length, &entry->esp_root[i][0]), -1,
 							"building of ESP ROOT failed\n");
 				}
 			}
@@ -912,6 +882,7 @@ int esp_prot_update_add_anchor(hip_common_t *update, hip_ha_t *entry)
 int esp_prot_update_handle_anchor(hip_common_t *recv_update, hip_ha_t *entry,
 		in6_addr_t *src_ip, in6_addr_t *dst_ip, uint32_t *spi)
 {
+	extern int esp_prot_num_parallel_hchains;
 	struct esp_prot_anchor *prot_anchor = NULL;
 	struct hip_tlv_common *param = NULL;
 	int hash_length = 0;
@@ -937,17 +908,11 @@ int esp_prot_update_handle_anchor(hip_common_t *recv_update, hip_ha_t *entry,
 		// compare peer_update_anchor to 0
 		memset(cmp_value, 0, MAX_HASH_LENGTH);
 
-		// distinguish different number of conveyed anchors by authentication mode
-		if (PARALLEL_CHAINS)
-			num_anchors = NUM_PARALLEL_CHAINS;
-		else
-			num_anchors = 1;
-
 		/* treat the very first hchain update after the BEX differently
 		 * -> assume properties of first parallal chain same as for others */
 		if (!memcmp(&entry->esp_peer_update_anchors[0][0], &cmp_value[0], MAX_HASH_LENGTH))
 		{
-			for (i = 0; i < num_anchors; i++)
+			for (i = 0; i < esp_prot_num_parallel_hchains; i++)
 			{
 				// check that we are receiving an anchor matching the negotiated transform
 				HIP_IFEL(entry->esp_prot_transform != prot_anchor->transform, -1,
@@ -975,7 +940,7 @@ int esp_prot_update_handle_anchor(hip_common_t *recv_update, hip_ha_t *entry,
 		} else if (!memcmp(&entry->esp_peer_update_anchors[0][0], &prot_anchor->anchors[0],
 					hash_length))
 		{
-			for (i = 0; i < num_anchors; i++)
+			for (i = 0; i < esp_prot_num_parallel_hchains; i++)
 			{
 				// check that we are receiving an anchor matching the active one
 				HIP_IFEL(memcmp(&prot_anchor->anchors[0], &entry->esp_peer_update_anchors[i][0],
@@ -1000,7 +965,7 @@ int esp_prot_update_handle_anchor(hip_common_t *recv_update, hip_ha_t *entry,
 			}
 		} else
 		{
-			for (i = 0; i < num_anchors; i++)
+			for (i = 0; i < esp_prot_num_parallel_hchains; i++)
 			{
 				prot_anchor = (struct esp_prot_anchor *) param;
 

@@ -40,10 +40,10 @@ struct esp_anchor_item
 	uint32_t seq; /* current sequence of the IPsec SA */
 	uint8_t transform; /* negotiated TPA transform */
 	uint32_t hash_item_length; /* length of the update hash structure */
-	unsigned char *active_anchors[NUM_PARALLEL_CHAINS]; /* the active hash anchor element */
-	unsigned char *next_anchors[NUM_PARALLEL_CHAINS]; /* the update hash anchor element */
+	unsigned char *active_anchors[MAX_NUM_PARALLEL_HCHAINS]; /* the active hash anchor element */
+	unsigned char *next_anchors[MAX_NUM_PARALLEL_HCHAINS]; /* the update hash anchor element */
 	uint8_t root_length; /* length of the eventual root element (HHL) */
-	unsigned char *roots[NUM_PARALLEL_CHAINS]; /* the root element (HHL) */
+	unsigned char *roots[MAX_NUM_PARALLEL_HCHAINS]; /* the root element (HHL) */
 };
 
 /** initializes the TPA extension for the hipfw and the hipd

@@ -32,7 +32,7 @@
  * @param  encap_hdr_size .
  * @return 
  */ 
-int hip_peek_recv_total_len(int socket, int encap_hdr_size, long timeout);
+int hip_peek_recv_total_len(int socket, int encap_hdr_size, unsigned long timeout);
 
 /**
  * Connects a socket to the HIP daemon. Connects a socket identified by file

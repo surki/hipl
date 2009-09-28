@@ -10,10 +10,11 @@
 #include "esp_prot_anchordb.h"
 #include "esp_prot_hipd_msg.h"
 
-int esp_prot_send_light_update(hip_ha_t *entry, int anchor_offset[NUM_PARALLEL_CHAINS],
-		unsigned char *secret[NUM_PARALLEL_CHAINS], int secret_length[NUM_PARALLEL_CHAINS],
-		unsigned char *branch_nodes[NUM_PARALLEL_CHAINS], int branch_length[NUM_PARALLEL_CHAINS])
+int esp_prot_send_light_update(hip_ha_t *entry, int *anchor_offset,
+		unsigned char **secret, int *secret_length,
+		unsigned char **branch_nodes, int *branch_length)
 {
+	extern int esp_prot_num_parallel_hchains;
 	hip_common_t *light_update = NULL;
 	int hash_length = 0;
 	uint16_t mask = 0;
@@ -28,23 +29,17 @@ int esp_prot_send_light_update(hip_ha_t *entry, int anchor_offset[NUM_PARALLEL_C
 
 	/********************* add SEQ *********************/
 
-	 entry->light_update_id_out++;
-	 HIP_DEBUG("outgoing light UPDATE ID=%u\n", entry->light_update_id_out);
+	entry->light_update_id_out++;
+	HIP_DEBUG("outgoing light UPDATE ID=%u\n", entry->light_update_id_out);
 
-	 HIP_IFEL(hip_build_param_seq(light_update, entry->light_update_id_out), -1,
-		  "building of SEQ param failed\n");
+	HIP_IFEL(hip_build_param_seq(light_update, entry->light_update_id_out), -1,
+			"building of SEQ param failed\n");
 
-	 /********** add ESP-PROT anchor, branch, secret, root **********/
+	/********** add ESP-PROT anchor, branch, secret, root **********/
 
-	 hash_length = anchor_db_get_anchor_length(entry->esp_prot_transform);
+	hash_length = anchor_db_get_anchor_length(entry->esp_prot_transform);
 
-	 // distinguish different number of conveyed anchors by authentication mode
-	if (PARALLEL_CHAINS)
-		num_anchors = NUM_PARALLEL_CHAINS;
-	else
-		num_anchors = 1;
-
-	for (i = 0; i < num_anchors; i++)
+	for (i = 0; i < esp_prot_num_parallel_hchains; i++)
 	{
 		HIP_IFEL(hip_build_param_esp_prot_anchor(light_update,
 				entry->esp_prot_transform, &entry->esp_local_anchors[i][0],
@@ -52,20 +47,20 @@ int esp_prot_send_light_update(hip_ha_t *entry, int anchor_offset[NUM_PARALLEL_C
 				-1, "building of ESP protection ANCHOR failed\n");
 	}
 
-	for (i = 0; i < num_anchors; i++)
+	for (i = 0; i < esp_prot_num_parallel_hchains; i++)
 	{
 		HIP_IFEL(hip_build_param_esp_prot_branch(light_update,
 				anchor_offset[i], branch_length[i], branch_nodes[i]), -1,
 				"building of ESP BRANCH failed\n");
 	}
 
-	for (i = 0; i < num_anchors; i++)
+	for (i = 0; i < esp_prot_num_parallel_hchains; i++)
 	{
 		 HIP_IFEL(hip_build_param_esp_prot_secret(light_update, secret_length[i], secret[i]),
 				 -1, "building of ESP SECRET failed\n");
 	}
 
-	for (i = 0; i < num_anchors; i++)
+	for (i = 0; i < esp_prot_num_parallel_hchains; i++)
 	{
 		// only send root if the update hchain has got a link_tree
 		if (entry->esp_root_length > 0)

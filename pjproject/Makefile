@@ -76,6 +76,9 @@ xhdrid:
 		cp /tmp/id $$f; \
 	done
 
+# added for HIPL
+uninstall:
+
 #prefix = /usr/local
 # Miika: removed install target as it breaks "make rpm" target
 install-unused:

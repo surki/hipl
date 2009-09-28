@@ -125,9 +125,11 @@
 #define ACTION_HIT_TO_IP_SET 32
 #define ACTION_NAT_LOCAL_PORT 33
 #define ACTION_NAT_PEER_PORT 34
-#define ACTION_SHOTGUN 35
-#define ACTION_LSI_TO_HIT 36
-#define ACTION_MAX 37 /* exclusive */
+#define ACTION_DATAPACKET 35  /*Support for datapacket--Prabhu */
+#define ACTION_SHOTGUN 36
+#define ACTION_MAP_ID_TO_ADDR 37
+#define ACTION_LSI_TO_HIT 38
+#define ACTION_MAX 39 /* exclusive */
 
 /**
  * TYPE_ constant list, as an index for each action_handler function.
@@ -175,10 +177,12 @@
 #define TYPE_HIT_TO_IP_SET 34
 #define TYPE_HIT_TO_LSI    35
 #define TYPE_NAT_LOCAL_PORT 36
-#define TYPE_NAT_PEER_PORT 37
-#define TYPE_SHOTGUN       38
-#define TYPE_LSI_TO_HIT    39
-#define TYPE_MAX           40 /* exclusive */
+#define TYPE_NAT_PEER_PORT 37	
+#define TYPE_DATAPACKET    38 /*support for data packet mode-- Prabhu */
+#define TYPE_SHOTGUN       39
+#define TYPE_ID_TO_ADDR    40
+#define TYPE_LSI_TO_HIT    41
+#define TYPE_MAX           42 /* exclusive */
 
 /* #define TYPE_RELAY         22 */
 
@@ -206,8 +210,9 @@ nsupdate on # send dynamic DNS updates\n\
 # add server rvs hiprvs.infrahip.net 50000 # Register to free RVS at infrahip\n\
 opendht on # turn DHT support on (use /etc/hip/dhtservers to define the used server)\n\
 # heartbeat 10 # send ICMPv6 messages inside HIP tunnels\n\
-# shotgun on # use all possible src/dst IP combinations to send I1/UPDATE\n\
+shotgun on # use all possible src/dst IP combinations to send I1/UPDATE\n\
 # locator on        # host sends all of its locators in base exchange\n\
+# datapacket on # experimental draft hiccups extensions\n\
 # opp normal|advanced|none\n\
 # transform order 213 # crypto preference order (1=AES, 2=3DES, 3=NULL)\n\
 \n\
@@ -337,6 +342,7 @@ int hip_conf_handle_map_id_to_addr (struct hip_common *msg, int action,
 int hip_conf_handle_lsi_to_hit (struct hip_common *msg, int action,
 				const char * opt[], int optc, int send_only);
 
+int hip_conf_handle_datapacket(hip_common_t *msg, int action, const char *opt[], int optc, int send_only);
 /**
  * Prints the HIT values in use. Prints either all or the default HIT value to
  * stdout.

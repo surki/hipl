@@ -72,7 +72,7 @@ int handle_sa_add_request(struct hip_common * msg)
 	uint32_t e_keylen = 0, a_keylen = 0, e_type = 0, a_type = 0;
 	uint32_t hash_item_length = 0;
 	uint16_t esp_num_anchors;
-	unsigned char esp_prot_anchors[NUM_PARALLEL_CHAINS][MAX_HASH_LENGTH];
+	unsigned char esp_prot_anchors[MAX_NUM_PARALLEL_HCHAINS][MAX_HASH_LENGTH];
 
 	// get all attributes from the message
 

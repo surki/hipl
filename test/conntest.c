@@ -1,7 +1,8 @@
 #include "conntest.h"
 
-/* @todo: why the heck do we need this here on linux? */
-struct in6_pktinfo
+/* Workaround: in6_pktinfo does not compile on Fedora and Ubuntu anymore.
+   This works also with CentOS */
+struct inet6_pktinfo
 {
   struct in6_addr ipi6_addr;  /* src/dst IPv6 address */
   unsigned int ipi6_ifindex;  /* send/recv interface index */
@@ -196,13 +197,13 @@ int udp_send_msg(int sock, uint8_t *data, size_t data_len,
 		 struct sockaddr *peer_addr) {
 	int err = 0, on = 1, sendnum;
 	int is_ipv4 = ((peer_addr->sa_family == AF_INET) ? 1 : 0);
-	uint8_t cmsgbuf[CMSG_SPACE(sizeof(struct in6_pktinfo))];
+	uint8_t cmsgbuf[CMSG_SPACE(sizeof(struct in_pktinfo))];
         struct cmsghdr *cmsg; // = (struct cmsghdr *) cmsgbuf;
 	struct msghdr msg;
 	struct iovec iov;
 	union {
 		struct in_pktinfo *in4;
-		struct in6_pktinfo *in6;
+		struct inet6_pktinfo *in6;
 	} pktinfo;
 
 	/* The first memset is mandatory. Results in otherwise weird
@@ -231,11 +232,11 @@ int udp_send_msg(int sock, uint8_t *data, size_t data_len,
 	if (is_ipv4)
 		cmsg->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
 	else
-		cmsg->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
+		cmsg->cmsg_len = CMSG_LEN(sizeof(struct inet6_pktinfo));
 	cmsg->cmsg_level = (is_ipv4) ? IPPROTO_IP : IPPROTO_IPV6;
 	cmsg->cmsg_type = (is_ipv4) ? IP_PKTINFO : IPV6_2292PKTINFO;
 
-	pktinfo.in6 = (struct in6_pktinfo *) CMSG_DATA(cmsg);
+	pktinfo.in6 = (struct inet6_pktinfo *) CMSG_DATA(cmsg);
 	if (is_ipv4)
 		pktinfo.in4->ipi_addr.s_addr =
 			((struct sockaddr_in *) local_addr)->sin_addr.s_addr;
@@ -271,13 +272,13 @@ int main_server_udp(int ipv4_sock, int ipv6_sock, in_port_t local_port) {
 		struct sockaddr_in in4;
 		struct sockaddr_in6 in6;
 	} peer_addr, local_addr;
-	uint8_t cmsgbuf[CMSG_SPACE(sizeof(struct in6_pktinfo))];
+	uint8_t cmsgbuf[CMSG_SPACE(sizeof(struct inet6_pktinfo))];
 	uint8_t mylovemostdata[IP_MAXPACKET];
 	struct iovec iov;
         struct cmsghdr *cmsg = (struct cmsghdr *) cmsgbuf;
 	union {
 		struct in_pktinfo *in4;
-		struct in6_pktinfo *in6;
+		struct inet6_pktinfo *in6;
 	} pktinfo;
 	struct msghdr msg;
 
@@ -897,7 +898,7 @@ int main_server_native(int socktype, char *port_name, char *name)
 	/* recvmsg() stuff for UDP multihoming */
 	char control[CMSG_SPACE(40)];
 	struct cmsghdr *cmsg;
-	struct in6_pktinfo *pktinfo;
+	struct inet6_pktinfo *pktinfo;
 	struct iovec iov = { &mylovemostdata, sizeof(mylovemostdata) - 1 };
 	struct msghdr msg = { &peer_sock, sizeof(peer_sock), &iov, 1,
 						&control, sizeof(control), 0 };

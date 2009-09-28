@@ -5,9 +5,10 @@
 # unlikely to conform to "Debian Policy".
 ###
 # SVN revision info
-# $Date: 2008-06-10 13:08:54 -0400 (Tue, 10 Jun 2008) $
-# SVN revision $Rev: 145 $
-# Last update by $Author: kdeugau $
+# $Date$
+# debbuild - Revision 150: /trunk
+# SVN revision $Rev$
+# Last update by $Author$
 ###
 # Copyright 2005-2008 Kris Deugau <kdeugau@deepnet.cx>
 #
@@ -63,6 +64,7 @@ my $tarballdir = '%{name}-%{version}';	# We do this in case of a spec file not u
 my %specglobals;	# For %define's in specfile, among other things.
 
 $specglobals{'_vendor'} = 'debbuild';
+$specglobals{'vendor'} = 'debbuild';
 
 # Initialized globals
 my $verbosity = 0;
@@ -865,7 +867,8 @@ LINE: while (<SPECFILE>) {
         $specglobals{buildroot} = $1;
       } elsif (/^source0?:\s*(.+)/i) {
         $pkgdata{main}{source} = $1;
-        die "Unknown tarball format $1\n" if $1 !~ /\.tar\.(?:gz|bz2)$/;
+	# .tar, .tar.gz, .tar.bz2, .tgz
+        die "Unknown tarball format $1\n" if $1 !~ /\.(?:tar(?:\.(?:gz|bz2))?|tgz)$/;
       } elsif (/^source([0-9]+):\s*(.+)/i) {
         $pkgdata{sources}{$1} = $2;
       } elsif (/^patch([^:]+):\s*(.+)$/i) {
@@ -1439,7 +1442,9 @@ sub getreqs() {
     next if m|/lib(?:64)?/ld-linux|;	# Hack! Hack!  PTHBTT!  (libc suxx0rz)
     next if /linux-gate.so/;		# Kernel hackery for teh W1n!!1!1eleventy-one!1  (Don't ask.  Feh.)
 
-    my ($req) = (/^\s+([a-z0-9._-]+)/); # dig out the actual library (so)name
+    my ($req) = (m|=\>\s+([a-z0-9._/-]+)|); # dig out the actual library (so)name.
+	# And feh, we need the *path*, since I've discovered a new edge case where
+	# the same libnnn.1.2.3 *file*name is found across *several* lib dirs.  >:(
 
     # Ignore libs provided by this package.  Note that we don't match
     # on word-boundary at the *end* of the lib we're looking for, as the
@@ -1590,6 +1595,7 @@ sub expandmacros {
   # Package data
   if ($section =~ /p/) {
     $macrostring =~ s/\%\{buildroot\}/$specglobals{buildroot}/gi;
+    $macrostring =~ s/\%\{source0?}/$topdir\/SOURCES\/$pkgdata{main}{source}/gi;
     foreach my $source (keys %{$pkgdata{sources}}) {
       $macrostring =~ s/\%\{source$source\}/$topdir\/SOURCES\/$pkgdata{sources}{$source}/gi;
     }

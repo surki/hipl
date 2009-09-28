@@ -1840,7 +1840,7 @@ int hip_receive_update(hip_common_t *msg, in6_addr_t *update_saddr,
 		HIP_DEBUG("UPDATE packet src port %d\n", sinfo->src_port);
 		entry->nat_mode = 0;
 		entry->peer_udp_port = 0;
-		entry->hadb_xmit_func->hip_send_pkt = hip_send_raw;
+		entry->hadb_xmit_func->hip_send_pkt = hip_send_pkt;
 		hip_hadb_set_xmit_function_set(entry, &default_xmit_func_set);
 	} else {
 		/* Node moves from public Internet to behind a NAT, stays

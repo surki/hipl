@@ -125,9 +125,9 @@ install -d %{buildroot}/usr/lib
 install -d %{buildroot}/etc/init.d
 install -d %{buildroot}/doc
 make DESTDIR=%{buildroot} install
-install -m 700 test/packaging/debian-init.d-hipfw %{buildroot}/etc/init.d/hipfw
-install -m 700 test/packaging/debian-init.d-hipd %{buildroot}/etc/init.d/hipd
-install -m 700 test/packaging/debian-init.d-dnsproxy %{buildroot}/etc/init.d/hipdnsproxy
+install -m 755 test/packaging/debian-init.d-hipfw %{buildroot}/etc/init.d/hipfw
+install -m 755 test/packaging/debian-init.d-hipd %{buildroot}/etc/init.d/hipd
+install -m 755 test/packaging/debian-init.d-dnsproxy %{buildroot}/etc/init.d/hipdnsproxy
 install -m 644 doc/HOWTO.txt %{buildroot}/doc
 install -d %{buildroot}%{python_sitelib}/DNS
 install -t %{buildroot}%{python_sitelib}/DNS tools/DNS/*py*
@@ -139,41 +139,35 @@ install -t %{buildroot}%{python_sitelib}/hipdnsproxy tools/util.py*
 install -d %{buildroot}%{python_sitelib}/hipdnskeyparse
 install -t %{buildroot}%{python_sitelib}/hipdnskeyparse tools/parse-key-3.py*
 install -t %{buildroot}%{python_sitelib}/hipdnskeyparse tools/myasn.py*
-install -m 700 tools/hipdnskeyparse %{buildroot}/usr/sbin/hipdnskeyparse
-install -m 700 tools/hipdnsproxy %{buildroot}/usr/sbin/hipdnsproxy
-install -m 700 agent/hipagent %{buildroot}/usr/sbin/hipagent
+install -m 755 tools/hipdnskeyparse %{buildroot}/usr/sbin/hipdnskeyparse
+install -m 755 tools/hipdnsproxy %{buildroot}/usr/sbin/hipdnsproxy
+install -m 755 agent/hipagent %{buildroot}/usr/sbin/hipagent
 
 %post lib
 /sbin/ldconfig 
 
 %post daemon
-update-rc.d hipd multiuser 21
+update-rc.d hipd defaults 21
 invoke-rc.d --quiet hipd start
-#echo "invoke-rc.d --quiet hipd start" | at now + 1 min 2>/dev/null
-#echo "hipd starts in a minute"
 
 %post firewall
-update-rc.d hipfw multiuser 20
+update-rc.d hipfw defaults 20
 invoke-rc.d --quiet hipfw start
-#echo "invoke-rc.d --quiet hipfw start" | at now + 1 min 2>/dev/null 
-#echo "hipfw starts in a minute"
 
 %post dnsproxy
-update-rc.d hipdnsproxy multiuser 22
+update-rc.d hipdnsproxy defaults 22
 invoke-rc.d --quiet hipdnsproxy start
-#echo "invoke-rc.d --quiet hipdnsproxy start" | at now + 1 min 2>/dev/null 
-#echo "hip dns proxy starts in a minute"
 
 %preun daemon
-invoke-rc.d --force --quiet hipd stop 
+invoke-rc.d --quiet hipd status >/dev/null && invoke-rc.d --force --quiet hipd stop 
 update-rc.d -f hipd remove
 
 %preun firewall
-invoke-rc.d --force --quiet hipfw stop
+invoke-rc.d --quiet hipfw status >/dev/null && invoke-rc.d --force --quiet hipfw stop
 update-rc.d -f hipfw remove 
 
 %preun dnsproxy
-invoke-rc.d --force --quiet hipdnsproxy stop 
+invoke-rc.d --quiet hipdnsproxy status >/dev/null && invoke-rc.d --force --quiet hipdnsproxy stop 
 update-rc.d -f hipdnsproxy remove 
 
 %clean

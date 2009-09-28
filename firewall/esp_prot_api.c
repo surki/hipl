@@ -11,15 +11,15 @@
 #include "firewall_defines.h"
 
 // right now only either hchain or htree supported
-//#if 0
-extern const uint8_t preferred_transforms[NUM_TRANSFORMS + 1] =
-		{ESP_PROT_TFM_SHA1_20_TREE, ESP_PROT_TFM_UNUSED};
-//#endif
-
 #if 0
 extern const uint8_t preferred_transforms[NUM_TRANSFORMS + 1] =
-		{ESP_PROT_TFM_SHA1_20, ESP_PROT_TFM_UNUSED};
+		{ESP_PROT_TFM_SHA1_20_TREE, ESP_PROT_TFM_UNUSED};
 #endif
+
+//#if 0
+extern const uint8_t preferred_transforms[NUM_TRANSFORMS + 1] =
+		{ESP_PROT_TFM_SHA1_20, ESP_PROT_TFM_UNUSED};
+//#endif
 
 // is used for hash chains and trees simultaneously
 // used hash functions
@@ -317,7 +317,7 @@ int esp_prot_sa_entry_set(hip_sa_entry_t *entry, uint8_t esp_prot_transform,
 			if (entry->direction == HIP_SPI_DIRECTION_OUT)
 			{
 				// set hchains for outbound SA
-				for (i = 0; i < NUM_PARALLEL_CHAINS; i++)
+				for (i = 0; i < NUM_PARALLEL_HCHAINS; i++)
 				{
 					if (i < esp_num_anchors)
 					{
@@ -356,17 +356,18 @@ int esp_prot_sa_entry_set(hip_sa_entry_t *entry, uint8_t esp_prot_transform,
 
 void esp_prot_sa_entry_free(hip_sa_entry_t *entry)
 {
+	int num_anchors = 0;
 	int i;
 
-#if 0
-	if (entry->active_hash_element)
-		free(entry->active_hash_element);
-	if (entry->next_hash_element)
-		free(entry->next_hash_element);
-#endif
+	// distinguish different number of conveyed anchors by authentication mode
+	if (PARALLEL_HCHAINS_MODE)
+		num_anchors = NUM_PARALLEL_HCHAINS;
+	else
+		num_anchors = 1;
+
 	if (entry->esp_prot_transform > ESP_PROT_TFM_HTREE_OFFSET)
 	{
-		for (i = 0; i < NUM_PARALLEL_CHAINS; i++)
+		for (i = 0; i < num_anchors; i++)
 		{
 			if (entry->active_hash_items[i])
 				htree_free((hash_tree_t *)entry->active_hash_items[i]);
@@ -375,7 +376,7 @@ void esp_prot_sa_entry_free(hip_sa_entry_t *entry)
 		}
 	} else
 	{
-		for (i = 0; i < NUM_PARALLEL_CHAINS; i++)
+		for (i = 0; i < num_anchors; i++)
 		{
 			if (entry->active_hash_items[i])
 				hchain_free((hash_chain_t *)entry->active_hash_items[i]);
@@ -394,7 +395,7 @@ int esp_prot_cache_packet_hash(unsigned char *esp_packet, uint16_t esp_length, h
 
 	// check whether cumulative authentication is active
 	if (entry->esp_prot_transform > ESP_PROT_TFM_UNUSED && !(entry->esp_prot_transform > ESP_PROT_TFM_HTREE_OFFSET)
-			&& CUMULATIVE_AUTH)
+			&& CUMULATIVE_AUTH_MODE)
 	{
 		hash_length = esp_prot_get_hash_length(entry->esp_prot_transform);
 		hash_function = esp_prot_get_hash_function(entry->esp_prot_transform);
@@ -426,7 +427,7 @@ int esp_prot_add_packet_hashes(unsigned char *out_hash, int *out_length, hip_sa_
 	HIP_ASSERT(RINGBUF_SIZE >= NUM_LINEAR_ELEMENTS + NUM_RANDOM_ELEMENTS);
 
 	// check whether cumulative authentication is active
-	if (CUMULATIVE_AUTH)
+	if (CUMULATIVE_AUTH_MODE)
 	{
 		hash_length = esp_prot_get_hash_length(entry->esp_prot_transform);
 		item_length = hash_length + sizeof(uint32_t);
@@ -537,13 +538,13 @@ int esp_prot_add_hash(unsigned char *out_hash, int *out_length, hip_sa_entry_t *
 
 		} else
 		{
-			if (PARALLEL_CHAINS)
+			if (PARALLEL_HCHAINS_MODE)
 			{
 				hchain = (hash_chain_t *)entry->active_hash_items[entry->last_used_chain];
 
 				HIP_DEBUG("entry->last_used_chain: %i\n", entry->last_used_chain);
 
-				entry->last_used_chain = (entry->last_used_chain + 1) % NUM_PARALLEL_CHAINS;
+				entry->last_used_chain = (entry->last_used_chain + 1) % NUM_PARALLEL_HCHAINS;
 
 			} else
 			{
@@ -866,7 +867,7 @@ int esp_prot_get_data_offset(hip_sa_entry_t *entry)
 	{
 		offset += esp_prot_get_hash_length(entry->esp_prot_transform);
 
-		if (CUMULATIVE_AUTH)
+		if (CUMULATIVE_AUTH_MODE)
 		{
 			offset += ((esp_prot_get_hash_length(entry->esp_prot_transform) + sizeof(uint32_t))
 					* (NUM_LINEAR_ELEMENTS + NUM_RANDOM_ELEMENTS));
@@ -883,11 +884,11 @@ int esp_prot_sadb_maintenance(hip_sa_entry_t *entry)
 	esp_prot_tfm_t *prot_transform = NULL;
 	int soft_update = 0, err = 0;
 	int anchor_length = 0;
-	int anchor_offset[NUM_PARALLEL_CHAINS];
-	unsigned char *anchors[NUM_PARALLEL_CHAINS];
+	int anchor_offset[MAX_NUM_PARALLEL_HCHAINS];
+	unsigned char *anchors[MAX_NUM_PARALLEL_HCHAINS];
 	hash_tree_t *htree = NULL;
 	hash_chain_t *hchain = NULL;
-	hash_tree_t *link_trees[NUM_PARALLEL_CHAINS];
+	hash_tree_t *link_trees[MAX_NUM_PARALLEL_HCHAINS];
 	int hash_item_length = 0;
 	int remaining = 0, i;
 	int threshold = 0;
@@ -901,8 +902,8 @@ int esp_prot_sadb_maintenance(hip_sa_entry_t *entry)
 	if (entry->esp_prot_transform > ESP_PROT_TFM_UNUSED)
 	{
 		// distinguish different number of conveyed anchors by authentication mode
-		if (PARALLEL_CHAINS)
-			num_parallel_hchains = NUM_PARALLEL_CHAINS;
+		if (PARALLEL_HCHAINS_MODE)
+			num_parallel_hchains = NUM_PARALLEL_HCHAINS;
 		else
 			num_parallel_hchains = 1;
 

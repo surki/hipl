@@ -85,6 +85,9 @@ int esp_prot_conntrack_R2_anchor(const struct hip_common *common,
  */
 int esp_prot_conntrack_update(const hip_common_t *update, struct tuple * tuple);
 
+int esp_prot_conntrack_remove_state(struct esp_tuple * esp_tuple);
+void esp_prot_conntrack_free_cached_item(void *cache_item);
+
 /** caches an anchor element found in a update messages
  *
  * @param	tuple state maintained for this connection
@@ -94,8 +97,7 @@ int esp_prot_conntrack_update(const hip_common_t *update, struct tuple * tuple);
  * @return	0 on success, -1 in case of an error
  */
 int esp_prot_conntrack_cache_anchor(struct tuple * tuple, struct hip_seq *seq,
-		struct esp_prot_anchor *esp_anchors[NUM_PARALLEL_CHAINS],
-		struct esp_prot_root *esp_roots[NUM_PARALLEL_CHAINS]);
+		struct esp_prot_anchor **esp_anchors, struct esp_prot_root **esp_roots);
 
 /** stores and enables update anchor element, if an acknowledgement for the
  *  update is received
@@ -137,9 +139,9 @@ int esp_prot_conntrack_verify(hip_fw_context_t * ctx, struct esp_tuple *esp_tupl
  * @return	0 on success, -1 on error
  */
 int esp_prot_conntrack_verify_branch(struct tuple * tuple,
-		struct esp_prot_anchor *esp_anchors[NUM_PARALLEL_CHAINS],
-		struct esp_prot_branch *esp_branches[NUM_PARALLEL_CHAINS],
-		struct esp_prot_secret *esp_secrets[NUM_PARALLEL_CHAINS]);
+		struct esp_prot_anchor **esp_anchors,
+		struct esp_prot_branch **esp_branches,
+		struct esp_prot_secret **esp_secrets);
 
 /** finds the matching esp state in the connection state
  *

@@ -63,9 +63,8 @@ hip_common_t *create_bex_store_update_msg(hchain_store_t *hcstore, int use_hash_
  * @param	root_length length of the root element
  * @return	0 on success, -1 on error
  */
-int send_trigger_update_to_hipd(hip_sa_entry_t *entry, unsigned char *anchors[NUM_PARALLEL_CHAINS],
-		int hash_item_length, int soft_update, int anchor_offset[NUM_PARALLEL_CHAINS],
-		hash_tree_t *link_trees[NUM_PARALLEL_CHAINS]);
+int send_trigger_update_to_hipd(hip_sa_entry_t *entry, unsigned char **anchors,
+		int hash_item_length, int soft_update, int *anchor_offset, hash_tree_t **link_trees);
 
 /** notifies the hipd about an anchor change in the hipfw
  *
