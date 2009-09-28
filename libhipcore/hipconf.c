@@ -1893,6 +1893,7 @@ out_err:
  */
 int hip_conf_handle_get(hip_common_t *msg, int action, const char *opt[], int optc, int send_only)
 {
+#ifndef ANDROID_CHANGES
         int err = 0, is_hit = 0, socket = 0;
 	hip_hit_t hit = {0};
         char dht_response[HIP_MAX_PACKET];
@@ -1980,6 +1981,10 @@ int hip_conf_handle_get(hip_common_t *msg, int action, const char *opt[], int op
 	hip_msg_init(msg);
  out_err:
         return(err);
+#else /* ANDROID_CHANGES */
+        return -1;
+#endif /* ANDROID_CHANGES */
+
 }
 
 /**

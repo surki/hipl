@@ -237,6 +237,14 @@
                       <listitem>
                         <para>Netfilter NFQUEUE over NFNETLINK interface(CONFIG_NETFILTER_NETLINK_QUEUE)</para>
                       </listitem>
+                      <listitem>
+                        <itemizedlist>
+                          <title>Netfilter Xtables support (required for ip_tables) (CONFIG_NETFILTER_XTABLES) ---&gt;</title>
+                          <listitem>
+                            <para>"multiport" Multiple port match support (CONFIG_NETFILTER_XTABLES)</para>
+                          </listitem>
+                        </itemizedlist>
+                      </listitem>
                     </itemizedlist>
                   </listitem>
                   <listitem>
@@ -245,8 +253,14 @@
                       <listitem>
                         <para>IP Userspace queueing via NETLINK (OBSOLETE)(CONFIG_IP_NF_QUEUE)</para>
                       </listitem>
+
                       <listitem>
-                        <para>IP tables support (required for filtering/masq/NAT)(CONFIG_IP_NF_IPTABLES)</para>
+                        <itemizedlist>
+                          <title>IP tables support (required for filtering/masq/NAT)(CONFIG_IP_NF_IPTABLES)</title>
+                          <listitem>
+                            <para>Packet filtering (CONFIG_IP_NF_FILTER)</para>
+                          </listitem>
+                        </itemizedlist>
                       </listitem>
                     </itemizedlist>
                   </listitem>
@@ -257,7 +271,12 @@
                         <para>IP6 Userspace queueing via NETLINK (OBSOLETE)(CONFIG_IP6_NF_QUEUE)</para>
                       </listitem>
                       <listitem>
-                        <para>IP6 tables support (required for filtering/masq/NAT)(CONFIG_IP6_NF_IPTABLES)</para>
+                        <itemizedlist>
+                          <title>IP6 tables support (required for filtering/masq/NAT)(CONFIG_IP6_NF_IPTABLES)</title>
+                          <listitem>
+                            <para>Packet filtering (CONFIG_IP6_NF_FILTER)</para>
+                          </listitem>
+                        </itemizedlist>
                       </listitem>
                     </itemizedlist>
                   </listitem>
@@ -1610,7 +1629,7 @@ $ make V=99
           <orderedlist>
             <listitem>
               <para>
-                Download and unzip the SDK (android-sdk_hipl-*.zip) from the
+                Download and unzip the SDK (android-sdk-hipl*.zip) from the
                 <ulink url="http://infrahip.hiit.fi/index.php?index=download">infrahip page</ulink>
               </para>
             </listitem>
@@ -1619,7 +1638,7 @@ $ make V=99
               <para>
                 <programlisting>
 $ cd android-sdk
-$ tools/emulator -data platforms/android-1.5/images/userdata.img &gt;
+$ tools/emulator -data platforms/android-1.5/images/userdata.img &amp;
                 </programlisting>
               </para>
             </listitem>
@@ -1647,7 +1666,7 @@ $ tools/adb shell # Log into emulator shell
           </para>
           <orderedlist>
             <listitem>
-              <para>Download the pre-compiled flashable images(android-dream_hipl*.zip) from the
+              <para>Download the pre-compiled flashable images(android-dream-hipl*.zip) from the
                 <ulink url="http://infrahip.hiit.fi/index.php?index=download">infrahip page</ulink>
                 and unzip them
               </para>

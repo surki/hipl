@@ -134,6 +134,7 @@ LOCAL_SRC_FILES :=  firewall.c \
                     esp_decrypt.c \
                     proxydb.c \
                     conndb.c \
+                    datapkt.c \
                     dlist.c \
                     hslist.c \
                     user_ipsec_api.c \
